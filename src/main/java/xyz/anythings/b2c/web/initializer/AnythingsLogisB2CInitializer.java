@@ -16,7 +16,7 @@ import xyz.elidom.sys.system.service.api.IEntityFieldCache;
 import xyz.elidom.sys.system.service.api.IServiceFinder;
 
 /**
- * Anythings Logis Dps Startup시 Framework 초기화 클래스 
+ * Anythings Logis B2C Startup시 Framework 초기화 클래스 
  * 
  * @author yang
  */
@@ -43,18 +43,18 @@ public class AnythingsLogisB2CInitializer {
 	
 	@EventListener({ ContextRefreshedEvent.class })
 	public void refresh(ContextRefreshedEvent event) {
-		this.logger.info("Anythings Logistics Dps module refreshing...");
+		this.logger.info("Anythings Logistics B2C module refreshing...");
 		
-		this.logger.info("Anythings Logistics Dps module refreshed!");
+		this.logger.info("Anythings Logistics B2C module refreshed!");
 	}
 	
 	@EventListener({ApplicationReadyEvent.class})
     void ready(ApplicationReadyEvent event) {
-		this.logger.info("Anythings Logistics Dps module initializing...");
+		this.logger.info("Anythings Logistics B2C module initializing...");
 		
 		this.configSet.addConfig(this.module.getName(), this.module);
 		this.scanServices();
-		this.logger.info("Anythings Logistics Dps module initialized!");
+		this.logger.info("Anythings Logistics B2C module initialized!");
     }
 	
 	/**
