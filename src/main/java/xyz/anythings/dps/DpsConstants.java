@@ -9,12 +9,4 @@ import xyz.anythings.base.LogisConstants;
  */
 public class DpsConstants extends LogisConstants {		
 	
-	/**
-	 * Bucket 투입 타입 : 박스 
-	 */
-	public static final String BUCKET_INPUT_TYPE_BOX = "box";
-	/**
-	 * Bucket 투입 타입 : 트레이  
-	 */
-	public static final String BUCKET_INPUT_TYPE_TRAY = "tray";
 }

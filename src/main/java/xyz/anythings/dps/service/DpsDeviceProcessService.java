@@ -6,16 +6,15 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+import xyz.anythings.base.LogisCodeConstants;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInput;
-import xyz.anythings.base.entity.Rack;
 import xyz.anythings.base.event.rest.DeviceProcessRestEvent;
 import xyz.anythings.base.model.BaseResponse;
 import xyz.anythings.base.model.BatchProgressRate;
 import xyz.anythings.base.model.EquipBatchSet;
 import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.base.rest.DeviceProcessController;
-import xyz.anythings.base.service.impl.ConfigSetService;
 import xyz.anythings.dps.model.DpsBatchSummary;
 import xyz.anythings.dps.service.util.DpsServiceUtil;
 import xyz.anythings.sys.service.AbstractExecutionService;
@@ -32,12 +31,9 @@ import xyz.elidom.util.ValueUtil;
 @Component
 public class DpsDeviceProcessService extends AbstractExecutionService{
 	
-	/**
-	 * 설정 셋 서비스
-	 */
-	@Autowired
-	private ConfigSetService configSetService;
-
+	@Autowired 
+	DpsPickingService dpsPickingService;
+	
 	
 	@Autowired
 	BatchQueryStore batchQueryStore;
@@ -86,20 +82,17 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 		
 		// 1.equipType / Cd 로 설비 및 배치 조회 
 		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(domainId, equipType, equipCd);
-		Rack rack = (Rack)equipBatchSet.getEquipEntity();
 		JobBatch batch = equipBatchSet.getBatch();
 		
-		// 2. 버킷 타입에 따라 버킷 조회 및 버킷 락 
-		DpsServiceUtil.vaildInputBucketByBucketCd(domainId, batch, bucketCd, inputType);
+		boolean isBox = ValueUtil.isEqualIgnoreCase(inputType, LogisCodeConstants.CLASSIFICATION_INPUT_TYPE_BOX) ? true : false;
 		
+		// 2. 버킷 투입 ( 박스 or 트레이 )
+		this.dpsPickingService.inputEmptyBucket(domainId, batch, isBox, bucketCd);
 		
-		
-		
-		
-		// 12. 배치 서머리 조회 
+		// 3. 배치 서머리 조회 
 		DpsBatchSummary summary = this.getBatchSummary(equipType,equipCd,limit,page);
 
-		// 13. 이벤트 처리 결과 셋팅 
+		// 4. 이벤트 처리 결과 셋팅 
 		event.setReturnResult(new BaseResponse(true,"", summary));
 		event.setExecuted(true);
 	}

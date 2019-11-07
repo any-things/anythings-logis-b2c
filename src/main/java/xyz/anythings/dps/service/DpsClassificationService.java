@@ -12,6 +12,7 @@ import xyz.anythings.base.event.IClassifyOutEvent;
 import xyz.anythings.base.event.IClassifyRunEvent;
 import xyz.anythings.base.model.Category;
 import xyz.anythings.base.service.impl.AbstractClassificationService;
+import xyz.anythings.dps.DpsConstants;
 
 /**
  * DPS Picking 트랜잭션 서비스 구현 
@@ -28,8 +29,7 @@ public class DpsClassificationService extends AbstractClassificationService {
 	 */
 	@Override
 	public String getJobType() {
-		// TODO Auto-generated method stub
-		return null;
+		return DpsConstants.JOB_TYPE_DPS;
 	}
 
 	/**
