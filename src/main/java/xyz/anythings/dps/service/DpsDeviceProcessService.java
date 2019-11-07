@@ -18,8 +18,8 @@ import xyz.anythings.base.rest.DeviceProcessController;
 import xyz.anythings.base.service.impl.ConfigSetService;
 import xyz.anythings.dps.model.DpsBatchSummary;
 import xyz.anythings.dps.service.util.DpsServiceUtil;
+import xyz.anythings.sys.service.AbstractExecutionService;
 import xyz.elidom.dbist.dml.Page;
-import xyz.elidom.orm.IQueryManager;
 import xyz.elidom.sys.entity.Domain;
 import xyz.elidom.util.BeanUtil;
 import xyz.elidom.util.ValueUtil;
@@ -30,7 +30,7 @@ import xyz.elidom.util.ValueUtil;
  *
  */
 @Component
-public class DpsDeviceProcessService {
+public class DpsDeviceProcessService extends AbstractExecutionService{
 	
 	/**
 	 * 설정 셋 서비스
@@ -42,9 +42,6 @@ public class DpsDeviceProcessService {
 	@Autowired
 	BatchQueryStore batchQueryStore;
 	
-	@Autowired
-	IQueryManager queryManager;
-
 	/**
 	 * DPS 배치 작업 진행 율 조회 
 	 * 진행율 + 투입 순서리스트 
