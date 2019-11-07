@@ -1,5 +1,5 @@
 /* Copyright © HatioLab Inc. All rights reserved. */
-package xyz.anythings.b2c.config;
+package xyz.anythings.dps.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -14,64 +14,64 @@ import xyz.elidom.util.FormatUtil;
  * 
  * @author yang
  */
-@Component("anythingsLogisB2CModuleProperties")
+@Component("anythingsLogisDPSModuleProperties")
 @EnableConfigurationProperties
-@PropertySource("classpath:/properties/anythings-logis-b2c.properties")
+@PropertySource("classpath:/properties/anythings-logis-dps.properties")
 public class ModuleProperties implements IModuleProperties {
 	
 	/**
 	 * 모듈명
 	 */
-	@Value("${anythings.logis.b2c.name}")
+	@Value("${anythings.logis.dps.name}")
 	private String name;
 	
 	/**
 	 * 버전
 	 */
-	@Value("${anythings.logis.b2c.version}")
+	@Value("${anythings.logis.dps.version}")
 	private String version;
 	
 	/**
 	 * Module Built Time 
 	 */
-	@Value("${anythings.logis.b2c.built.at}")
+	@Value("${anythings.logis.dps.built.at}")
 	private String builtAt;	
 	
 	/**
 	 * 모듈 설명
 	 */
-	@Value("${anythings.logis.b2c.description}")
+	@Value("${anythings.logis.dps.description}")
 	private String description;
 	
 	/**
 	 * 부모 모듈
 	 */
-	@Value("${anythings.logis.b2c.parentModule}")
+	@Value("${anythings.logis.dps.parentModule}")
 	private String parentModule;
 	
 	/**
 	 * 모듈 Base Package
 	 */
-	@Value("${anythings.logis.b2c.basePackage}")
+	@Value("${anythings.logis.dps.basePackage}")
 	private String basePackage;
 	
 	/**
 	 * Scan Service Path
 	 */
-	@Value("${anythings.logis.b2c.scanServicePackage}")
+	@Value("${anythings.logis.dps.scanServicePackage}")
 	private String scanServicePackage;
 	
 	/**
 	 * Scan Entity Path
 	 */
-	@Value("${anythings.logis.b2c.scanEntityPackage}")
+	@Value("${anythings.logis.dps.scanEntityPackage}")
 	private String scanEntityPackage;
 	
 	/**
 	 * Project Name
 	 * @return
 	 */
-	@Value("${anythings.logis.b2c.projectName}")
+	@Value("${anythings.logis.dps.projectName}")
 	private String projectName;
 	
 	public String getName() {

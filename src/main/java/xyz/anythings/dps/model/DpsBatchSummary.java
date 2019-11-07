@@ -1,4 +1,4 @@
-package xyz.anythings.b2c.model;
+package xyz.anythings.dps.model;
 
 import xyz.anythings.base.entity.JobInput;
 import xyz.anythings.base.model.BatchProgressRate;
@@ -9,7 +9,7 @@ import xyz.elidom.dbist.dml.Page;
  * @author yang
  *
  */
-public class B2CBatchSummary{
+public class DpsBatchSummary{
 	
 	/**
 	 * 배치 진행율 
@@ -26,7 +26,7 @@ public class B2CBatchSummary{
 	 */
 	private Integer inputableBuckets;
 	
-	public B2CBatchSummary(BatchProgressRate rate, Page<JobInput> inputList, Integer inputableBuckets) {
+	public DpsBatchSummary(BatchProgressRate rate, Page<JobInput> inputList, Integer inputableBuckets) {
 		this.rate = rate;
 		this.inputList = inputList;
 		this.inputableBuckets = inputableBuckets;

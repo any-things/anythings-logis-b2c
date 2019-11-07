@@ -1,5 +1,5 @@
 /* Copyright © HatioLab Inc. All rights reserved. */
-package xyz.anythings.b2c.web.initializer;
+package xyz.anythings.dps.web.initializer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,23 +10,23 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-import xyz.anythings.b2c.config.ModuleProperties;
+import xyz.anythings.dps.config.ModuleProperties;
 import xyz.elidom.sys.config.ModuleConfigSet;
 import xyz.elidom.sys.system.service.api.IEntityFieldCache;
 import xyz.elidom.sys.system.service.api.IServiceFinder;
 
 /**
- * Anythings Logis B2C Startup시 Framework 초기화 클래스 
+ * Anythings Logis DPS Startup시 Framework 초기화 클래스 
  * 
  * @author yang
  */
 @Component
-public class AnythingsLogisB2CInitializer {
+public class AnythingsLogisDpsInitializer {
 
 	/**
 	 * Logger
 	 */
-	private Logger logger = LoggerFactory.getLogger(AnythingsLogisB2CInitializer.class);
+	private Logger logger = LoggerFactory.getLogger(AnythingsLogisDpsInitializer.class);
 	
 	@Autowired
 	@Qualifier("rest")
@@ -43,18 +43,18 @@ public class AnythingsLogisB2CInitializer {
 	
 	@EventListener({ ContextRefreshedEvent.class })
 	public void refresh(ContextRefreshedEvent event) {
-		this.logger.info("Anythings Logistics B2C module refreshing...");
+		this.logger.info("Anythings Logistics DPS module refreshing...");
 		
-		this.logger.info("Anythings Logistics B2C module refreshed!");
+		this.logger.info("Anythings Logistics DPS module refreshed!");
 	}
 	
 	@EventListener({ApplicationReadyEvent.class})
     void ready(ApplicationReadyEvent event) {
-		this.logger.info("Anythings Logistics B2C module initializing...");
+		this.logger.info("Anythings Logistics DPS module initializing...");
 		
 		this.configSet.addConfig(this.module.getName(), this.module);
 		this.scanServices();
-		this.logger.info("Anythings Logistics B2C module initialized!");
+		this.logger.info("Anythings Logistics DPS module initialized!");
     }
 	
 	/**

@@ -1,4 +1,4 @@
-package xyz.anythings.b2c.service;
+package xyz.anythings.dps.service;
 
 import java.util.ArrayList;
 import java.util.List;

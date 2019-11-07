@@ -1,13 +1,13 @@
-package xyz.anythings.b2c;
+package xyz.anythings.dps;
 
 import xyz.anythings.base.LogisConstants;
 
 /**
- * B2C 모듈 상수 정의 
+ * DPS 모듈 상수 정의 
  * 
  * @author yang
  */
-public class B2CConstants extends LogisConstants {		
+public class DpsConstants extends LogisConstants {		
 	
 	/**
 	 * Bucket 투입 타입 : 박스 

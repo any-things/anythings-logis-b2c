@@ -1,4 +1,4 @@
-package xyz.anythings.b2c.service;
+package xyz.anythings.dps.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
@@ -6,8 +6,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-import xyz.anythings.b2c.B2CConstants;
-import xyz.anythings.b2c.model.B2CBatchSummary;
+import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInput;
 import xyz.anythings.base.entity.Rack;
 import xyz.anythings.base.event.rest.DeviceProcessRestEvent;
@@ -16,7 +15,9 @@ import xyz.anythings.base.model.BatchProgressRate;
 import xyz.anythings.base.model.EquipBatchSet;
 import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.base.rest.DeviceProcessController;
-import xyz.anythings.base.service.util.LogisServiceUtil;
+import xyz.anythings.base.service.impl.ConfigSetService;
+import xyz.anythings.dps.model.DpsBatchSummary;
+import xyz.anythings.dps.service.util.DpsServiceUtil;
 import xyz.elidom.dbist.dml.Page;
 import xyz.elidom.orm.IQueryManager;
 import xyz.elidom.sys.entity.Domain;
@@ -30,6 +31,13 @@ import xyz.elidom.util.ValueUtil;
  */
 @Component
 public class DpsDeviceProcessService {
+	
+	/**
+	 * 설정 셋 서비스
+	 */
+	@Autowired
+	private ConfigSetService configSetService;
+
 	
 	@Autowired
 	BatchQueryStore batchQueryStore;
@@ -52,7 +60,7 @@ public class DpsDeviceProcessService {
 		int page = ValueUtil.toInteger(event.getRequestParams().get("page"));
 		
 		// 2. 배치 서머리 조회 
-		B2CBatchSummary summary = this.getBatchSummary(equipType,equipCd,limit,page);
+		DpsBatchSummary summary = this.getBatchSummary(equipType,equipCd,limit,page);
 
 		// 3. 이벤트 처리 결과 셋팅 
 		event.setReturnResult(new BaseResponse(true,"", summary));
@@ -60,6 +68,11 @@ public class DpsDeviceProcessService {
 	}
 	
 	
+	/**
+	 * DPS 버킷 투입
+	 * BOX or Tray
+	 * @param event
+	 */
 	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/input_bucket','dps')")
 	@Order(Ordered.LOWEST_PRECEDENCE)
 	public void inputBucket(DeviceProcessRestEvent event) {
@@ -72,34 +85,27 @@ public class DpsDeviceProcessService {
 		int limit = ValueUtil.toInteger(event.getRequestParams().get("limit"));
 		int page = ValueUtil.toInteger(event.getRequestParams().get("page"));
 
-		long domainId = Domain.currentDomainId();
+		Long domainId = Domain.currentDomainId();
 		
-		EquipBatchSet equipBatchSet = LogisServiceUtil.findBatchByEquip(domainId, equipType, equipCd);
+		// 1.equipType / Cd 로 설비 및 배치 조회 
+		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(domainId, equipType, equipCd);
+		Rack rack = (Rack)equipBatchSet.getEquipEntity();
+		JobBatch batch = equipBatchSet.getBatch();
 		
-		// 2. 투입 타입에 따라 분기 
-		if(ValueUtil.isEqualIgnoreCase(B2CConstants.BUCKET_INPUT_TYPE_BOX, inputType)){
-			// 2.1 투입 타입이 박스 
-			// job.cmm.box.box_id.unique.scope
-			Rack rack = (Rack)equipBatchSet.getEquipEntity();
-			
-			
-		} else {
-			// 2.2 투입 타입이 트레이 
-			// TrayBox.class
-			
-			
-			// LogisServiceUtil
-			
-		}
+		// 2. 버킷 타입에 따라 버킷 조회 및 버킷 락 
+		DpsServiceUtil.vaildInputBucketByBucketCd(domainId, batch, bucketCd, inputType);
 		
-		// 2. 배치 서머리 조회 
-		B2CBatchSummary summary = this.getBatchSummary(equipType,equipCd,limit,page);
+		
+		
+		
+		
+		// 12. 배치 서머리 조회 
+		DpsBatchSummary summary = this.getBatchSummary(equipType,equipCd,limit,page);
 
-		// 3. 이벤트 처리 결과 셋팅 
+		// 13. 이벤트 처리 결과 셋팅 
 		event.setReturnResult(new BaseResponse(true,"", summary));
 		event.setExecuted(true);
 	}
-	
 	
 	/**
 	 * B2C 배치에 대한 진행율 을 조회 한다. 
@@ -109,7 +115,7 @@ public class DpsDeviceProcessService {
 	 * @param page
 	 * @return
 	 */
-	private B2CBatchSummary getBatchSummary(String equipType, String equipCd, int limit, int page) {
+	private DpsBatchSummary getBatchSummary(String equipType, String equipCd, int limit, int page) {
 		// 1. 작업 진행율 조회  
 		BatchProgressRate rate = BeanUtil.get(DeviceProcessController.class).batchProgressRate(equipType, equipCd);
 		
@@ -120,6 +126,6 @@ public class DpsDeviceProcessService {
 		String inputableBoxQuery = this.batchQueryStore.getRackDpsBatchInputableBoxQuery();
 		Integer inputableBox = this.queryManager.selectBySql(inputableBoxQuery, ValueUtil.newMap("domainId,rackCd",Domain.currentDomainId(),equipCd), Integer.class);
 		
-		return new B2CBatchSummary(rate,inputItems,inputableBox);
+		return new DpsBatchSummary(rate,inputItems,inputableBox);
 	}
 }
