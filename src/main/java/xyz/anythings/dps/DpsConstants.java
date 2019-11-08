@@ -9,4 +9,5 @@ import xyz.anythings.base.LogisConstants;
  */
 public class DpsConstants extends LogisConstants {		
 	
+	
 }

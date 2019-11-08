@@ -1,5 +1,7 @@
 package xyz.anythings.dps.service;
 
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.Ordered;
@@ -52,8 +54,14 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 		int limit = ValueUtil.toInteger(event.getRequestParams().get("limit"));
 		int page = ValueUtil.toInteger(event.getRequestParams().get("page"));
 		
+		
+		Long domainId = Domain.currentDomainId();
+		
+		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(domainId, equipType, equipCd);
+		JobBatch batch = equipBatchSet.getBatch();
+		
 		// 2. 배치 서머리 조회 
-		DpsBatchSummary summary = this.getBatchSummary(equipType,equipCd,limit,page);
+		DpsBatchSummary summary = this.getBatchSummary(batch,equipType,equipCd,limit,page);
 
 		// 3. 이벤트 처리 결과 셋팅 
 		event.setReturnResult(new BaseResponse(true,"", summary));
@@ -90,7 +98,7 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 		this.dpsPickingService.inputEmptyBucket(domainId, batch, isBox, bucketCd);
 		
 		// 3. 배치 서머리 조회 
-		DpsBatchSummary summary = this.getBatchSummary(equipType,equipCd,limit,page);
+		DpsBatchSummary summary = this.getBatchSummary(batch,equipType,equipCd,limit,page);
 
 		// 4. 이벤트 처리 결과 셋팅 
 		event.setReturnResult(new BaseResponse(true,"", summary));
@@ -105,16 +113,23 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 	 * @param page
 	 * @return
 	 */
-	private DpsBatchSummary getBatchSummary(String equipType, String equipCd, int limit, int page) {
+	private DpsBatchSummary getBatchSummary(JobBatch batch, String equipType, String equipCd, int limit, int page) {
 		// 1. 작업 진행율 조회  
 		BatchProgressRate rate = BeanUtil.get(DeviceProcessController.class).batchProgressRate(equipType, equipCd);
 		
 		// 2. Input List 조회 
 		Page<JobInput> inputItems = BeanUtil.get(DeviceProcessController.class).searchInputList(equipType, equipCd, page, limit, null);
 		
-		// 3. 투입 가능 박스 수량 조회 
+		// 3. parameter
+		Map<String,Object> params = ValueUtil.newMap("domainId",Domain.currentDomainId());
+		
+		if(ValueUtil.isNotEmpty(batch.getEquipCd())) {
+			params.put("rackCd", equipCd);
+		}
+		
+		// 4. 투입 가능 박스 수량 조회 
 		String inputableBoxQuery = this.batchQueryStore.getRackDpsBatchInputableBoxQuery();
-		Integer inputableBox = this.queryManager.selectBySql(inputableBoxQuery, ValueUtil.newMap("domainId,rackCd",Domain.currentDomainId(),equipCd), Integer.class);
+		Integer inputableBox = this.queryManager.selectBySql(inputableBoxQuery, params, Integer.class);
 		
 		return new DpsBatchSummary(rate,inputItems,inputableBox);
 	}

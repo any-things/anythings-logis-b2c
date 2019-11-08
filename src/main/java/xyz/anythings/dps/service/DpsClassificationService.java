@@ -1,5 +1,8 @@
 package xyz.anythings.dps.service;
 
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import xyz.anythings.base.entity.IndConfigSet;
@@ -11,8 +14,10 @@ import xyz.anythings.base.event.IClassifyInEvent;
 import xyz.anythings.base.event.IClassifyOutEvent;
 import xyz.anythings.base.event.IClassifyRunEvent;
 import xyz.anythings.base.model.Category;
+import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.base.service.impl.AbstractClassificationService;
 import xyz.anythings.dps.DpsConstants;
+import xyz.elidom.util.ValueUtil;
 
 /**
  * DPS Picking 트랜잭션 서비스 구현 
@@ -21,7 +26,16 @@ import xyz.anythings.dps.DpsConstants;
  */
 @Component("dpsClassificationService")
 public class DpsClassificationService extends AbstractClassificationService {
-
+	
+	@Autowired
+	DpsJobStatusService dpsJobStatusService;
+	
+	@Autowired
+	DpsBoxingService dpsBoxingService;
+	
+	@Autowired
+	BatchQueryStore batchQueryStore;
+	
 	/**
 	 * 1-1. 분류 모듈 정보 : 분류 서비스 모듈의 작업 유형 (DAS, RTN, DPS, QPS) 리턴 
 	 * 
@@ -162,4 +176,27 @@ public class DpsClassificationService extends AbstractClassificationService {
 		
 	}
 
+	
+	/**
+	 * 다음 맵핑 할 작업을 찾는다.
+	 * @param domainId
+	 * @param batch
+	 * @param bucketType
+	 * @return
+	 */
+	protected String findNextMappingJob(Long domainId, JobBatch batch, String boxTypeCd, String mapColumn, String orderType){
+		// TODO : order / shop .... 여러타입에 대한 구현 필요 
+		// 실제 DPS 기준 주문 가공 프로세스임.
+		// 주문 처리 순서를 정할수 있는 부분으로 쿼리에 대한 수정으로 해결 가능 ? 
+		
+		// 1. 쿼리 
+		String qry =  this.batchQueryStore.getFindNextMappingJobQuery();
+		
+		// 2. 파라민터 
+		Map<String,Object> params = ValueUtil.newMap("domainId,mapColumn,batchId,orderType,boxTypeCd"
+				, domainId, mapColumn, batch.getId(), orderType, boxTypeCd);
+		
+		// 3. 조회 ( 맵핑 기준에 따라 결과가 달라짐 )
+		return this.queryManager.selectBySql(qry, params, String.class);
+	}
 }

@@ -2,7 +2,6 @@ package xyz.anythings.dps.service;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -10,12 +9,17 @@ import org.springframework.stereotype.Component;
 
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInput;
+import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.entity.ifc.IBucket;
 import xyz.anythings.base.event.IClassifyInEvent;
 import xyz.anythings.base.event.IClassifyRunEvent;
 import xyz.anythings.base.service.api.IPickingService;
+import xyz.anythings.base.util.LogisEntityUtil;
+import xyz.anythings.dps.DpsCodeConstants;
 import xyz.anythings.dps.DpsConstants;
+import xyz.anythings.sys.util.AnyValueUtil;
 import xyz.elidom.exception.server.ElidomRuntimeException;
+import xyz.elidom.sys.util.DateUtil;
 import xyz.elidom.sys.util.MessageUtil;
 import xyz.elidom.sys.util.ThrowUtil;
 import xyz.elidom.sys.util.ValueUtil;
@@ -29,10 +33,6 @@ import xyz.elidom.sys.util.ValueUtil;
 @Component("dpsPickingService")
 public class DpsPickingService extends DpsClassificationService implements IPickingService{
 
-	@Autowired 
-	DpsJobStatusService dpsJobStatusService ;
-	
-	
 	/***********************************************************************************************/
 	/*   버킷 투입    */
 	/***********************************************************************************************/
@@ -92,42 +92,103 @@ public class DpsPickingService extends DpsClassificationService implements IPick
 		
 		
 		// 2. 박스 투입 전 체크 - 주문 번호 조회 
-		String orderId = this.beforeInputEmptyBucket(domainId, batch, isBox, bucket);
+		String orderNo = this.beforeInputEmptyBucket(domainId, batch, isBox, bucket);
 
 		
 		// 3. 마지막 투입 조회
-		JobInput input = this.dpsJobStatusService.findLatestInput(batch);
-		
-		
+		//JobInput latestInput = this.dpsJobStatusService.findLatestInput(batch);
 		// 3.1. 지시기 색상 결정 
 		// TODO : 지시기 색상 찾기 서비스 필요 ( 일단은 버킷 색상으로 ... )
-		String mpiColor = bucket.getBucketColor();
+		String indColor = bucket.getBucketColor();
 		
-		/*
 		// 4. 주문 번호로 매핑된 작업을 모두 조회
-		JobParams condition = new JobParams();
-		condition.setDomainId(domainId);
-		condition.setJobType(batch.getJobType());
-		condition.setBatchId(batch.getId());
-		condition.setOrderId(orderId);
-		List<JobProcess> jobList = this.searchJobListForMpiOn(condition);
+		List<JobInstance> jobList = LogisEntityUtil.searchEntitiesBy(domainId, false, JobInstance.class, null, "batchId,jobType,orderNo", batch.getId(), batch.getJobType(),orderNo);
 
 		if(ValueUtil.isEmpty(jobList)) {
 			// 투입 가능한 주문이 없습니다.
 			throw new ElidomRuntimeException(MessageUtil.getMessage("MPS_NO_ORDER_TO_INPUT"));
 		}
 		
-		// 5. 투입
-		JobInputSeq input = this.doInput(batch, orderId, boxId, mpiColor, jobList);
-		// 6. 박스 생성
-		this.getMpsConfigurableService().startBoxing(this, jobList, null);
-		// 7. 주문 상태 및 시간 업데이트
-		this.afterInput(batch, input, jobList);
-		*/
-		// 8. 투입 정보 리턴
-//		return jobList;
-		return null;
+		// 5. boxPackId 생성 
+		String boxPackId = AnyValueUtil.newUuid36();
 		
+		// 5. 투입
+		JobInput jobInput = this.doInputEmptyBucket(domainId, batch, orderNo, bucket, indColor, jobList, boxPackId);
+		
+		// 6. 박스 BoxPack, BoxItem 생성
+		this.createBoxPackData(domainId, batch, bucket, orderNo, boxPackId);
+		
+		// 7. 박스 투입 후 액션 
+		this.afterInputEmptyBucket(domainId, batch, jobInput, jobList);
+		// 8. 투입 정보 리턴
+		return jobList;
+	}
+	
+	private void createBoxPackData(Long domainId, JobBatch batch, IBucket bucket, String orderNo, String boxPackId) {
+		// 2. boxItems 생성 
+		this.dpsBoxingService.createBoxItemsDataByOrder(domainId, batch, orderNo, boxPackId);
+		
+		// 3. boxItem 정보로 boxPack 생성  
+		this.dpsBoxingService.createBoxPackDataByBoxItems(domainId, batch, orderNo, bucket.getBucketType(), bucket.getBucketTypeCd(), boxPackId);
+	}
+	
+	/**
+	 * 박스 투입 후 액션 
+	 * @param domainId
+	 * @param batch
+	 * @param jobInput
+	 * @param jobList
+	 */
+	private void afterInputEmptyBucket(Long domainId, JobBatch batch, JobInput jobInput, List<JobInstance> jobList) {
+		// 투입된 호기에만 리프레쉬 메시지 전송
+	}
+	
+	/**
+	 * 박스 혹은 트레이를 작업에 투입 
+	 * @param domainId
+	 * @param batch
+	 * @param orderNo
+	 * @param bucket
+	 * @param indColor
+	 * @param jobList
+	 * @return
+	 */
+	private JobInput doInputEmptyBucket(Long domainId, JobBatch batch, String orderNo, IBucket bucket, String indColor, List<JobInstance> jobList, String boxPackId) {
+		// 1. 다음 투입 번호
+		int newSeq = this.dpsJobStatusService.findNextInputSeq(batch);
+
+		// 2. 새로운 투입 정보 생성
+		JobInput jobInput = new JobInput();
+		jobInput.setDomainId(domainId);
+		jobInput.setBatchId(batch.getId());
+		jobInput.setEquipType(batch.getEquipType());
+		jobInput.setEquipCd(batch.getEquipCd());
+		jobInput.setInputSeq(newSeq);
+		jobInput.setComCd(batch.getComCd());
+		jobInput.setOrderNo(orderNo);
+		jobInput.setBoxId(bucket.getBucketCd());
+		jobInput.setBoxType(bucket.getBucketType());
+		jobInput.setColorCd(indColor);
+		jobInput.setInputType(DpsCodeConstants.JOB_INPUT_TYPE_PCS); // TODO : config 처리 필요 
+		jobInput.setStatus(DpsCodeConstants.JOB_INPUT_STATUS_WAIT);
+
+		this.queryManager.insert(jobInput);
+		
+		// 3. 주문 - 박스 ID 매핑 
+		String currentTime = DateUtil.currentTimeStr();
+		for(JobInstance job : jobList) {
+			job.setInputSeq(batch.getLastInputSeq());
+			job.setBoxId(bucket.getBucketCd());
+			job.setColorCd(indColor);
+			job.setStatus(DpsConstants.JOB_STATUS_INPUT);
+			job.setInputAt(currentTime);
+			job.setBoxPackId(boxPackId);
+		}
+		
+		this.queryManager.updateBatch(jobList, "inputSeq","boxId","colorCd","status","inputAt","boxPackId");
+
+		// 4. 새로운 투입 순서 리턴 
+		return jobInput;
 	}
 	
 	
@@ -159,22 +220,25 @@ public class DpsPickingService extends DpsClassificationService implements IPick
 			throw ThrowUtil.newValidationErrorWithNoLog(ThrowUtil.translateMessage("A_ALREADY_B_STATUS", bucketStr, "terms.label.input"));
 		}
 		
-		// 3. 박스와 매핑하고자 하는 주문 정보를 조회한다.
-		String orderId = this.findNextMappingOrder(domainId, batch, bucket.getBucketType());
-		if(ValueUtil.isEmpty(orderId)) {
+		// TODO 현재는 주문에만 맵핑 하도록 구현 
+		// 추후 맵핑 컬럼 적용 필요함. 
+		// 3. 박스와 매핑하고자 하는 작업 정보를 조회한다.
+		String nextOrderId = this.findNextMappingJob(domainId, batch, bucket.getBucketTypeCd()
+				, DpsCodeConstants.DPS_PREPROCESS_COL_ORDER, DpsCodeConstants.DPS_ORDER_TYPE_MT);
+		
+		if(ValueUtil.isEmpty(nextOrderId)) {
 			// 박스에 할당할 주문 정보가 존재하지 않습니다
 			throw new ElidomRuntimeException(MessageUtil.getMessage("MPS_NO_ORDER_TO_ASSIGN_BOX"));
 		}
-
-		return orderId;		
-	}
-	
-	private String findNextMappingOrder(Long domainId, JobBatch batch, String bucketType){
 		
-		return null;
+		// 3. 이미 처리된 주문인지 한 번 더 체크
+		if(LogisEntityUtil.selectSizeByEntity(domainId, JobInput.class, "batchId,orderNo", batch.getId(), nextOrderId)>0) {
+			// 주문 은(는) 이미 투입 상태입니다
+			throw new ElidomRuntimeException(ThrowUtil.translateMessage("A_ALREADY_B_STATUS", "terms.label.order", "terms.label.input"));
+		}
+		
+		return nextOrderId;		
 	}
-	
-	
 	
 	/***********************************************************************************************/
 	/*   소분류   */
