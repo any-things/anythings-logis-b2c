@@ -144,7 +144,7 @@ public class DpsPickingService extends DpsClassificationService implements IPick
 		// 1. tray 박스인 경우 tray 상태 업데트 
 		if(ValueUtil.isEqualIgnoreCase(DpsCodeConstants.BOX_TYPE_TRAY, bucket.getBucketType())) {
 			TrayBox tray = (TrayBox)bucket;
-			tray.setStatus(DpsConstants.COMMON_STATUS_RUNNING);
+			tray.setStatus(DpsConstants.COMMON_STATUS_INPUT);
 			this.queryManager.update(tray, "status");
 		}
 		
