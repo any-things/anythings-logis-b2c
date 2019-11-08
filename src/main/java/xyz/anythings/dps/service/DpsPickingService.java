@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInput;
 import xyz.anythings.base.entity.JobInstance;
+import xyz.anythings.base.entity.TrayBox;
 import xyz.anythings.base.entity.ifc.IBucket;
 import xyz.anythings.base.event.IClassifyInEvent;
 import xyz.anythings.base.event.IClassifyRunEvent;
@@ -119,16 +120,16 @@ public class DpsPickingService extends DpsClassificationService implements IPick
 		this.createBoxPackData(domainId, batch, bucket, orderNo, boxPackId);
 		
 		// 7. 박스 투입 후 액션 
-		this.afterInputEmptyBucket(domainId, batch, jobInput, jobList);
+		this.afterInputEmptyBucket(domainId, batch, bucket, jobInput, jobList);
 		// 8. 투입 정보 리턴
 		return jobList;
 	}
 	
 	private void createBoxPackData(Long domainId, JobBatch batch, IBucket bucket, String orderNo, String boxPackId) {
-		// 2. boxItems 생성 
+		// 1. boxItems 생성 
 		this.dpsBoxingService.createBoxItemsDataByOrder(domainId, batch, orderNo, boxPackId);
 		
-		// 3. boxItem 정보로 boxPack 생성  
+		// 2. boxItem 정보로 boxPack 생성  
 		this.dpsBoxingService.createBoxPackDataByBoxItems(domainId, batch, orderNo, bucket.getBucketType(), bucket.getBucketTypeCd(), boxPackId);
 	}
 	
@@ -139,7 +140,14 @@ public class DpsPickingService extends DpsClassificationService implements IPick
 	 * @param jobInput
 	 * @param jobList
 	 */
-	private void afterInputEmptyBucket(Long domainId, JobBatch batch, JobInput jobInput, List<JobInstance> jobList) {
+	private void afterInputEmptyBucket(Long domainId, JobBatch batch, IBucket bucket, JobInput jobInput, List<JobInstance> jobList) {
+		// 1. tray 박스인 경우 tray 상태 업데트 
+		if(ValueUtil.isEqualIgnoreCase(DpsCodeConstants.BOX_TYPE_TRAY, bucket.getBucketType())) {
+			TrayBox tray = (TrayBox)bucket;
+			tray.setStatus(DpsConstants.COMMON_STATUS_RUNNING);
+			this.queryManager.update(tray, "status");
+		}
+		
 		// 투입된 호기에만 리프레쉬 메시지 전송
 	}
 	
