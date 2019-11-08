@@ -121,10 +121,10 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 		Page<JobInput> inputItems = BeanUtil.get(DeviceProcessController.class).searchInputList(equipType, equipCd, page, limit, null);
 		
 		// 3. parameter
-		Map<String,Object> params = ValueUtil.newMap("domainId",Domain.currentDomainId());
+		Map<String,Object> params = ValueUtil.newMap("domainId,batchId,equipType",Domain.currentDomainId(), batch.getId(),equipType);
 		
 		if(ValueUtil.isNotEmpty(batch.getEquipCd())) {
-			params.put("rackCd", equipCd);
+			params.put("equipCd", equipCd);
 		}
 		
 		// 4. 투입 가능 박스 수량 조회 
