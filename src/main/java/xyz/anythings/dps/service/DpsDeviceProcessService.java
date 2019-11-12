@@ -1,5 +1,6 @@
 package xyz.anythings.dps.service;
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,8 @@ import xyz.anythings.base.model.BatchProgressRate;
 import xyz.anythings.base.model.EquipBatchSet;
 import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.base.rest.DeviceProcessController;
+import xyz.anythings.base.util.LogisEntityUtil;
+import xyz.anythings.dps.DpsCodeConstants;
 import xyz.anythings.dps.model.DpsBatchSummary;
 import xyz.anythings.dps.service.util.DpsServiceUtil;
 import xyz.anythings.sys.service.AbstractExecutionService;
@@ -102,6 +105,52 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 
 		// 4. 이벤트 처리 결과 셋팅 
 		event.setReturnResult(new BaseResponse(true,"", summary));
+		event.setExecuted(true);
+	}
+	
+
+	/**
+	 * DPS 작업 존 버킷 도착 
+	 * @param event
+	 */
+	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/bucket_arrive','dps')")
+	@Order(Ordered.LOWEST_PRECEDENCE)
+	public void bucketArrive(DeviceProcessRestEvent event) {
+		// 1. 파라미터 
+		String equipType = event.getRequestParams().get("equipType").toString();
+		String equipCd = event.getRequestParams().get("equipCd").toString();
+		String equipZone = event.getRequestParams().get("equipZone").toString();
+		String bucketCd = event.getRequestParams().get("bucketCd").toString();
+		
+		Long domainId = Domain.currentDomainId();
+		
+		// 2. Batch, Equip 정보 조회 
+		EquipBatchSet equipBatch = DpsServiceUtil.findBatchByEquip(domainId, equipType, equipCd);
+		JobBatch batch = equipBatch.getBatch();
+		
+		// 3.JobInput 조회 및 상태 변경 
+		// 3.1 대기 상태인 인풋 정보 조회 
+		JobInput input = LogisEntityUtil.findEntityBy(domainId, false, JobInput.class, null, "batchId,equipType,equipCd,stationCd,boxId,status", batch.getId(), equipType,equipCd,equipZone,bucketCd,DpsCodeConstants.JOB_INPUT_STATUS_WAIT);
+		
+		// 3.2 없으면 진행중 상태에서 조회 
+		if(ValueUtil.isEmpty(input)) {
+			// 재고 부족으로 다시 작업 존에 박스 도착 했을 경우 ????
+			// 없으면 error 
+			input = LogisEntityUtil.findEntityBy(domainId, true, JobInput.class, null, "batchId,equipType,equipCd,stationCd,boxId,status", batch.getId(), equipType,equipCd,equipZone,bucketCd,DpsCodeConstants.JOB_INPUT_STATUS_RUN);
+		}
+		
+		// 3.3 상태 update (WAIT = > RUNNING )
+		if(ValueUtil.isEqualIgnoreCase(input.getStatus(), DpsCodeConstants.JOB_INPUT_STATUS_WAIT)) {
+			input.setStatus(DpsCodeConstants.JOB_INPUT_STATUS_RUN);
+			this.queryManager.update(input, "status");
+		}
+		
+		// 4. 도착 한 버킷을 기준으로 input List 조회  
+		List<JobInput> tabList = BeanUtil.get(DeviceProcessController.class).searchInputList(equipType,equipCd,equipZone,input.getId());
+		
+		
+		// 5. 이벤트 처리 결과 셋팅 
+		event.setReturnResult(new BaseResponse(true,"", tabList));
 		event.setExecuted(true);
 	}
 	
