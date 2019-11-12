@@ -1,4 +1,4 @@
-package xyz.anythings.dps;
+package xyz.anythings.dps.service.util;
 
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.service.util.BatchJobConfigUtil;
