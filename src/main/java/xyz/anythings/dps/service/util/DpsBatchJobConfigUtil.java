@@ -40,12 +40,12 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	}
 	
 	/**
-	 * 셀에 할당할 대상 필드 (매장, 상품, 주문번호 …) --> 스테이지 범위 레벨에서도 필요
+	 * 셀에 할당할 대상 필드 (매장, 상품, 주문번호 …)
 	 * 
 	 * @param batch
 	 * @return
 	 */
-	public static String getCellMappingField(JobBatch batch) {
+	public static String getCellMappingTargetField(JobBatch batch) {
 		// job.dps.preproces.cell.mapping.field						
 		return null;
 	}
@@ -67,7 +67,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 * @param batch
 	 * @return
 	 */
-	public static boolean isSeparatedBatchByRegion(JobBatch batch) {
+	public static boolean isSeparatedBatchByRack(JobBatch batch) {
 		// job.dps.batch.split-by-rack.enabled						
 		return false;
 	}
@@ -85,6 +85,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	
 	/**
 	 * 완박스 바로 출고 대상 분류 여부
+	 * TODO 삭제
 	 * 
 	 * @param batch
 	 * @return
@@ -96,6 +97,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	
 	/**
 	 * 단수 대상 분류 여부
+	 * TODO 삭제
 	 * 
 	 * @param batch
 	 * @return
