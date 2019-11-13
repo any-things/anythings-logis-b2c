@@ -1,6 +1,7 @@
 package xyz.anythings.dps.service.util;
 
 import xyz.anythings.base.service.util.StageJobConfigUtil;
+import xyz.elidom.sys.util.ValueUtil;
 
 /**
  * DPS 관련 Stage 공통 설정 프로파일
@@ -17,7 +18,7 @@ public class DpsStageJobConfigUtil extends StageJobConfigUtil {
 	 */
 	public static String getSkuRankingTargetDays(String stageCd) {
 		// dps.sku.popula.rank.calc.days
-		return null;
+		return getConfigValue(stageCd, null, "dps.sku.popula.rank.calc.days", true);
 	}
 
 	/**
@@ -28,7 +29,8 @@ public class DpsStageJobConfigUtil extends StageJobConfigUtil {
 	 */
 	public static boolean isSeparatedBatchByRack(String stageCd) {
 		// dps.batch.split-by-rack.enabled
-		return false;
+		String boolVal = getConfigValue(stageCd, null, "dps.batch.split-by-rack.enabled", true);
+		return ValueUtil.toBoolean(boolVal);
 	}
 	
 	/**
@@ -37,9 +39,10 @@ public class DpsStageJobConfigUtil extends StageJobConfigUtil {
 	 * @param stageCd 스테이지 코드
 	 * @return
 	 */
-	public static String getStationWaitPoolCount(String stageCd) {
+	public static int getStationWaitPoolCount(String stageCd) {
 		// dps.station.wait-pool.count
-		return null;
+		String intVal = getConfigValue(stageCd, null, "dps.station.wait-pool.count", true);
+		return ValueUtil.toInteger(intVal);
 	}
 	
 	/**
@@ -50,7 +53,8 @@ public class DpsStageJobConfigUtil extends StageJobConfigUtil {
 	 */
 	public static boolean isRecommendCellEnabled(String stageCd) {
 		// dps.supple.recommend-cell.enabled
-		return false;
+		String boolVal = getConfigValue(stageCd, null, "dps.supple.recommend-cell.enabled", true);
+		return ValueUtil.toBoolean(boolVal);
 	}
 	
 	/**
@@ -61,7 +65,7 @@ public class DpsStageJobConfigUtil extends StageJobConfigUtil {
 	 */
 	public static String getInputBoxType(String stageCd) {
 		// dps.input.box.type						
-		return null;
+		return getConfigValue(stageCd, null, "dps.input.box.type", true);
 	}
 	
 	/**
@@ -72,7 +76,8 @@ public class DpsStageJobConfigUtil extends StageJobConfigUtil {
 	 */
 	public static boolean isSingleSkuNpcsClassEnabled(String stageCd) {
 		// dps.pick.1sku.npcs.enabled					
-		return false;
+		String boolVal = getConfigValue(stageCd, null, "dps.pick.1sku.npcs.enabled", true);
+		return ValueUtil.toBoolean(boolVal);
 	}
 	
 	/**
@@ -83,6 +88,7 @@ public class DpsStageJobConfigUtil extends StageJobConfigUtil {
 	 */
 	public static boolean isPickingWithInspectionEnabled(String stageCd) {
 		// dps.pick.with-inspection.enabled		
-		return false;
+		String boolVal = getConfigValue(stageCd, null, "dps.pick.with-inspection.enabled", true);
+		return ValueUtil.toBoolean(boolVal);
 	}
 }
