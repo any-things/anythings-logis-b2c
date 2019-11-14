@@ -13,16 +13,16 @@ import xyz.anythings.base.LogisCodeConstants;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInput;
 import xyz.anythings.base.event.rest.DeviceProcessRestEvent;
-import xyz.anythings.base.model.BaseResponse;
 import xyz.anythings.base.model.BatchProgressRate;
 import xyz.anythings.base.model.EquipBatchSet;
 import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.base.rest.DeviceProcessController;
-import xyz.anythings.base.util.LogisEntityUtil;
 import xyz.anythings.dps.DpsCodeConstants;
 import xyz.anythings.dps.model.DpsBatchSummary;
 import xyz.anythings.dps.service.util.DpsServiceUtil;
+import xyz.anythings.sys.model.BaseResponse;
 import xyz.anythings.sys.service.AbstractExecutionService;
+import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.elidom.dbist.dml.Page;
 import xyz.elidom.sys.entity.Domain;
 import xyz.elidom.util.BeanUtil;
@@ -130,13 +130,13 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 		
 		// 3.JobInput 조회 및 상태 변경 
 		// 3.1 대기 상태인 인풋 정보 조회 
-		JobInput input = LogisEntityUtil.findEntityBy(domainId, false, JobInput.class, null, "batchId,equipType,equipCd,stationCd,boxId,status", batch.getId(), equipType,equipCd,equipZone,bucketCd,DpsCodeConstants.JOB_INPUT_STATUS_WAIT);
+		JobInput input = AnyEntityUtil.findEntityBy(domainId, false, JobInput.class, null, "batchId,equipType,equipCd,stationCd,boxId,status", batch.getId(), equipType,equipCd,equipZone,bucketCd,DpsCodeConstants.JOB_INPUT_STATUS_WAIT);
 		
 		// 3.2 없으면 진행중 상태에서 조회 
 		if(ValueUtil.isEmpty(input)) {
 			// 재고 부족으로 다시 작업 존에 박스 도착 했을 경우 ????
 			// 없으면 error 
-			input = LogisEntityUtil.findEntityBy(domainId, true, JobInput.class, null, "batchId,equipType,equipCd,stationCd,boxId,status", batch.getId(), equipType,equipCd,equipZone,bucketCd,DpsCodeConstants.JOB_INPUT_STATUS_RUN);
+			input = AnyEntityUtil.findEntityBy(domainId, true, JobInput.class, null, "batchId,equipType,equipCd,stationCd,boxId,status", batch.getId(), equipType,equipCd,equipZone,bucketCd,DpsCodeConstants.JOB_INPUT_STATUS_RUN);
 		}
 		
 		// 3.3 상태 update (WAIT = > RUNNING )

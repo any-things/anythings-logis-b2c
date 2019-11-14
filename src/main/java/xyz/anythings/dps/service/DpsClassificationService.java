@@ -5,7 +5,6 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import xyz.anythings.base.entity.IndConfigSet;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobConfigSet;
 import xyz.anythings.base.event.ICategorizeEvent;
@@ -64,11 +63,11 @@ public class DpsClassificationService extends AbstractClassificationService {
 	 * @param batchId
 	 * @return
 	 */
-	@Override
+	/*@Override
 	public IndConfigSet getIndConfigSet(String batchId) {
 		// TODO Auto-generated method stub
 		return null;
-	}
+	}*/
 
 	/**
 	 * 2-1. 중분류 이벤트

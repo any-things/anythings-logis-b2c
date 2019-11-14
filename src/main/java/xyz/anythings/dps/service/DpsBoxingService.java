@@ -5,7 +5,6 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import xyz.anythings.base.entity.BoxPack;
-import xyz.anythings.base.entity.IndConfigSet;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobConfigSet;
 import xyz.anythings.base.entity.JobInstance;
@@ -49,11 +48,11 @@ public class DpsBoxingService extends AbstractBoxingService {
 	 * @param batchId
 	 * @return
 	 */
-	@Override
+	/*@Override
 	public IndConfigSet getIndConfigSet(String batchId) {
 		// TODO Auto-generated method stub
 		return null;
-	}
+	}*/
 
 	/**
 	 * 2-1. 작업 준비 : 셀에 박스를 할당

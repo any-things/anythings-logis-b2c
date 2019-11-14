@@ -20,8 +20,8 @@ import xyz.anythings.base.event.main.BatchReceiveEvent;
 import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.base.service.util.BatchJobConfigUtil;
 import xyz.anythings.base.util.LogisBaseUtil;
-import xyz.anythings.base.util.LogisEntityUtil;
 import xyz.anythings.sys.service.AbstractQueryService;
+import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.anythings.sys.util.AnyOrmUtil;
 import xyz.anythings.sys.util.AnyValueUtil;
 import xyz.elidom.dbist.dml.Query;
@@ -115,7 +115,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		
 		// 대기 중 또는 진행 중인 수신 정보 리턴 
 		if(receiptData != null) {
-			receiptData.setItems(LogisEntityUtil.searchDetails(receipt.getDomainId(), BatchReceiptItem.class, "batchReceiptId", receiptData.getId()));
+			receiptData.setItems(AnyEntityUtil.searchDetails(receipt.getDomainId(), BatchReceiptItem.class, "batchReceiptId", receiptData.getId()));
 			return receiptData;
 		}
 		
@@ -306,7 +306,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		batch.updateStatus(JobBatch.STATUS_CANCEL);
 		
 		// 2. 주문 조회 
-		List<Order> orderList = LogisEntityUtil.searchEntitiesBy(batch.getDomainId(), false, Order.class, "id", "batchId", batch.getId());
+		List<Order> orderList = AnyEntityUtil.searchEntitiesBy(batch.getDomainId(), false, Order.class, "id", "batchId", batch.getId());
 		
 		// 3. 취소 상태 , seq = 0 셋팅 
 		for(Order order : orderList) {

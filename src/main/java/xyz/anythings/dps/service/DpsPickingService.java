@@ -16,9 +16,9 @@ import xyz.anythings.base.entity.ifc.IBucket;
 import xyz.anythings.base.event.IClassifyInEvent;
 import xyz.anythings.base.event.IClassifyRunEvent;
 import xyz.anythings.base.service.api.IPickingService;
-import xyz.anythings.base.util.LogisEntityUtil;
 import xyz.anythings.dps.DpsCodeConstants;
 import xyz.anythings.dps.DpsConstants;
+import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.anythings.sys.util.AnyValueUtil;
 import xyz.elidom.exception.server.ElidomRuntimeException;
 import xyz.elidom.sys.entity.User;
@@ -105,7 +105,7 @@ public class DpsPickingService extends DpsClassificationService implements IPick
 		String indColor = bucket.getBucketColor();
 		
 		// 4. 주문 번호로 매핑된 작업을 모두 조회
-		List<JobInstance> jobList = LogisEntityUtil.searchEntitiesBy(domainId, false, JobInstance.class, null, "batchId,jobType,orderNo", batch.getId(), batch.getJobType(),orderNo);
+		List<JobInstance> jobList = AnyEntityUtil.searchEntitiesBy(domainId, false, JobInstance.class, null, "batchId,jobType,orderNo", batch.getId(), batch.getJobType(),orderNo);
 
 		if(ValueUtil.isEmpty(jobList)) {
 			// 투입 가능한 주문이 없습니다.
@@ -255,7 +255,7 @@ public class DpsPickingService extends DpsClassificationService implements IPick
 		}
 		
 		// 3. 이미 처리된 주문인지 한 번 더 체크
-		if(LogisEntityUtil.selectSizeByEntity(domainId, JobInput.class, "batchId,orderNo", batch.getId(), nextOrderId)>0) {
+		if(AnyEntityUtil.selectSizeByEntity(domainId, JobInput.class, "batchId,orderNo", batch.getId(), nextOrderId)>0) {
 			// 주문 은(는) 이미 투입 상태입니다
 			throw new ElidomRuntimeException(ThrowUtil.translateMessage("A_ALREADY_B_STATUS", "terms.label.order", "terms.label.input"));
 		}
