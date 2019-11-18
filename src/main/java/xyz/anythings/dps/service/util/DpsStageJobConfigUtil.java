@@ -91,4 +91,17 @@ public class DpsStageJobConfigUtil extends StageJobConfigUtil {
 		String boolVal = getConfigValue(stageCd, null, "dps.pick.with-inspection.enabled", true);
 		return ValueUtil.toBoolean(boolVal);
 	}
+	
+	/**
+	 * DPS 작업 할당 스케줄러 사용 여부
+	 * 
+	 * @param stageCd 스테이지 코드
+	 * @return
+	 */
+	public static boolean isJobAssignSchedulingEnabled(String stageCd) {
+		// dps.job-assign.scheduling.enabled		
+		String boolVal = getConfigValue(stageCd, null, "dps.job-assign.scheduling.enabled", true);
+		return ValueUtil.toBoolean(boolVal);
+	}
+
 }
