@@ -1,7 +1,6 @@
 package xyz.anythings.dps.service;
 
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.context.event.EventListener;
 import org.springframework.core.Ordered;
@@ -9,22 +8,15 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import xyz.anythings.base.entity.JobBatch;
-import xyz.anythings.base.entity.JobInput;
 import xyz.anythings.base.entity.JobInstance;
-import xyz.anythings.base.entity.TrayBox;
 import xyz.anythings.base.entity.ifc.IBucket;
 import xyz.anythings.base.event.IClassifyInEvent;
 import xyz.anythings.base.event.IClassifyRunEvent;
-import xyz.anythings.base.service.api.IPickingService;
-import xyz.anythings.dps.DpsCodeConstants;
-import xyz.anythings.dps.DpsConstants;
+import xyz.anythings.dps.service.impl.AbstractDpsPickingService;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.anythings.sys.util.AnyValueUtil;
 import xyz.elidom.exception.server.ElidomRuntimeException;
-import xyz.elidom.sys.entity.User;
-import xyz.elidom.sys.util.DateUtil;
 import xyz.elidom.sys.util.MessageUtil;
-import xyz.elidom.sys.util.ThrowUtil;
 import xyz.elidom.sys.util.ValueUtil;
 
 
@@ -34,21 +26,21 @@ import xyz.elidom.sys.util.ValueUtil;
  *
  */
 @Component("dpsPickingService")
-public class DpsPickingService extends DpsClassificationService implements IPickingService{
+public class DpsPickingService extends AbstractDpsPickingService{
 
 	/***********************************************************************************************/
 	/*   버킷 투입    */
 	/***********************************************************************************************/
 
-	
+
 	/**
-	 * 2-2. 투입 : 배치 작업에 공 박스 투입
+	 * 2-3. 투입 : 배치 작업에 공 박스 투입
 	 * 
 	 * @param inputEvent
 	 * @return
 	 */
 	@Override
-	@EventListener(condition = "#inputEvent.getInputType() == 'box', inputEvent.isForInspection() == false")
+	@EventListener(condition = "#inputEvent.getInputType() == 'box' and inputEvent.isForInspection() == false")
 	@Order(Ordered.LOWEST_PRECEDENCE)
 	public Object inputEmptyBox(IClassifyInEvent inputEvent) {
 		String boxId = inputEvent.getInputCode();
@@ -56,7 +48,12 @@ public class DpsPickingService extends DpsClassificationService implements IPick
 		
 		Long domainId = batch.getDomainId();
 		
-		return this.inputEmptyBucket(domainId, batch, true, boxId);
+		Object retValue = this.inputEmptyBucket(domainId, batch, true, boxId);
+		
+		inputEvent.setResult(retValue);
+		inputEvent.setExecuted(true);
+		
+		return retValue;
 	}
 
 	/**
@@ -66,7 +63,7 @@ public class DpsPickingService extends DpsClassificationService implements IPick
 	 * @return
 	 */
 	@Override
-	@EventListener(condition = "#inputEvent.getInputType() == 'tray', inputEvent.isForInspection() == false")
+	@EventListener(condition = "#inputEvent.getInputType() == 'tray' and inputEvent.isForInspection() == false")
 	@Order(Ordered.LOWEST_PRECEDENCE)
 	public Object inputEmptyTray(IClassifyInEvent inputEvent) {
 		String trayCd = inputEvent.getInputCode();
@@ -74,7 +71,12 @@ public class DpsPickingService extends DpsClassificationService implements IPick
 		
 		Long domainId = batch.getDomainId();
 		
-		return this.inputEmptyBucket(domainId, batch, false, trayCd);
+		Object retValue = this.inputEmptyBucket(domainId, batch, false, trayCd);
+		
+		inputEvent.setResult(retValue);
+		inputEvent.setExecuted(true);
+		
+		return retValue;
 	}
 	
 	
@@ -115,153 +117,18 @@ public class DpsPickingService extends DpsClassificationService implements IPick
 		// 5. boxPackId 생성 
 		String boxPackId = AnyValueUtil.newUuid36();
 		
-		// 5. 투입
+		// 6. 투입
 		this.doInputEmptyBucket(domainId, batch, orderNo, bucket, indColor, jobList, boxPackId);
 		
-		// 6. 박스 BoxPack, BoxItem 생성
+		// 7. 박스 BoxPack, BoxItem 생성
 		this.createBoxPackData(domainId, batch, bucket, orderNo, boxPackId);
 		
-		// 7. 박스 투입 후 액션 
+		// 8. 박스 투입 후 액션 
 		this.afterInputEmptyBucket(domainId, batch, bucket, jobList);
-		// 8. 투입 정보 리턴
+		// 9. 투입 정보 리턴
 		return jobList;
 	}
-	
-	/**
-	 * 박스 패킹 정보 생성 
-	 * @param domainId
-	 * @param batch
-	 * @param bucket
-	 * @param orderNo
-	 * @param boxPackId
-	 */
-	private void createBoxPackData(Long domainId, JobBatch batch, IBucket bucket, String orderNo, String boxPackId) {
-		// 1. boxItems 생성 
-		this.dpsBoxingService.createBoxItemsDataByOrder(domainId, batch, orderNo, boxPackId);
-		
-		// 2. boxItem 정보로 boxPack 생성  
-		this.dpsBoxingService.createBoxPackDataByBoxItems(domainId, batch, orderNo, bucket.getBucketType(), bucket.getBucketTypeCd(), boxPackId);
-	}
-	
-	/**
-	 * 박스 투입 후 액션 
-	 * @param domainId
-	 * @param batch
-	 * @param jobList
-	 */
-	private void afterInputEmptyBucket(Long domainId, JobBatch batch, IBucket bucket, List<JobInstance> jobList) {
-		// 1. tray 박스인 경우 tray 상태 업데트 
-		if(ValueUtil.isEqualIgnoreCase(DpsCodeConstants.BOX_TYPE_TRAY, bucket.getBucketType())) {
-			TrayBox tray = (TrayBox)bucket;
-			tray.setStatus(DpsConstants.COMMON_STATUS_INPUT);
-			this.queryManager.update(tray, "status");
-		}
-		
-		// 투입된 호기에만 리프레쉬 메시지 전송
-	}
-	
-	/**
-	 * 박스 혹은 트레이를 작업에 투입 
-	 * @param domainId
-	 * @param batch
-	 * @param orderNo
-	 * @param bucket
-	 * @param indColor
-	 * @param jobList
-	 * @return
-	 */
-	private void doInputEmptyBucket(Long domainId, JobBatch batch, String orderNo, IBucket bucket, String indColor, List<JobInstance> jobList, String boxPackId) {
-		
-		// 1. JobInstance 에서 equipCd, stationCd 가져오기
-		// 1.1. 쿼리 
-		String newInputsQuery = this.batchQueryStore.getRackDpsBatchNewInputDataQuery();
-		
-		// 1.2. 파라미터 
-		Map<String,Object> params = ValueUtil.newMap("domainId,batchId,equipType,orderNo", domainId,batch.getId(), batch.getEquipType(), orderNo);
-		
-		// 1.3. 조회 
-		List<JobInput> inputList =  this.queryManager.selectListBySql(newInputsQuery, params, JobInput.class, 0, 0);
-		
-		// 2. 투입 번호 셋팅 및 input 데이터 생성  
-		// 2.1 주문 - 박스 ID 매핑 쿼리 
-		String mapInstanceBox = this.batchQueryStore.getRackDpsBatchMapBoxIdAndSeqQuery();
-		Map<String,Object> mappingParams = ValueUtil.newMap("domainId,batchId,equipType,orderNo,userId,boxId,colorCd,status,inputAt,boxPackId"
-				, domainId,batch.getId(), batch.getEquipType(), orderNo, User.currentUser().getId(),bucket.getBucketCd(),indColor,DpsConstants.JOB_STATUS_INPUT,DateUtil.currentTimeStr(),boxPackId);
-		
-		for(JobInput input : inputList ) {
-			// 2.1. 다음 투입 번호
-			int newSeq = this.dpsJobStatusService.findNextInputSeq(batch);
-			
-			// 2.2 새로운 투입 정보 생성
-			input.setComCd(batch.getComCd());
-			input.setInputSeq(newSeq);
-			input.setBoxId(bucket.getBucketCd());
-			input.setBoxType(bucket.getBucketType());
-			input.setColorCd(indColor);
-			input.setInputType(DpsCodeConstants.JOB_INPUT_TYPE_PCS); // TODO : config 처리 필요 
-			input.setStatus(DpsCodeConstants.JOB_INPUT_STATUS_WAIT);
-			
-			
-			// 2.3. 주문 - 박스 ID 매핑 params 셋 
-			mappingParams.put("inputSeq", newSeq);
-			mappingParams.put("stationCd", input.getStationCd());
-			
-			// 2.4. 주문 - 박스 ID 매핑 Update 실행  
-			this.queryManager.executeBySql(mapInstanceBox, mappingParams);
-		}
-		
-		// 2.3 insert batch
-		this.queryManager.insertBatch(inputList);
-	}
-	
-	
-	/**
-	 * 버킷 투입 전 액션 
-	 * @param domainId
-	 * @param batch
-	 * @param isBox
-	 * @param bucket
-	 * @return
-	 */
-	private String beforeInputEmptyBucket(Long domainId, JobBatch batch, boolean isBox, IBucket bucket) {
-		
-		// 1.버킷의 투입 가능 여부 확인 
-		boolean usedBox = false;
-		if(isBox) {
-			// 1.1 박스는 쿼리를 해서 확인 
-			usedBox = this.checkUniqueBoxId(domainId, batch, bucket.getBucketCd());
-		} else {
-			// 1.2 트레이는 상태가 WAIT 인 트레이만 사용 가능 
-			if(ValueUtil.isNotEqual(bucket.getStatus(), DpsConstants.COMMON_STATUS_WAIT)) {
-				usedBox = true;
-			}
-		}
-		// 2. 중복되는 버킷이 있으면 사용중 이면 불가 
-		if(usedBox) {
-			// 박스 / 트레이 은(는) 이미 투입 상태입니다
-			String bucketStr = isBox ? "terms.label.box" : "terms.label.tray";
-			throw ThrowUtil.newValidationErrorWithNoLog(ThrowUtil.translateMessage("A_ALREADY_B_STATUS", bucketStr, "terms.label.input"));
-		}
-		
-		// TODO 현재는 주문에만 맵핑 하도록 구현 
-		// 추후 맵핑 컬럼 적용 필요함. 
-		// 3. 박스와 매핑하고자 하는 작업 정보를 조회한다.
-		String nextOrderId = this.findNextMappingJob(domainId, batch, bucket.getBucketTypeCd()
-				, DpsCodeConstants.DPS_PREPROCESS_COL_ORDER, DpsCodeConstants.DPS_ORDER_TYPE_MT);
-		
-		if(ValueUtil.isEmpty(nextOrderId)) {
-			// 박스에 할당할 주문 정보가 존재하지 않습니다
-			throw new ElidomRuntimeException(MessageUtil.getMessage("MPS_NO_ORDER_TO_ASSIGN_BOX"));
-		}
-		
-		// 3. 이미 처리된 주문인지 한 번 더 체크
-		if(AnyEntityUtil.selectSizeByEntity(domainId, JobInput.class, "batchId,orderNo", batch.getId(), nextOrderId)>0) {
-			// 주문 은(는) 이미 투입 상태입니다
-			throw new ElidomRuntimeException(ThrowUtil.translateMessage("A_ALREADY_B_STATUS", "terms.label.order", "terms.label.input"));
-		}
-		
-		return nextOrderId;		
-	}
+
 	
 	/***********************************************************************************************/
 	/*   소분류   */
@@ -269,29 +136,27 @@ public class DpsPickingService extends DpsClassificationService implements IPick
 
 
 	/**
-	 * 3-1. 소분류 : 피킹 작업 확정 처리
+	 * 3-3. 소분류 : 피킹 작업 확정 처리
 	 * 
 	 * @param exeEvent 분류 작업 이벤트
 	 */
 	@Override
 	public void confirmPick(IClassifyRunEvent exeEvent) {
 		// TODO Auto-generated method stub
-		
 	}
 
 	/**
-	 * 3-2. 소분류 : 피킹 취소 (예정 수량보다 분류 처리할 실물이 작아서 처리할 수 없는 경우 취소 처리)
+	 * 3-4. 소분류 : 피킹 취소 (예정 수량보다 분류 처리할 실물이 작아서 처리할 수 없는 경우 취소 처리)
 	 * 
 	 * @param exeEvent 분류 작업 이벤트
 	 */
 	@Override
 	public void cancelPick(IClassifyRunEvent exeEvent) {
 		// TODO Auto-generated method stub
-		
 	}
 
 	/**
-	 * 3-3. 소분류 : 수량을 조정하여 분할 피킹 처리
+	 * 3-5. 소분류 : 수량을 조정하여 분할 피킹 처리
 	 * 
 	 * @param exeEvent 분류 작업 이벤트
 	 * @return
@@ -302,15 +167,5 @@ public class DpsPickingService extends DpsClassificationService implements IPick
 		return 0;
 	}
 
-	/**
-	 * 3-4. 소분류 : 피킹 확정 처리된 작업 취소
-	 * 
-	 * @param exeEvent 분류 작업 이벤트
-	 * @return
-	 */
-	@Override
-	public int undoPick(IClassifyRunEvent exeEvent) {
-		// TODO Auto-generated method stub
-		return 0;
-	}
+
 }
