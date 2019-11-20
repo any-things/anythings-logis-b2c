@@ -7,6 +7,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+import xyz.anythings.base.entity.Cell;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.entity.ifc.IBucket;
@@ -40,12 +41,12 @@ public class DpsPickingService extends AbstractDpsPickingService{
 	 * @return
 	 */
 	@Override
-	@EventListener(condition = "#inputEvent.getInputType() == 'box' and inputEvent.isForInspection() == false")
+	@EventListener(condition = "#inputEvent.getInputType() == 'box' and #inputEvent.isForInspection() == false and #inputEvent.isExecuted() == false")
 	@Order(Ordered.LOWEST_PRECEDENCE)
 	public Object inputEmptyBox(IClassifyInEvent inputEvent) {
 		String boxId = inputEvent.getInputCode();
 		JobBatch batch = inputEvent.getJobBatch();
-		
+
 		Long domainId = batch.getDomainId();
 		
 		Object retValue = this.inputEmptyBucket(domainId, batch, true, boxId);
@@ -63,7 +64,7 @@ public class DpsPickingService extends AbstractDpsPickingService{
 	 * @return
 	 */
 	@Override
-	@EventListener(condition = "#inputEvent.getInputType() == 'tray' and inputEvent.isForInspection() == false")
+	@EventListener(condition = "#inputEvent.getInputType() == 'tray' and #inputEvent.isForInspection() == false and #inputEvent.isExecuted() == false")
 	@Order(Ordered.LOWEST_PRECEDENCE)
 	public Object inputEmptyTray(IClassifyInEvent inputEvent) {
 		String trayCd = inputEvent.getInputCode();
@@ -141,8 +142,31 @@ public class DpsPickingService extends AbstractDpsPickingService{
 	 * @param exeEvent 분류 작업 이벤트
 	 */
 	@Override
+	@EventListener(condition = "#exeEvent.getClassifyAction() == 'ok' and #exeEvent.isExecuted() == false and #exeEvent.getJobType() == 'DPS' ")
+	@Order(Ordered.LOWEST_PRECEDENCE)
 	public void confirmPick(IClassifyRunEvent exeEvent) {
-		// TODO Auto-generated method stub
+		
+		JobBatch batch = exeEvent.getJobBatch();
+		Long domainId = batch.getDomainId();
+		
+		// 1. JobInstance 조회 
+		JobInstance job = AnyEntityUtil.findEntityById(true, JobInstance.class, exeEvent.getJobInstanceId());
+		
+		// 2. Cell 조회 
+		Cell cell = AnyEntityUtil.findEntityBy(domainId, true, Cell.class, null, "equipType,equipCd,cellCd", job.getEquipType(),job.getEquipCd(),job.getSubEquipCd());
+		
+		
+		// 3. 작업 처리 전 액션 
+		int pickQty = this.beforeConfirmPick(batch, job, cell, exeEvent.getResQty());
+		
+		if(pickQty > 0) {
+			// 4. 분류 작업 처리
+			this.doConfirmPick(batch, job, cell, pickQty);
+			// 5. 작업 처리 후 액션
+			this.afterComfirmPick(batch, job, cell, pickQty);
+		}
+		
+		exeEvent.setExecuted(true);
 	}
 
 	/**
@@ -151,8 +175,10 @@ public class DpsPickingService extends AbstractDpsPickingService{
 	 * @param exeEvent 분류 작업 이벤트
 	 */
 	@Override
+	@EventListener(condition = "#exeEvent.getClassifyAction() == 'cancel' and #exeEvent.isExecuted() == false and #exeEvent.getJobType() == 'DPS' ")
+	@Order(Ordered.LOWEST_PRECEDENCE)
 	public void cancelPick(IClassifyRunEvent exeEvent) {
-		// TODO Auto-generated method stub
+		exeEvent.setExecuted(true);
 	}
 
 	/**
@@ -162,10 +188,10 @@ public class DpsPickingService extends AbstractDpsPickingService{
 	 * @return
 	 */
 	@Override
+	@EventListener(condition = "#exeEvent.getClassifyAction() == 'modify' and #exeEvent.isExecuted() == false and #exeEvent.getJobType() == 'DPS' ")
+	@Order(Ordered.LOWEST_PRECEDENCE)
 	public int splitPick(IClassifyRunEvent exeEvent) {
-		// TODO Auto-generated method stub
+		exeEvent.setExecuted(true);
 		return 0;
 	}
-
-
 }

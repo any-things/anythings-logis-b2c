@@ -1,5 +1,7 @@
 package xyz.anythings.dps.service.impl;
 
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -9,10 +11,13 @@ import xyz.anythings.base.LogisConfigConstants;
 import xyz.anythings.base.LogisConstants;
 import xyz.anythings.base.entity.BoxPack;
 import xyz.anythings.base.entity.BoxType;
+import xyz.anythings.base.entity.Cell;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobConfigSet;
 import xyz.anythings.base.entity.JobInput;
 import xyz.anythings.base.entity.JobInstance;
+import xyz.anythings.base.entity.Order;
+import xyz.anythings.base.entity.Stock;
 import xyz.anythings.base.entity.TrayBox;
 import xyz.anythings.base.entity.ifc.IBucket;
 import xyz.anythings.base.event.ICategorizeEvent;
@@ -360,7 +365,9 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 			this.queryManager.update(tray, "status");
 		}
 		
-		// 투입된 호기에만 리프레쉬 메시지 전송
+		// TODO 박스 경로 IF
+		
+		// TODO 투입된 호기에만 리프레쉬 메시지 전송
 	}
 	
 	/**
@@ -564,5 +571,120 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 		
 		// 3. 조회 ( 맵핑 기준에 따라 결과가 달라짐 )
 		return this.queryManager.selectBySql(qry, params, String.class);
+	}
+	
+	
+	/***********************************************************************************************/
+	/*  3. 소분류    */
+	/***********************************************************************************************/
+
+	/**
+	 * 소분류 작업 처리 전 처리 액션
+	 * @param batch
+	 * @param job
+	 * @param cell
+	 * @param pickQty
+	 * @return 
+	 */
+	protected int beforeConfirmPick(JobBatch batch, JobInstance job, Cell cell, int pickQty) {
+		// 1. 작업이 이미 완료되었다면 리턴
+		if(job.isDoneJob()) {
+			return 0;
+		// 2. 이미 모두 처리되었다면 스킵
+		} else if(job.getPickedQty() >= job.getPickQty()) {
+			return 0;
+		}
+		
+		// 3. 피킹 수량 리턴
+		return pickQty;
+	}
+	
+	/**
+	 * 소분류 작업 처리 
+	 * @param batch
+	 * @param job
+	 * @param cell
+	 * @param pickQty
+	 */
+	protected void doConfirmPick(JobBatch batch, JobInstance job, Cell cell, int pickQty) {
+		// 1. 피킹 작업 처리
+		job.setStatus(DpsConstants.JOB_STATUS_FINISH);
+		job.setPickEndedAt(DateUtil.currentTimeStr());
+		job.setPickedQty(pickQty);
+		job.setPickingQty(0);
+		job.setUpdatedAt(new Date());
+		
+		this.queryManager.update(job, "status", "pickEndedAt", "pickedQty", "pickingQty", "updatedAt");
+
+		// 2. 합포의 경우 에만 
+		if(ValueUtil.isEqualIgnoreCase(job.getOrderType(), DpsCodeConstants.DPS_ORDER_TYPE_MT)) {
+			// 2.1 Lock 을 걸고 재고 조회 
+			// TODO : BIN 인덱스 
+			Stock stock = AnyEntityUtil.findEntityBy(job.getDomainId(), true, true, Stock.class, null, "equipType,equipCd,cellCd,comCd,skuCd", job.getEquipType(),job.getEquipCd(),job.getSubEquipCd(),job.getComCd(),job.getSkuCd());
+			stock.setAllocQty(stock.getAllocQty() - pickQty);
+			stock.setPickedQty(stock.getPickedQty() + pickQty);
+			stock.setUpdatedAt(new Date());
+			
+			// 2.2 재고 업데이트 
+			this.queryManager.update(stock, "allocQty", "pickedQty", "updatedAt");
+			
+			// 2.3 TODO : 같은 cell 에 다른 bin 의 상품이 걸려 있는 경우 처리 필요 
+			// 지시기 점등 ? 
+		}
+	}
+
+	/**
+	 * 소분류 작업 처리 후처리 액션  
+	 * @param batch
+	 * @param job
+	 * @param cell
+	 * @param resQty
+	 */
+	protected void afterComfirmPick(JobBatch batch, JobInstance job, Cell cell, Integer resQty) {
+		
+		Map<String,Object> params = ValueUtil.newMap("domainId,batchId,orderNo,comCd,skuCd,resQty", batch.getDomainId(), batch.getId(), job.getOrderNo(), job.getComCd(), job.getSkuCd(), resQty);
+		
+		// 1. 주문 확정 수량 업데이트
+		String findOrderList = this.batchQueryStore.getFindOrderQtyUpdateListQuery();
+		List<Order> orderList = this.queryManager.selectListBySql(findOrderList, params, Order.class, 0, 0);
+		
+		int pickedQty = resQty;
+		int orderPickedQty = 0;
+		
+		Date now = new Date();
+		List<String> updateOrderList = new ArrayList<String>();
+		
+		for(Order order : orderList) {
+			if(pickedQty > order.getOrderQty()) orderPickedQty = order.getOrderQty();
+			else orderPickedQty = pickedQty;
+			
+			order.setStatus(Order.STATUS_RUNNING);
+			order.setUpdatedAt(now);
+			order.setPickedQty(order.getPickedQty() + orderPickedQty);
+			
+			pickedQty -= orderPickedQty;
+			updateOrderList.add(order.getId());
+		}
+		
+		this.queryManager.updateBatch(orderList, "status","updatedAt","pickedQty");
+		
+		// 2. 박스 실적 데이터의 상태를 '작업 중' (혹은 '피킹 중')으로 변경
+		BoxPack boxPack = AnyEntityUtil.findEntityById(true, BoxPack.class, job.getBoxPackId());
+		boxPack.setPickedQty(boxPack.getPickedQty() + resQty);
+		boxPack.setUpdatedAt(now);
+		
+		this.queryManager.update(boxPack,"updatedAt","pickedQty");
+		
+		// 3. 박스 상세 데이터의 picked_qty를 올리고 주문 수량 만큼 분류가 끝났는지 체크하여 상태를 '분류 중'으로 변경한다.
+		this.dpsBoxingService.updateBoxItemDataByOrder(batch.getDomainId(), job.getBoxPackId(), updateOrderList);
+		
+		// 4. TODO : 표시기에 해당 몇 개 처리되었는지 표시
+		
+		// 5. 작업이 끝난 후 박스 완료 체크, 릴레이 처리 등 체크
+//		this.executeRelay(job, location, false);
+		
+		// 6. 모바일 새로고침 명령 전달
+//		RefreshEvent event = new RefreshEvent(job.getDomainId(), job.getJobType(),location.getRegionCd(), location.getZoneCd(),null, RefreshEvent.REFRESH_DETAILS);
+//	    this.eventPublisher.publishEvent(event);
 	}
 }
