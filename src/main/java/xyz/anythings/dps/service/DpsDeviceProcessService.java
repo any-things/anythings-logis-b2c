@@ -16,7 +16,6 @@ import xyz.anythings.base.event.rest.DeviceProcessRestEvent;
 import xyz.anythings.base.model.BatchProgressRate;
 import xyz.anythings.base.model.EquipBatchSet;
 import xyz.anythings.base.query.store.BatchQueryStore;
-import xyz.anythings.base.rest.DeviceProcessController;
 import xyz.anythings.dps.DpsCodeConstants;
 import xyz.anythings.dps.DpsConstants;
 import xyz.anythings.dps.model.DpsBatchSummary;
@@ -26,7 +25,6 @@ import xyz.anythings.sys.service.AbstractExecutionService;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.elidom.dbist.dml.Page;
 import xyz.elidom.sys.entity.Domain;
-import xyz.elidom.util.BeanUtil;
 import xyz.elidom.util.DateUtil;
 import xyz.elidom.util.ValueUtil;
 
@@ -41,6 +39,8 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 	@Autowired 
 	DpsPickingService dpsPickingService;
 	
+	@Autowired
+	DpsJobStatusService dpsJobStatusService;
 	
 	@Autowired
 	BatchQueryStore batchQueryStore;
@@ -162,8 +162,7 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 		}
 		
 		// 5. 도착 한 버킷을 기준으로 input List 조회  
-		List<JobInput> tabList = BeanUtil.get(DeviceProcessController.class).searchInputList(equipType,equipCd,equipZone,input.getId());
-		
+		List<JobInput> tabList = this.dpsJobStatusService.searchInputList(batch, equipCd, equipZone, input.getId());
 		
 		// 6. 이벤트 처리 결과 셋팅 
 		event.setReturnResult(new BaseResponse(true,"", tabList));
@@ -180,10 +179,10 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 	 */
 	private DpsBatchSummary getBatchSummary(JobBatch batch, String equipType, String equipCd, int limit, int page) {
 		// 1. 작업 진행율 조회  
-		BatchProgressRate rate = BeanUtil.get(DeviceProcessController.class).batchProgressRate(equipType, equipCd);
+		BatchProgressRate rate = this.dpsJobStatusService.getBatchProgressSummary(batch);
 		
 		// 2. Input List 조회 
-		Page<JobInput> inputItems = BeanUtil.get(DeviceProcessController.class).searchInputList(equipType, equipCd, page, limit, null);
+		Page<JobInput> inputItems = this.dpsJobStatusService.paginateInputList(batch, equipCd, null, page, limit);
 		
 		// 3. parameter
 		Map<String,Object> params = ValueUtil.newMap("domainId,batchId,equipType",Domain.currentDomainId(), batch.getId(),equipType);
