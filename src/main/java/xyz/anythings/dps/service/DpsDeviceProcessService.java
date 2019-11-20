@@ -9,15 +9,16 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-import xyz.anythings.base.LogisCodeConstants;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInput;
+import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.event.rest.DeviceProcessRestEvent;
 import xyz.anythings.base.model.BatchProgressRate;
 import xyz.anythings.base.model.EquipBatchSet;
 import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.base.rest.DeviceProcessController;
 import xyz.anythings.dps.DpsCodeConstants;
+import xyz.anythings.dps.DpsConstants;
 import xyz.anythings.dps.model.DpsBatchSummary;
 import xyz.anythings.dps.service.util.DpsServiceUtil;
 import xyz.anythings.sys.model.BaseResponse;
@@ -26,6 +27,7 @@ import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.elidom.dbist.dml.Page;
 import xyz.elidom.sys.entity.Domain;
 import xyz.elidom.util.BeanUtil;
+import xyz.elidom.util.DateUtil;
 import xyz.elidom.util.ValueUtil;
 
 /**
@@ -95,7 +97,7 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(domainId, equipType, equipCd);
 		JobBatch batch = equipBatchSet.getBatch();
 		
-		boolean isBox = ValueUtil.isEqualIgnoreCase(inputType, LogisCodeConstants.CLASSIFICATION_INPUT_TYPE_BOX) ? true : false;
+		boolean isBox = ValueUtil.isEqualIgnoreCase(inputType, DpsCodeConstants.CLASSIFICATION_INPUT_TYPE_BOX) ? true : false;
 		
 		// 2. 버킷 투입 ( 박스 or 트레이 )
 		this.dpsPickingService.inputEmptyBucket(domainId, batch, isBox, bucketCd);
@@ -134,7 +136,7 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 		
 		// 3.2 없으면 진행중 상태에서 조회 
 		if(ValueUtil.isEmpty(input)) {
-			// 재고 부족으로 다시 작업 존에 박스 도착 했을 경우 ????
+			// TODO 재고 부족으로 다시 작업 존에 박스 도착 했을 경우 ????
 			// 없으면 error 
 			input = AnyEntityUtil.findEntityBy(domainId, true, JobInput.class, null, "batchId,equipType,equipCd,stationCd,boxId,status", batch.getId(), equipType,equipCd,equipZone,bucketCd,DpsCodeConstants.JOB_INPUT_STATUS_RUN);
 		}
@@ -145,11 +147,25 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 			this.queryManager.update(input, "status");
 		}
 		
-		// 4. 도착 한 버킷을 기준으로 input List 조회  
+		// 3.4 jobInstance 조회 
+		List<JobInstance> instanceList = AnyEntityUtil.searchEntitiesBy(domainId, false, JobInstance.class, "id", "batchId,orderNo,inputSeq,status", batch.getId(), input.getOrderNo(), input.getInputSeq(), DpsConstants.JOB_STATUS_INPUT);
+		if(ValueUtil.isNotEmpty(instanceList)) {
+			String nowStr = DateUtil.currentTimeStr();
+			
+			// 3.5 상태 변경 피킹 시작 시간 셋팅 
+			for(JobInstance instance : instanceList) {
+				instance.setStatus(DpsConstants.JOB_STATUS_PICKING);
+				instance.setPickStartedAt(nowStr);
+			}
+			
+			this.queryManager.updateBatch(instanceList, "status","pickStartedAt");
+		}
+		
+		// 5. 도착 한 버킷을 기준으로 input List 조회  
 		List<JobInput> tabList = BeanUtil.get(DeviceProcessController.class).searchInputList(equipType,equipCd,equipZone,input.getId());
 		
 		
-		// 5. 이벤트 처리 결과 셋팅 
+		// 6. 이벤트 처리 결과 셋팅 
 		event.setReturnResult(new BaseResponse(true,"", tabList));
 		event.setExecuted(true);
 	}

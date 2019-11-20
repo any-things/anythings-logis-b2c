@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import xyz.anythings.base.LogisConstants;
 import xyz.anythings.base.entity.BatchReceipt;
 import xyz.anythings.base.entity.BatchReceiptItem;
 import xyz.anythings.base.entity.JobBatch;
@@ -20,6 +19,7 @@ import xyz.anythings.base.event.main.BatchReceiveEvent;
 import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.base.service.util.BatchJobConfigUtil;
 import xyz.anythings.base.util.LogisBaseUtil;
+import xyz.anythings.dps.DpsConstants;
 import xyz.anythings.sys.service.AbstractQueryService;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.anythings.sys.util.AnyOrmUtil;
@@ -108,7 +108,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 	private BatchReceipt checkRunningOrderReceipt(BatchReceipt receipt) {
 		Map<String,Object> paramMap = ValueUtil.newMap("domainId,comCd,areaCd,stageCd,jobDate,status", 
 				receipt.getDomainId(), receipt.getComCd(), receipt.getAreaCd(), receipt.getStageCd(), receipt.getJobDate(),
-				ValueUtil.newStringList(LogisConstants.COMMON_STATUS_WAIT, LogisConstants.COMMON_STATUS_RUNNING));
+				ValueUtil.newStringList(DpsConstants.COMMON_STATUS_WAIT, DpsConstants.COMMON_STATUS_RUNNING));
 		
 		BatchReceipt receiptData = 
 				this.queryManager.selectBySql(this.batchQueryStore.getBatchReceiptOrderTypeStatusQuery(), paramMap, BatchReceipt.class);
@@ -133,7 +133,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		List<BatchReceiptItem> items = receipt.getItems();
 		
 		for(BatchReceiptItem item : items) {
-			if(ValueUtil.isEqualIgnoreCase(LogisConstants.JOB_TYPE_DAS, item.getJobType()) || ValueUtil.isEqualIgnoreCase(LogisConstants.JOB_TYPE_RTN, item.getJobType())) {
+			if(ValueUtil.isEqualIgnoreCase(DpsConstants.JOB_TYPE_DAS, item.getJobType()) || ValueUtil.isEqualIgnoreCase(DpsConstants.JOB_TYPE_RTN, item.getJobType())) {
 				this.startToReceiveData(receipt, item);
 			}
 		}
@@ -160,7 +160,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 	 */
 	private BatchReceipt startToReceiveData(BatchReceipt receipt, BatchReceiptItem item, Object ... params) {
 		// 1. 수신 시작 : 상태 업데이트 - 진행중 
-		receipt.updateStatusImmediately(LogisConstants.COMMON_STATUS_RUNNING);
+		receipt.updateStatusImmediately(DpsConstants.COMMON_STATUS_RUNNING);
 		
 		// TODO : 데이터 복사 방식 / 컬럼 설정에서 가져오기 
 		String[] sourceFields = {"WMS_BATCH_NO", "WCS_BATCH_NO", "JOB_DATE", "JOB_SEQ", "JOB_TYPE", "ORDER_DATE", "ORDER_NO", "ORDER_LINE_NO", "ORDER_DETAIL_ID", "CUST_ORDER_NO", "CUST_ORDER_LINE_NO", "COM_CD", "AREA_CD", "STAGE_CD", "EQUIP_TYPE", "EQUIP_CD", "EQUIP_NM", "SUB_EQUIP_CD", "SHOP_CD", "SHOP_NM", "SKU_CD", "SKU_BARCD", "SKU_NM", "BOX_TYPE_CD", "BOX_IN_QTY", "ORDER_QTY", "PICKED_QTY", "BOXED_QTY", "CANCEL_QTY", "BOX_ID", "INVOICE_ID", "ORDER_TYPE", "CLASS_CD", "PACK_TYPE", "VEHICLE_NO", "LOT_NO", "FROM_ZONE_CD", "FROM_CELL_CD", "TO_ZONE_CD", "TO_CELL_CD"};
@@ -172,7 +172,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		try {
 			// 2. skip 이면 pass
 			if(item.getSkipFlag()) {
-				item.updateStatusImmediately(LogisConstants.COMMON_STATUS_SKIPPED, null);
+				item.updateStatusImmediately(DpsConstants.COMMON_STATUS_SKIPPED, null);
 				return receipt;
 			}
 						
@@ -180,30 +180,30 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 			++jobSeq;
 			
 			// 4. BatchReceiptItem 상태 업데이트  - 진행 중 
-			item.updateStatusImmediately(LogisConstants.COMMON_STATUS_RUNNING, null);
+			item.updateStatusImmediately(DpsConstants.COMMON_STATUS_RUNNING, null);
 			
 			// 5. JobBatch 생성 
 			JobBatch batch = JobBatch.createJobBatch(item.getBatchId(), jobSeq, receipt, item);
 			
 			// 6. 데이터 복사  
-			this.cloneData(item.getBatchId(), jobSeq, "wms_if_orders", sourceFields, targetFields, fieldNames, item.getComCd(), item.getAreaCd(), item.getStageCd(), item.getWmsBatchNo(), LogisConstants.N_CAP_STRING);
+			this.cloneData(item.getBatchId(), jobSeq, "wms_if_orders", sourceFields, targetFields, fieldNames, item.getComCd(), item.getAreaCd(), item.getStageCd(), item.getWmsBatchNo(), DpsConstants.N_CAP_STRING);
 			
 			// 7. JobBatch 상태 변경  
-			batch.updateStatusImmediately(LogisConstants.isB2CJobType(batch.getJobType())? JobBatch.STATUS_READY : JobBatch.STATUS_WAIT);
+			batch.updateStatusImmediately(DpsConstants.isB2CJobType(batch.getJobType())? JobBatch.STATUS_READY : JobBatch.STATUS_WAIT);
 			
 			// 8. batchReceiptItem 상태 업데이트 
-			item.updateStatusImmediately(LogisConstants.COMMON_STATUS_FINISHED, null);
+			item.updateStatusImmediately(DpsConstants.COMMON_STATUS_FINISHED, null);
 			
 		} catch(Exception e) {
 			exceptionOccurred = true;
 			String errMsg = e.getCause().getMessage();
 			errMsg = errMsg.length() > 400 ? errMsg.substring(0,400) : errMsg;
-			item.updateStatusImmediately(LogisConstants.COMMON_STATUS_ERROR, errMsg);
+			item.updateStatusImmediately(DpsConstants.COMMON_STATUS_ERROR, errMsg);
 		}
 		
 		// 9. 에러 발생인 경우 수신 상태 에러로 업데이트
 		if(exceptionOccurred) {
-			receipt.updateStatusImmediately(LogisConstants.COMMON_STATUS_ERROR);
+			receipt.updateStatusImmediately(DpsConstants.COMMON_STATUS_ERROR);
 		}
 		
 		return receipt;

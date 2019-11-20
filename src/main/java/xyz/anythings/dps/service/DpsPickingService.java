@@ -13,10 +13,12 @@ import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.entity.ifc.IBucket;
 import xyz.anythings.base.event.IClassifyInEvent;
 import xyz.anythings.base.event.IClassifyRunEvent;
+import xyz.anythings.dps.DpsConstants;
 import xyz.anythings.dps.service.impl.AbstractDpsPickingService;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.anythings.sys.util.AnyValueUtil;
 import xyz.elidom.exception.server.ElidomRuntimeException;
+import xyz.elidom.exception.server.ElidomServiceException;
 import xyz.elidom.sys.util.MessageUtil;
 import xyz.elidom.sys.util.ValueUtil;
 
@@ -152,18 +154,21 @@ public class DpsPickingService extends AbstractDpsPickingService{
 		// 1. JobInstance 조회 
 		JobInstance job = AnyEntityUtil.findEntityById(true, JobInstance.class, exeEvent.getJobInstanceId());
 		
+		if(ValueUtil.isEqualIgnoreCase(job.getStatus(), DpsConstants.JOB_STATUS_PICKING) == false) {
+			throw new ElidomServiceException("확정 처리는 피킹중 상태에서만 가능합니다.");
+		}
+		
 		// 2. Cell 조회 
 		Cell cell = AnyEntityUtil.findEntityBy(domainId, true, Cell.class, null, "equipType,equipCd,cellCd", job.getEquipType(),job.getEquipCd(),job.getSubEquipCd());
 		
-		
 		// 3. 작업 처리 전 액션 
-		int pickQty = this.beforeConfirmPick(batch, job, cell, exeEvent.getResQty());
+		int pickQty = this.beforeConfirmPick(domainId, batch, job, cell, exeEvent.getResQty());
 		
 		if(pickQty > 0) {
 			// 4. 분류 작업 처리
-			this.doConfirmPick(batch, job, cell, pickQty);
+			this.doConfirmPick(domainId, batch, job, cell, pickQty);
 			// 5. 작업 처리 후 액션
-			this.afterComfirmPick(batch, job, cell, pickQty);
+			this.afterComfirmPick(domainId, batch, job, cell, pickQty);
 		}
 		
 		exeEvent.setExecuted(true);
