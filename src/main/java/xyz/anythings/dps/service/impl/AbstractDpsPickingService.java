@@ -7,7 +7,6 @@ import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
-import xyz.anythings.base.LogisConfigConstants;
 import xyz.anythings.base.entity.BoxPack;
 import xyz.anythings.base.entity.BoxType;
 import xyz.anythings.base.entity.Cell;
@@ -29,18 +28,16 @@ import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.base.query.store.BoxQueryStore;
 import xyz.anythings.base.service.api.IBoxingService;
 import xyz.anythings.base.service.api.IPickingService;
-import xyz.anythings.base.service.impl.JobConfigProfileService;
-import xyz.anythings.base.service.util.BatchJobConfigUtil;
-import xyz.anythings.base.service.util.LogisServiceUtil;
 import xyz.anythings.dps.DpsCodeConstants;
 import xyz.anythings.dps.DpsConstants;
 import xyz.anythings.dps.service.DpsBoxingService;
 import xyz.anythings.dps.service.DpsJobStatusService;
+import xyz.anythings.dps.service.util.DpsBatchJobConfigUtil;
+import xyz.anythings.dps.service.util.DpsServiceUtil;
 import xyz.anythings.sys.model.BaseResponse;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.elidom.exception.server.ElidomRuntimeException;
 import xyz.elidom.orm.IQueryManager;
-import xyz.elidom.sys.SysConstants;
 import xyz.elidom.sys.entity.User;
 import xyz.elidom.sys.util.DateUtil;
 import xyz.elidom.sys.util.MessageUtil;
@@ -55,12 +52,6 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	 */
 	@Autowired
 	protected IQueryManager queryManager;
-	
-	/**
-	 * 작업 설정 프로파일
-	 */
-	@Autowired
-	protected JobConfigProfileService configProfileService;
 	
 	/**
 	 * 박싱 서비스 
@@ -361,7 +352,7 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 		if(ValueUtil.isEqualIgnoreCase(DpsCodeConstants.BOX_TYPE_TRAY, bucket.getBucketType())) {
 			TrayBox tray = (TrayBox)bucket;
 			tray.setStatus(DpsConstants.COMMON_STATUS_INPUT);
-			this.queryManager.update(tray, "status");
+			this.queryManager.update(tray, DpsConstants.ENTITY_FIELD_STATUS);
 		}
 		
 		// TODO 박스 경로 IF
@@ -389,7 +380,7 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 		Map<String,Object> params = ValueUtil.newMap("domainId,batchId,equipType,orderNo", domainId,batch.getId(), batch.getEquipType(), orderNo);
 		
 		// 1.3. 조회 
-		List<JobInput> inputList =  this.queryManager.selectListBySql(newInputsQuery, params, JobInput.class, 0, 0);
+		List<JobInput> inputList = AnyEntityUtil.searchItems(domainId, false, JobInput.class, newInputsQuery, params);
 		
 		// 2. 투입 번호 셋팅 및 input 데이터 생성  
 		// 2.1 주문 - 박스 ID 매핑 쿼리 
@@ -486,13 +477,13 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 		// 1. 박스 타입이면 박스 에서 조회 
 		if(isBox) {
 			String boxTypeCd = getBoxTypeByBoxId(batch, bucketCd);
-			BoxType boxType = LogisServiceUtil.findBoxType(domainId, boxTypeCd, withLock, true);
+			BoxType boxType = DpsServiceUtil.findBoxType(domainId, boxTypeCd, withLock, true);
 			boxType.setBoxId(bucketCd);
 			return boxType;
 			
 		// 2. 트레이 타입이면 트레이에서 조회 
 		} else {
-			return LogisServiceUtil.findTrayBox(domainId, bucketCd, withLock, true);
+			return DpsServiceUtil.findTrayBox(domainId, bucketCd, withLock, true);
 		}
 	}
 
@@ -506,7 +497,7 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	 */
 	private boolean checkUniqueBoxId(Long domainId, JobBatch batch, String boxId) {
 		// 1. 박스 아이디 유니크 범위 설정, TODO API에 기본값 및 존재하지 않는 경우 예외 발생 여부 옵션 필요 
-		String uniqueScope = BatchJobConfigUtil.getBoxIdUniqueScope(batch,false);
+		String uniqueScope = DpsBatchJobConfigUtil.getBoxIdUniqueScope(batch, false);
 		
 		// 1.1. 설정 값이 없으면 기본 GLOBAL
 		if(ValueUtil.isEmpty(uniqueScope)) {
@@ -535,15 +526,16 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	 */
 	private String getBoxTypeByBoxId(JobBatch batch, String boxId) {
 		// 1. 박스 ID 에 박스 타입 split 기준, TODO BatchJobConfigUtil 메소드 호출로 수정 
-		String boxTypeSplit = this.configProfileService.getConfigValue(batch, LogisConfigConstants.DPS_INPUT_BOX_TYPE_SPLIT_INDEX);
+		// DpsConfigConstants.DPS_INPUT_BOX_TYPE_SPLIT_INDEX);
+		String boxTypeSplit = "0,1";
 		
-		// 2. 설정 값이 없으면 기본 GLOBAL
+		// 2. 설정 값이 없으면 기본 0,1
 		if(ValueUtil.isEmpty(boxTypeSplit) || boxTypeSplit.length() < 3) {
 			boxTypeSplit = "0,1";
 		}
 		
 		// 3. 기준에 따라 박스 타입 분할 
-		String[] splitIndex = boxTypeSplit.split(SysConstants.COMMA);
+		String[] splitIndex = boxTypeSplit.split(DpsConstants.COMMA);
 		String boxType = boxId.substring(ValueUtil.toInteger(splitIndex[0]), ValueUtil.toInteger(splitIndex[1]));
 		return boxType;
 	}
@@ -570,7 +562,7 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 				, domainId, mapColumn, batch.getId(), orderType, boxTypeCd);
 		
 		// 3. 조회 ( 맵핑 기준에 따라 결과가 달라짐 )
-		return this.queryManager.selectBySql(qry, params, String.class);
+		return AnyEntityUtil.findItem(domainId, false, String.class, qry, params);
 	}
 	
 	
@@ -619,7 +611,7 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 		job.setPickingQty(0);
 		job.setUpdatedAt(new Date());
 		
-		this.queryManager.update(job, "status", "pickEndedAt", "pickedQty", "pickingQty", "updatedAt");
+		this.queryManager.update(job, DpsConstants.ENTITY_FIELD_STATUS, "pickEndedAt", "pickedQty", "pickingQty", DpsConstants.ENTITY_FIELD_UPDATED_AT);
 
 		// 2. 합포의 경우 에만 
 		if(ValueUtil.isEqualIgnoreCase(job.getOrderType(), DpsCodeConstants.DPS_ORDER_TYPE_MT)) {
@@ -631,7 +623,7 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 			stock.setUpdatedAt(new Date());
 			
 			// 2.2 재고 업데이트 
-			this.queryManager.update(stock, "allocQty", "pickedQty", "updatedAt");
+			this.queryManager.update(stock, "allocQty", "pickedQty", DpsConstants.ENTITY_FIELD_UPDATED_AT);
 			
 			// 2.3 TODO : 같은 cell 에 다른 bin 의 상품이 걸려 있는 경우 처리 필요 
 			// 지시기 점등 ? 
@@ -651,7 +643,7 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 		
 		// 1. 주문 확정 수량 업데이트
 		String findOrderList = this.batchQueryStore.getFindOrderQtyUpdateListQuery();
-		List<Order> orderList = this.queryManager.selectListBySql(findOrderList, params, Order.class, 0, 0);
+		List<Order> orderList = AnyEntityUtil.searchItems(domainId, false, Order.class, findOrderList, params) ;
 		
 		int pickedQty = resQty;
 		int orderPickedQty = 0;
@@ -671,14 +663,14 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 			updateOrderList.add(order.getId());
 		}
 		
-		this.queryManager.updateBatch(orderList, "status","updatedAt","pickedQty");
+		this.queryManager.updateBatch(orderList, DpsConstants.ENTITY_FIELD_STATUS,DpsConstants.ENTITY_FIELD_UPDATED_AT,"pickedQty");
 		
 		// 2. 박스 실적 데이터의 상태를 '작업 중' (혹은 '피킹 중')으로 변경
 		BoxPack boxPack = AnyEntityUtil.findEntityById(true, BoxPack.class, job.getBoxPackId());
 		boxPack.setPickedQty(boxPack.getPickedQty() + resQty);
 		boxPack.setUpdatedAt(now);
 		
-		this.queryManager.update(boxPack,"updatedAt","pickedQty");
+		this.queryManager.update(boxPack,DpsConstants.ENTITY_FIELD_UPDATED_AT,"pickedQty");
 		
 		// 3. 박스 상세 데이터의 picked_qty를 올리고 주문 수량 만큼 분류가 끝났는지 체크하여 상태를 '분류 중'으로 변경한다.
 		this.dpsBoxingService.updateBoxItemDataByOrder(domainId, job.getBoxPackId(), updateOrderList);
@@ -716,7 +708,7 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 		if(pickingCnt == 0 ) {
 			input.setStatus(DpsCodeConstants.JOB_INPUT_STATUS_FINISHED);
 			input.setUpdatedAt(new Date());
-			this.queryManager.update(input, "status", "updatedAt");
+			this.queryManager.update(input, DpsConstants.ENTITY_FIELD_STATUS, DpsConstants.ENTITY_FIELD_UPDATED_AT);
 		}
 	}
 }

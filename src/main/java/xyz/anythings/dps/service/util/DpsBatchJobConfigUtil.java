@@ -1,8 +1,8 @@
 package xyz.anythings.dps.service.util;
 
-import xyz.anythings.base.LogisConfigConstants;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.service.util.BatchJobConfigUtil;
+import xyz.anythings.dps.DpsConfigConstants;
 import xyz.elidom.sys.util.ValueUtil;
 
 /**
@@ -38,7 +38,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 */
 	public static String getInputBoxType(JobBatch batch) {
 		// job.dps.input.box.type						
-		return getConfigValue(batch, LogisConfigConstants.DPS_INPUT_BOX_TYPE, true);
+		return getConfigValue(batch, DpsConfigConstants.DPS_INPUT_BOX_TYPE, true);
 	}
 	
 	/**
@@ -49,7 +49,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 */
 	public static String getCellMappingTargetField(JobBatch batch) {
 		// job.dps.preproces.cell.mapping.field
-		return getConfigValue(batch, LogisConfigConstants.DPS_PREPROCESS_CELL_MAPPING_FIELD, true);
+		return getConfigValue(batch, DpsConfigConstants.DPS_PREPROCESS_CELL_MAPPING_FIELD, true);
 	}
 	
 	/**
@@ -60,7 +60,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 */
 	public static int getStationWaitPoolCount(JobBatch batch) {
 		// job.dps.station.wait-pool.count
-		String intVal = getConfigValue(batch, LogisConfigConstants.DPS_STATION_WAIT_POOL_COUNT, true);
+		String intVal = getConfigValue(batch, DpsConfigConstants.DPS_STATION_WAIT_POOL_COUNT, true);
 		return ValueUtil.toInteger(intVal);
 	}
 	
@@ -72,7 +72,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 */
 	public static boolean isSeparatedBatchByRack(JobBatch batch) {
 		// job.dps.batch.split-by-rack.enabled
-		String boolVal = getConfigValue(batch, LogisConfigConstants.DPS_BATCH_SPLIT_BY_RACK_ENABLED, true);
+		String boolVal = getConfigValue(batch, DpsConfigConstants.DPS_BATCH_SPLIT_BY_RACK_ENABLED, true);
 		return ValueUtil.toBoolean(boolVal);
 	}
 	
@@ -84,7 +84,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 */
 	public static String getSkuRankingTargetDays(JobBatch batch) {
 		// job.dps.sku.popula.rank.calc.days
-		return getConfigValue(batch, LogisConfigConstants.DPS_SKU_POPULAR_RANK_CALC_DAYS, true);
+		return getConfigValue(batch, DpsConfigConstants.DPS_SKU_POPULAR_RANK_CALC_DAYS, true);
 	}
 	
 	/**
@@ -96,7 +96,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 */
 	public static boolean isSingleOneBoxClassEnabled(JobBatch batch) {
 		// job.dps.pick.1box.enabled
-		String boolVal = getConfigValue(batch, LogisConfigConstants.DPS_PICK_1BOX_ENABLED, true);
+		String boolVal = getConfigValue(batch, DpsConfigConstants.DPS_PICK_1BOX_ENABLED, true);
 		return ValueUtil.toBoolean(boolVal);
 	}
 	
@@ -109,7 +109,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 */
 	public static boolean isSingleSku1PcsClassEnabled(JobBatch batch) {
 		// job.dps.pick.1sku.1pcs.enabled
-		String boolVal = getConfigValue(batch, LogisConfigConstants.DPS_PICK_1SKU_1PCS_ENABLED, true);
+		String boolVal = getConfigValue(batch, DpsConfigConstants.DPS_PICK_1SKU_1PCS_ENABLED, true);
 		return ValueUtil.toBoolean(boolVal);
 	}
 	
@@ -121,7 +121,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 */
 	public static boolean isSingleSkuNpcsClassEnabled(JobBatch batch) {
 		// job.dps.pick.1sku.npcs.enabled
-		String boolVal = getConfigValue(batch, LogisConfigConstants.DPS_PICK_1SKU_NPCS_ENABLED, true);
+		String boolVal = getConfigValue(batch, DpsConfigConstants.DPS_PICK_1SKU_NPCS_ENABLED, true);
 		return ValueUtil.toBoolean(boolVal);
 	}
 	
@@ -133,7 +133,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 */
 	public static boolean isRecommendCellEnabled(JobBatch batch) {
 		// job.dps.supple.recommend-cell.enabled
-		String boolVal = getConfigValue(batch, LogisConfigConstants.DPS_SUPPLE_RECOMMEND_CELL_ENABLED, true);
+		String boolVal = getConfigValue(batch, DpsConfigConstants.DPS_SUPPLE_RECOMMEND_CELL_ENABLED, true);
 		return ValueUtil.toBoolean(boolVal);
 	}
 	
@@ -145,7 +145,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 */
 	public static boolean isPickingWithInspectionEnabled(JobBatch batch) {
 		// job.dps.pick.with-inspection.enabled
-		String boolVal = getConfigValue(batch, LogisConfigConstants.DPS_PICK_WITH_INSPECTION_ENABLED, true);
+		String boolVal = getConfigValue(batch, DpsConfigConstants.DPS_PICK_WITH_INSPECTION_ENABLED, true);
 		return ValueUtil.toBoolean(boolVal);
 	}
 

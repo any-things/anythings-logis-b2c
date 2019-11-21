@@ -9,6 +9,7 @@ import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInput;
 import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.service.impl.AbstractJobStatusService;
+import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.elidom.dbist.dml.Page;
 import xyz.elidom.sys.util.ValueUtil;
 
@@ -46,8 +47,8 @@ public class DpsJobStatusService extends AbstractJobStatusService {
 		if(ValueUtil.isNotEmpty(selectedInputId)) {
 			params.put("selectedInputId", selectedInputId); //기준이 될 Bucket Input  ( ex) 박스 도착 후 조회 되는 리스트 )
 		}
-
-		return this.queryManager.selectListBySql(qry, params, JobInput.class, 0, 0);
+		
+		return AnyEntityUtil.searchItems(batch.getDomainId(), false, JobInput.class, qry, params);
 	}
 
 	/**
@@ -61,6 +62,7 @@ public class DpsJobStatusService extends AbstractJobStatusService {
 		Map<String,Object> params = ValueUtil.newMap("domainId,batchId,equipType,equipCd,orderNo,equipZone,stageCd"
 									, batch.getDomainId(),batch.getId(),batch.getEquipType(),input.getEquipCd()
 									, input.getOrderNo(),stationCd,batch.getStageCd());
-		return this.queryManager.selectListBySql(detailListQry, params, JobInstance.class, 0, 0);
+		
+		return AnyEntityUtil.searchItems(batch.getDomainId(), false, JobInstance.class, detailListQry, params);
 	}
 }

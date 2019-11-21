@@ -24,6 +24,7 @@ import xyz.anythings.sys.model.BaseResponse;
 import xyz.anythings.sys.service.AbstractExecutionService;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.elidom.dbist.dml.Page;
+import xyz.elidom.sys.SysConstants;
 import xyz.elidom.sys.entity.Domain;
 import xyz.elidom.util.DateUtil;
 import xyz.elidom.util.ValueUtil;
@@ -144,11 +145,15 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 		// 3.3 상태 update (WAIT = > RUNNING )
 		if(ValueUtil.isEqualIgnoreCase(input.getStatus(), DpsCodeConstants.JOB_INPUT_STATUS_WAIT)) {
 			input.setStatus(DpsCodeConstants.JOB_INPUT_STATUS_RUN);
-			this.queryManager.update(input, "status");
+			this.queryManager.update(input, SysConstants.ENTITY_FIELD_STATUS);
 		}
 		
 		// 3.4 jobInstance 조회 
-		List<JobInstance> instanceList = AnyEntityUtil.searchEntitiesBy(domainId, false, JobInstance.class, "id", "batchId,orderNo,inputSeq,status", batch.getId(), input.getOrderNo(), input.getInputSeq(), DpsConstants.JOB_STATUS_INPUT);
+		List<JobInstance> instanceList 
+			= AnyEntityUtil.searchEntitiesBy(domainId, false, JobInstance.class, DpsConstants.ENTITY_FIELD_ID, 
+											"batchId,orderNo,inputSeq,status"
+											, batch.getId(), input.getOrderNo(), input.getInputSeq(), DpsConstants.JOB_STATUS_INPUT);
+		
 		if(ValueUtil.isNotEmpty(instanceList)) {
 			String nowStr = DateUtil.currentTimeStr();
 			
@@ -158,7 +163,7 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 				instance.setPickStartedAt(nowStr);
 			}
 			
-			this.queryManager.updateBatch(instanceList, "status","pickStartedAt");
+			this.queryManager.updateBatch(instanceList, SysConstants.ENTITY_FIELD_STATUS,"pickStartedAt");
 		}
 		
 		// 5. 도착 한 버킷을 기준으로 input List 조회  
@@ -193,7 +198,7 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 		
 		// 4. 투입 가능 박스 수량 조회 
 		String inputableBoxQuery = this.batchQueryStore.getRackDpsBatchInputableBoxQuery();
-		Integer inputableBox = this.queryManager.selectBySql(inputableBoxQuery, params, Integer.class);
+		Integer inputableBox = AnyEntityUtil.findItem(batch.getDomainId(), false, Integer.class, inputableBoxQuery, params);
 		
 		return new DpsBatchSummary(rate,inputItems,inputableBox);
 	}

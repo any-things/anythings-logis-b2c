@@ -27,7 +27,7 @@ import xyz.anythings.sys.util.AnyValueUtil;
 import xyz.elidom.dbist.dml.Query;
 import xyz.elidom.dbist.util.StringJoiner;
 import xyz.elidom.exception.server.ElidomRuntimeException;
-import xyz.elidom.sys.SysConstants;
+import xyz.elidom.sys.entity.Domain;
 import xyz.elidom.util.ValueUtil;
 
 /**
@@ -96,7 +96,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 	private List<BatchReceiptItem> getWmfIfToReceiptItems(BatchReceipt receipt) {
 		Map<String,Object> params = ValueUtil.newMap("domainId,comCd,areaCd,stageCd,jobDate",
 				receipt.getDomainId(), receipt.getComCd(), receipt.getAreaCd(), receipt.getStageCd(), receipt.getJobDate());
-		return this.queryManager.selectListBySql(this.batchQueryStore.getWmsIfToReceiptDataQuery(), params, BatchReceiptItem.class, 0, 0);
+		return AnyEntityUtil.searchItems(receipt.getDomainId(), false, BatchReceiptItem.class, this.batchQueryStore.getWmsIfToReceiptDataQuery(), params);
 	}
 	
 	/**
@@ -106,12 +106,11 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 	 * @return
 	 */
 	private BatchReceipt checkRunningOrderReceipt(BatchReceipt receipt) {
-		Map<String,Object> paramMap = ValueUtil.newMap("domainId,comCd,areaCd,stageCd,jobDate,status", 
+		Map<String,Object> params = ValueUtil.newMap("domainId,comCd,areaCd,stageCd,jobDate,status", 
 				receipt.getDomainId(), receipt.getComCd(), receipt.getAreaCd(), receipt.getStageCd(), receipt.getJobDate(),
 				ValueUtil.newStringList(DpsConstants.COMMON_STATUS_WAIT, DpsConstants.COMMON_STATUS_RUNNING));
 		
-		BatchReceipt receiptData = 
-				this.queryManager.selectBySql(this.batchQueryStore.getBatchReceiptOrderTypeStatusQuery(), paramMap, BatchReceipt.class);
+		BatchReceipt receiptData = AnyEntityUtil.findItem(receipt.getDomainId(), false, BatchReceipt.class, this.batchQueryStore.getBatchReceiptOrderTypeStatusQuery(), params);
 		
 		// 대기 중 또는 진행 중인 수신 정보 리턴 
 		if(receiptData != null) {
@@ -227,7 +226,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 								, String fieldNames, Object ... fieldValues) throws Exception {
 		
 		// 1. 조회 쿼리 생성  
-		StringJoiner qry = new StringJoiner(SysConstants.LINE_SEPARATOR);
+		StringJoiner qry = new StringJoiner(DpsConstants.LINE_SEPARATOR);
 		
 		// 1.1 select 필드 셋팅 
 		qry.add("select 1 ");
@@ -239,8 +238,8 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		qry.add("  from " + sourceTable);
 		
 		// 1.3 where 조건 생성 
-		StringJoiner whereStr = new StringJoiner(SysConstants.LINE_SEPARATOR);
-		String[] keyArr = fieldNames.split(SysConstants.COMMA);
+		StringJoiner whereStr = new StringJoiner(DpsConstants.LINE_SEPARATOR);
+		String[] keyArr = fieldNames.split(DpsConstants.COMMA);
 		
 		
 		// 1.3.1 치환 가능 하도록 쿼리문 생성 
@@ -252,8 +251,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		
 		// 2. 조회  
 		Map<String,Object> params = ValueUtil.newMap(fieldNames, fieldValues);
-		List<Order> sourceList = this.queryManager.selectListBySql(qry.toString(), params, Order.class, 0, 0);
-
+		List<Order> sourceList = AnyEntityUtil.searchItems(Domain.currentDomainId(), false, Order.class, qry.toString(), params);
 		List<Order> targetList = new ArrayList<Order>(sourceList.size());
 		// 3. target 데이터 생성 
 		for(Order sourceItem : sourceList) {
@@ -280,7 +278,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		JobBatch batch = event.getJobBatch();
 		
 		// 2. 배치 상태 체크
-		String currentStatus = AnyEntityUtil.findItemOneColumn(batch.getDomainId(), true, String.class, JobBatch.class, "status", "id", batch.getId());
+		String currentStatus = AnyEntityUtil.findItemOneColumn(batch.getDomainId(), true, String.class, JobBatch.class, DpsConstants.ENTITY_FIELD_STATUS, DpsConstants.ENTITY_FIELD_ID, batch.getId());
 		
 		if(ValueUtil.isNotEqual(currentStatus, JobBatch.STATUS_WAIT) && ValueUtil.isNotEqual(currentStatus, JobBatch.STATUS_READY)) {
 			throw new ElidomRuntimeException("작업 대기 상태에서만 취소가 가능 합니다.");
@@ -306,7 +304,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		batch.updateStatus(JobBatch.STATUS_CANCEL);
 		
 		// 2. 주문 조회 
-		List<Order> orderList = AnyEntityUtil.searchEntitiesBy(batch.getDomainId(), false, Order.class, "id", "batchId", batch.getId());
+		List<Order> orderList = AnyEntityUtil.searchEntitiesBy(batch.getDomainId(), false, Order.class, DpsConstants.ENTITY_FIELD_ID, "batchId", batch.getId());
 		
 		// 3. 취소 상태 , seq = 0 셋팅 
 		for(Order order : orderList) {
@@ -315,7 +313,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		}
 		
 		// 4. 배치 update
-		this.queryManager.updateBatch(orderList, "jobSeq","status");
+		this.queryManager.updateBatch(orderList, "jobSeq",DpsConstants.ENTITY_FIELD_STATUS);
 		cnt += orderList.size();
 		
 		// 5. 주문 가공 데이터 삭제  
