@@ -16,7 +16,7 @@ import xyz.elidom.sys.util.ValueUtil;
 public class DpsJobStatusService extends AbstractJobStatusService {
 
 	/**
-	 * 키오스크 박스 투입 리스트 
+	 * 키오스크 작업 투입 리스트 
 	 */
 	@Override
 	public Page<JobInput> paginateInputList(JobBatch batch, String equipCd, String status, int page, int limit) {

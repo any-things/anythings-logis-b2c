@@ -280,9 +280,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		JobBatch batch = event.getJobBatch();
 		
 		// 2. 배치 상태 체크
-		String sql = "select status from job_batches where domain_id = :domainId and id = :id";
-		Map<String, Object> params = ValueUtil.newMap("domainId,id", batch.getDomainId(), batch.getId());
-		String currentStatus = AnyEntityUtil.findItem(batch.getDomainId(), true, String.class, sql, params);
+		String currentStatus = AnyEntityUtil.findItemOneColumn(batch.getDomainId(), true, String.class, JobBatch.class, "status", "id", batch.getId());
 		
 		if(ValueUtil.isNotEqual(currentStatus, JobBatch.STATUS_WAIT) && ValueUtil.isNotEqual(currentStatus, JobBatch.STATUS_READY)) {
 			throw new ElidomRuntimeException("작업 대기 상태에서만 취소가 가능 합니다.");
