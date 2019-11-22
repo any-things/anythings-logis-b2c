@@ -65,4 +65,10 @@ public class DpsJobStatusService extends AbstractJobStatusService {
 		
 		return AnyEntityUtil.searchItems(batch.getDomainId(), false, JobInstance.class, detailListQry, params);
 	}
+
+	@Override
+	public List<JobInstance> searchPickingJobList(JobBatch batch, String stationCd) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }
