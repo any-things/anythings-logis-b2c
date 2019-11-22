@@ -19,13 +19,15 @@ import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.dps.DpsCodeConstants;
 import xyz.anythings.dps.DpsConstants;
 import xyz.anythings.dps.model.DpsBatchSummary;
+import xyz.anythings.dps.model.DpsSinglePackInfom;
 import xyz.anythings.dps.service.util.DpsServiceUtil;
 import xyz.anythings.sys.model.BaseResponse;
 import xyz.anythings.sys.service.AbstractExecutionService;
 import xyz.anythings.sys.util.AnyEntityUtil;
+import xyz.anythings.sys.util.AnyOrmUtil;
 import xyz.elidom.dbist.dml.Page;
-import xyz.elidom.sys.SysConstants;
 import xyz.elidom.sys.entity.Domain;
+import xyz.elidom.util.BeanUtil;
 import xyz.elidom.util.DateUtil;
 import xyz.elidom.util.ValueUtil;
 
@@ -45,6 +47,30 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 	
 	@Autowired
 	BatchQueryStore batchQueryStore;
+	
+	
+	
+	
+	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/single_pack/sku_change','dps')")
+	@Order(Ordered.LOWEST_PRECEDENCE)
+	public void singlePackSkuChange(DeviceProcessRestEvent event) {
+		// 1. 파라미터 
+		String equipType = event.getRequestParams().get("equipType").toString();
+		String equipCd = event.getRequestParams().get("equipCd").toString();
+		String skuCd = event.getRequestParams().get("skuCd").toString();
+		Long domainId = Domain.currentDomainId();
+
+		// 2. 설비 정보로 부터 JobBatch 추출 
+		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(domainId, equipType, equipCd);
+		JobBatch batch = equipBatchSet.getBatch();
+		
+		// 3. 상품에 대한 단포 작업 정보 조회 
+		List<DpsSinglePackInfom> singlePackInfo = BeanUtil.get(DpsJobStatusService.class).getSinglePackInform(domainId, batch, skuCd, null,null);
+		
+		// 4. 이벤트 처리 결과 셋팅 
+		event.setReturnResult(new BaseResponse(true,"", singlePackInfo));
+		event.setExecuted(true);
+	}
 	
 	/**
 	 * DPS 배치 작업 진행 율 조회 
@@ -145,7 +171,7 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 		// 3.3 상태 update (WAIT = > RUNNING )
 		if(ValueUtil.isEqualIgnoreCase(input.getStatus(), DpsCodeConstants.JOB_INPUT_STATUS_WAIT)) {
 			input.setStatus(DpsCodeConstants.JOB_INPUT_STATUS_RUN);
-			this.queryManager.update(input, SysConstants.ENTITY_FIELD_STATUS);
+			this.queryManager.update(input, DpsConstants.ENTITY_FIELD_STATUS);
 		}
 		
 		// 3.4 jobInstance 조회 
@@ -162,8 +188,7 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 				instance.setStatus(DpsConstants.JOB_STATUS_PICKING);
 				instance.setPickStartedAt(nowStr);
 			}
-			
-			this.queryManager.updateBatch(instanceList, SysConstants.ENTITY_FIELD_STATUS,"pickStartedAt");
+			AnyOrmUtil.updateBatch(instanceList, 100, DpsConstants.ENTITY_FIELD_STATUS,"pickStartedAt");
 		}
 		
 		// 5. 도착 한 버킷을 기준으로 input List 조회  

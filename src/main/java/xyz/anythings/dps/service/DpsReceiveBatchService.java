@@ -264,7 +264,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		}
 		
 		// 4. 데이터 insert 
-		this.queryManager.insertBatch(targetList);
+		AnyOrmUtil.insertBatch(targetList, 100);
 	}
 	
 	/**
@@ -313,7 +313,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		}
 		
 		// 4. 배치 update
-		this.queryManager.updateBatch(orderList, "jobSeq",DpsConstants.ENTITY_FIELD_STATUS);
+		AnyOrmUtil.updateBatch(orderList, 100, "jobSeq",DpsConstants.ENTITY_FIELD_STATUS);
 		cnt += orderList.size();
 		
 		// 5. 주문 가공 데이터 삭제  
