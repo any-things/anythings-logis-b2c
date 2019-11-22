@@ -152,7 +152,7 @@ public class DpsPickingService extends AbstractDpsPickingService{
 		Long domainId = batch.getDomainId();
 		
 		// 1. JobInstance 조회 
-		JobInstance job = AnyEntityUtil.findEntityById(true, JobInstance.class, exeEvent.getJobInstanceId());
+		JobInstance job = exeEvent.getJobInstance();
 		
 		if(ValueUtil.isEqualIgnoreCase(job.getStatus(), DpsConstants.JOB_STATUS_PICKING) == false) {
 			throw new ElidomServiceException("확정 처리는 피킹중 상태에서만 가능합니다.");

@@ -158,8 +158,8 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	 * @param inputEvent
 	 */
 	@Override
-	public void input(IClassifyInEvent inputEvent) {
-
+	public Object input(IClassifyInEvent inputEvent) {
+		return null;
 	}
 
 
