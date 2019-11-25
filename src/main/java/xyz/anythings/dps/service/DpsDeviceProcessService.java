@@ -50,7 +50,10 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 	
 	
 	
-	
+	/**
+	 * DPS 단포 상품 변경 
+	 * @param event
+	 */
 	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/single_pack/sku_change','dps')")
 	@Order(Ordered.LOWEST_PRECEDENCE)
 	public void singlePackSkuChange(DeviceProcessRestEvent event) {
