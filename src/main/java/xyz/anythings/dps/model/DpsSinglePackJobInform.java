@@ -18,11 +18,11 @@ public class DpsSinglePackJobInform {
 	/**
 	 * 현재 작업 정보 
 	 */
-	private JobInstance job;
+	private JobInstance jobInstance;
 	
-	public DpsSinglePackJobInform(List<DpsSinglePackInform> summary, JobInstance job) {
+	public DpsSinglePackJobInform(List<DpsSinglePackInform> summary, JobInstance jobInstance) {
 		this.summary = summary;
-		this.job = job;
+		this.jobInstance = jobInstance;
 	}
 	
 	public List<DpsSinglePackInform> getSummary() {
@@ -31,10 +31,10 @@ public class DpsSinglePackJobInform {
 	public void setSummary(List<DpsSinglePackInform> summary) {
 		this.summary = summary;
 	}
-	public JobInstance getJob() {
-		return job;
+	public JobInstance getJobInstance() {
+		return jobInstance;
 	}
-	public void setJob(JobInstance job) {
-		this.job = job;
+	public void setJobInstance(JobInstance jobInstance) {
+		this.jobInstance = jobInstance;
 	}
 }

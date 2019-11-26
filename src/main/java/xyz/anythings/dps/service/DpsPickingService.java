@@ -157,28 +157,31 @@ public class DpsPickingService extends AbstractDpsPickingService{
 		IBucket bucket = this.vaildInputBucketByBucketCd(domainId, batch, bucketCd, isBox, false);
 		
 		// 3. 버킷  투입 전 체크 - 작업 ID  
-		String instanceId = this.beforeInputSinglePackEmptyBucket(domainId, batch, isBox, bucket);
-
-		// 4. 주문 번호로 매핑된 작업을 조회
-		JobInstance job = AnyEntityUtil.findEntityById(false, JobInstance.class, instanceId);
+		JobInstance job = this.beforeInputSinglePackEmptyBucket(domainId, batch, isBox, bucket);
 
 		if(ValueUtil.isEmpty(job)) {
 			// 투입 가능한 주문이 없습니다.
 			throw new ElidomRuntimeException(MessageUtil.getMessage("MPS_NO_ORDER_TO_INPUT"));
 		}
 		
-		// 5. boxPackId 생성 
+		// 3.1 기존 작업에 대한 재작업인 경우 
+		if(ValueUtil.isEqualIgnoreCase(job.getBoxId(), bucket.getBucketCd())) {
+			return job;
+		}
+		
+		// 4. boxPackId 생성 
 		String boxPackId = AnyValueUtil.newUuid36();
 		
-		// 6. 투입
-		this.doInputEmptyBucket(domainId, batch, job.getOrderNo(), bucket, bucket.getBucketColor(), boxPackId);
+		// 5. 투입
+		this.doInputSinglePackEmptyBucket(domainId, batch, job.getOrderNo(), bucket, bucket.getBucketColor(), boxPackId);
 
-		// 7. 박스 BoxPack, BoxItem 생성
+		// 6. 박스 BoxPack, BoxItem 생성
 		this.createBoxPackData(domainId, batch, bucket, job.getOrderNo(), boxPackId);
 		
-		// 8. 박스 투입 후 액션 
+		// 7. 박스 투입 후 액션 
 		this.afterInputEmptyBucket(domainId, batch, bucket, job.getOrderNo());
 		
+		job.setStatus("P");
 		job.setBoxId(bucket.getBucketCd());
 		
 		return job;
@@ -206,15 +209,35 @@ public class DpsPickingService extends AbstractDpsPickingService{
 		// 1. JobInstance 조회 
 		JobInstance job = exeEvent.getJobInstance();
 		
+		// 2. 확정 처리 
+		this.confirmPick(domainId,batch,job,exeEvent.getResQty());
+		
+		exeEvent.setExecuted(true);
+	}
+	
+	/**
+	 * 작업 확정 처리 
+	 * @param domainId
+	 * @param batch
+	 * @param job
+	 * @param resQty
+	 */
+	public void confirmPick(Long domainId, JobBatch batch, JobInstance job, int resQty) {
+		
 		if(ValueUtil.isEqualIgnoreCase(job.getStatus(), DpsConstants.JOB_STATUS_PICKING) == false) {
 			throw new ElidomServiceException("확정 처리는 피킹중 상태에서만 가능합니다.");
 		}
 		
 		// 2. Cell 조회 
-		Cell cell = AnyEntityUtil.findEntityBy(domainId, true, Cell.class, null, "equipType,equipCd,cellCd", job.getEquipType(),job.getEquipCd(),job.getSubEquipCd());
+		Cell cell = null;
+		
+		// 2.1 합포의 경우에만 CELL 사용 
+		if(ValueUtil.isEqualIgnoreCase(job.getOrderType(), DpsCodeConstants.DPS_ORDER_TYPE_MT)) {
+			cell = AnyEntityUtil.findEntityBy(domainId, true, Cell.class, null, "equipType,equipCd,cellCd", job.getEquipType(),job.getEquipCd(),job.getSubEquipCd());
+		}
 		
 		// 3. 작업 처리 전 액션 
-		int pickQty = this.beforeConfirmPick(domainId, batch, job, cell, exeEvent.getResQty());
+		int pickQty = this.beforeConfirmPick(domainId, batch, job, cell, resQty);
 		
 		if(pickQty > 0) {
 			// 4. 분류 작업 처리
@@ -222,8 +245,6 @@ public class DpsPickingService extends AbstractDpsPickingService{
 			// 5. 작업 처리 후 액션
 			this.afterComfirmPick(domainId, batch, job, cell, pickQty);
 		}
-		
-		exeEvent.setExecuted(true);
 	}
 
 	/**

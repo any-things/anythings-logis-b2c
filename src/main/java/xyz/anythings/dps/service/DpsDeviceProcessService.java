@@ -51,6 +51,51 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 	BatchQueryStore batchQueryStore;
 	
 	/**
+	 * DPS 단포 피킹 
+	 * @param event
+	 */
+	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/single_pack/pick','dps')")
+	@Order(Ordered.LOWEST_PRECEDENCE)
+	public void singlePackPick(DeviceProcessRestEvent event) {
+		// 1. 파라미터 
+		String jobId = event.getRequestParams().get("jobId").toString();
+		Long domainId = Domain.currentDomainId();
+
+		// 2. jobInstance 조회 
+		JobInstance job = AnyEntityUtil.findEntityById(true, JobInstance.class, jobId);
+		
+		// 3. JobBatch 조회 
+		JobBatch batch = AnyEntityUtil.findEntityById(true, JobBatch.class, job.getBatchId());
+		
+		int resQty = job.getPickQty();
+		// 4. 피킹 검수 설정 확인 
+		if(DpsBatchJobConfigUtil.isPickingWithInspectionEnabled(batch)) {
+			resQty = 1;
+		}
+		
+		// 5. 확정 처리 
+		BeanUtil.get(DpsPickingService.class).confirmPick(domainId, batch, job, resQty);
+		
+		// 6. 결과 재조회 
+		job = AnyEntityUtil.findEntityById(true, JobInstance.class, jobId);
+		
+		// 7. 상품에 대한 단포 작업 정보 조회 
+		List<DpsSinglePackInform> singlePackInfo = BeanUtil.get(DpsJobStatusService.class).getSinglePackInform(domainId, batch, job.getSkuCd(), job.getPickQty(),job.getBoxTypeCd());
+		
+		// 8. 피킹 상태가 아니면 완료  
+		if(!ValueUtil.isEqualIgnoreCase(job.getStatus(), DpsConstants.JOB_STATUS_PICKING)) {
+			job = null;
+		}
+		
+		DpsSinglePackJobInform result = new DpsSinglePackJobInform(singlePackInfo, job);
+		
+		// 9. 이벤트 처리 결과 셋팅 
+		event.setReturnResult(new BaseResponse(true,"", result));
+		event.setExecuted(true);
+	}
+	
+	
+	/**
 	 * DPS 단포 상품 변경 
 	 * @param event
 	 */
