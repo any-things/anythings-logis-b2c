@@ -9,7 +9,7 @@ import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInput;
 import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.service.impl.AbstractJobStatusService;
-import xyz.anythings.dps.model.DpsSinglePackInfom;
+import xyz.anythings.dps.model.DpsSinglePackInform;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.elidom.dbist.dml.Page;
 import xyz.elidom.sys.util.ValueUtil;
@@ -86,7 +86,7 @@ public class DpsJobStatusService extends AbstractJobStatusService {
 	 * @param jobBoxType : 현재 작업 박스 타입 
 	 * @return
 	 */
-	public List<DpsSinglePackInfom> getSinglePackInform(Long domainId, JobBatch batch, String skuCd, Integer jobPcs, String jobBoxType) {
+	public List<DpsSinglePackInform> getSinglePackInform(Long domainId, JobBatch batch, String skuCd, Integer jobPcs, String jobBoxType) {
 		String singlePackInformQry = this.batchQueryStore.getRackDpsSinglePackInformQuery();
 		Map<String,Object> params = ValueUtil.newMap("domainId,batchId,skuCd", domainId, batch.getId(), skuCd);
 		
@@ -95,6 +95,6 @@ public class DpsJobStatusService extends AbstractJobStatusService {
 			params.put("jobBoxType", jobBoxType);
 		}
 		
-		return AnyEntityUtil.searchItems(domainId, false, DpsSinglePackInfom.class, singlePackInformQry, params);
+		return AnyEntityUtil.searchItems(domainId, false, DpsSinglePackInform.class, singlePackInformQry, params);
 	}
 }

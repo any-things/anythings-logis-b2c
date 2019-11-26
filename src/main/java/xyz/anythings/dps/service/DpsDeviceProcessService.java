@@ -19,7 +19,9 @@ import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.dps.DpsCodeConstants;
 import xyz.anythings.dps.DpsConstants;
 import xyz.anythings.dps.model.DpsBatchSummary;
-import xyz.anythings.dps.model.DpsSinglePackInfom;
+import xyz.anythings.dps.model.DpsSinglePackInform;
+import xyz.anythings.dps.model.DpsSinglePackJobInform;
+import xyz.anythings.dps.service.util.DpsBatchJobConfigUtil;
 import xyz.anythings.dps.service.util.DpsServiceUtil;
 import xyz.anythings.sys.model.BaseResponse;
 import xyz.anythings.sys.service.AbstractExecutionService;
@@ -48,6 +50,40 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 	@Autowired
 	BatchQueryStore batchQueryStore;
 	
+	/**
+	 * DPS 단포 상품 변경 
+	 * @param event
+	 */
+	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/single_pack/box_input','dps')")
+	@Order(Ordered.LOWEST_PRECEDENCE)
+	public void singlePackBoxInput(DeviceProcessRestEvent event) {
+		// 1. 파라미터 
+		String equipType = event.getRequestParams().get("equipType").toString();
+		String equipCd = event.getRequestParams().get("equipCd").toString();
+		String skuCd = event.getRequestParams().get("skuCd").toString();
+		String bucketCd = event.getRequestParams().get("bucketCd").toString();
+		Long domainId = Domain.currentDomainId();
+
+		// 2. 설비 정보로 부터 JobBatch 추출 
+		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(domainId, equipType, equipCd);
+		JobBatch batch = equipBatchSet.getBatch();
+		
+		// 3. 작업 설정의 배치에 사용중인 버킷 타입 가져오기
+		String bucketType = DpsBatchJobConfigUtil.getInputBoxType(batch);
+		
+		// 4. 단포 버킷 투입 서비스 호출
+		boolean isBox = ValueUtil.isEqualIgnoreCase(bucketType, DpsCodeConstants.BOX_TYPE_BOX);
+		JobInstance job = (JobInstance)BeanUtil.get(DpsPickingService.class).inputSinglePackEmptyBucket(domainId,batch,isBox,skuCd,bucketCd);
+		
+		// 5. 상품에 대한 단포 작업 정보 조회 
+		List<DpsSinglePackInform> singlePackInfo = BeanUtil.get(DpsJobStatusService.class).getSinglePackInform(domainId, batch, skuCd, job.getPickQty(),job.getBoxTypeCd());
+		
+		DpsSinglePackJobInform result = new DpsSinglePackJobInform(singlePackInfo, job);
+		
+		// 6. 이벤트 처리 결과 셋팅 
+		event.setReturnResult(new BaseResponse(true,"", result));
+		event.setExecuted(true);
+	}
 	
 	
 	/**
@@ -68,7 +104,7 @@ public class DpsDeviceProcessService extends AbstractExecutionService{
 		JobBatch batch = equipBatchSet.getBatch();
 		
 		// 3. 상품에 대한 단포 작업 정보 조회 
-		List<DpsSinglePackInfom> singlePackInfo = BeanUtil.get(DpsJobStatusService.class).getSinglePackInform(domainId, batch, skuCd, null,null);
+		List<DpsSinglePackInform> singlePackInfo = BeanUtil.get(DpsJobStatusService.class).getSinglePackInform(domainId, batch, skuCd, null,null);
 		
 		// 4. 이벤트 처리 결과 셋팅 
 		event.setReturnResult(new BaseResponse(true,"", singlePackInfo));

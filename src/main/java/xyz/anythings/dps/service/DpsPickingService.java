@@ -10,13 +10,17 @@ import org.springframework.stereotype.Component;
 import xyz.anythings.base.entity.Cell;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInstance;
+import xyz.anythings.base.entity.Rack;
 import xyz.anythings.base.entity.ifc.IBucket;
 import xyz.anythings.base.event.IClassifyInEvent;
 import xyz.anythings.base.event.IClassifyRunEvent;
+import xyz.anythings.dps.DpsCodeConstants;
 import xyz.anythings.dps.DpsConstants;
 import xyz.anythings.dps.service.impl.AbstractDpsPickingService;
 import xyz.anythings.sys.util.AnyEntityUtil;
+import xyz.anythings.sys.util.AnyOrmUtil;
 import xyz.anythings.sys.util.AnyValueUtil;
+import xyz.elidom.dbist.dml.Query;
 import xyz.elidom.exception.server.ElidomRuntimeException;
 import xyz.elidom.exception.server.ElidomServiceException;
 import xyz.elidom.sys.util.MessageUtil;
@@ -102,7 +106,6 @@ public class DpsPickingService extends AbstractDpsPickingService{
 		// 2. 박스 투입 전 체크 - 주문 번호 조회 
 		String orderNo = this.beforeInputEmptyBucket(domainId, batch, isBox, bucket);
 
-		
 		// 3. 마지막 투입 조회
 		//JobInput latestInput = this.dpsJobStatusService.findLatestInput(batch);
 		// 3.1. 지시기 색상 결정 
@@ -121,15 +124,64 @@ public class DpsPickingService extends AbstractDpsPickingService{
 		String boxPackId = AnyValueUtil.newUuid36();
 		
 		// 6. 투입
-		this.doInputEmptyBucket(domainId, batch, orderNo, bucket, indColor, jobList, boxPackId);
+		this.doInputEmptyBucket(domainId, batch, orderNo, bucket, indColor, boxPackId);
 		
 		// 7. 박스 BoxPack, BoxItem 생성
 		this.createBoxPackData(domainId, batch, bucket, orderNo, boxPackId);
 		
 		// 8. 박스 투입 후 액션 
-		this.afterInputEmptyBucket(domainId, batch, bucket, jobList);
+		this.afterInputEmptyBucket(domainId, batch, bucket, orderNo);
 		// 9. 투입 정보 리턴
 		return jobList;
+	}
+	
+	
+	
+	/**
+	 * 단포 박스 또는 트레이 투입
+	 * @param domainId
+	 * @param batch
+	 * @param isBox
+	 * @param bucketCd
+	 * @return
+	 */
+	public Object inputSinglePackEmptyBucket(Long domainId, JobBatch batch, boolean isBox, String skuCd, String bucketCd, Object... params) {
+		// 1. 단포 전용 호기 Lock
+		Query condition = AnyOrmUtil.newConditionForExecution(domainId);
+		condition.addFilter("areaCd", batch.getAreaCd());
+		condition.addFilter("stageCd", batch.getStageCd());
+		condition.addFilter("rackType", DpsCodeConstants.DPS_RACK_TYPE_OT );
+		this.queryManager.selectListWithLock(Rack.class, condition);
+		
+		// 2. 버킷  조회 ( 박스 or 트레이 )
+		IBucket bucket = this.vaildInputBucketByBucketCd(domainId, batch, bucketCd, isBox, false);
+		
+		// 3. 버킷  투입 전 체크 - 작업 ID  
+		String instanceId = this.beforeInputSinglePackEmptyBucket(domainId, batch, isBox, bucket);
+
+		// 4. 주문 번호로 매핑된 작업을 조회
+		JobInstance job = AnyEntityUtil.findEntityById(false, JobInstance.class, instanceId);
+
+		if(ValueUtil.isEmpty(job)) {
+			// 투입 가능한 주문이 없습니다.
+			throw new ElidomRuntimeException(MessageUtil.getMessage("MPS_NO_ORDER_TO_INPUT"));
+		}
+		
+		// 5. boxPackId 생성 
+		String boxPackId = AnyValueUtil.newUuid36();
+		
+		// 6. 투입
+		this.doInputEmptyBucket(domainId, batch, job.getOrderNo(), bucket, bucket.getBucketColor(), boxPackId);
+
+		// 7. 박스 BoxPack, BoxItem 생성
+		this.createBoxPackData(domainId, batch, bucket, job.getOrderNo(), boxPackId);
+		
+		// 8. 박스 투입 후 액션 
+		this.afterInputEmptyBucket(domainId, batch, bucket, job.getOrderNo());
+		
+		job.setBoxId(bucket.getBucketCd());
+		
+		return job;
 	}
 
 	

@@ -5,7 +5,7 @@ package xyz.anythings.dps.model;
  * @author yang
  *
  */
-public class DpsSinglePackInfom {
+public class DpsSinglePackInform {
 	/**
 	 * 선택된 상품에 대한 전체 박스 수 (주문 수 )
 	 */

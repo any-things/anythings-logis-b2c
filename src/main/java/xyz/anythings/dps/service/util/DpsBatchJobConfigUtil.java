@@ -37,7 +37,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 * @return
 	 */
 	public static String getInputBoxType(JobBatch batch) {
-		// job.dps.input.box.type						
+		// dps.input.box.type						
 		return getConfigValue(batch, DpsConfigConstants.DPS_INPUT_BOX_TYPE, true);
 	}
 	
@@ -48,7 +48,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 * @return
 	 */
 	public static String getCellMappingTargetField(JobBatch batch) {
-		// job.dps.preproces.cell.mapping.field
+		// dps.preproces.cell.mapping.field
 		return getConfigValue(batch, DpsConfigConstants.DPS_PREPROCESS_CELL_MAPPING_FIELD, true);
 	}
 	
@@ -59,7 +59,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 * @return
 	 */
 	public static int getStationWaitPoolCount(JobBatch batch) {
-		// job.dps.station.wait-pool.count
+		// dps.station.wait-pool.count
 		String intVal = getConfigValue(batch, DpsConfigConstants.DPS_STATION_WAIT_POOL_COUNT, true);
 		return ValueUtil.toInteger(intVal);
 	}
@@ -71,7 +71,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 * @return
 	 */
 	public static boolean isSeparatedBatchByRack(JobBatch batch) {
-		// job.dps.batch.split-by-rack.enabled
+		// dps.batch.split-by-rack.enabled
 		String boolVal = getConfigValue(batch, DpsConfigConstants.DPS_BATCH_SPLIT_BY_RACK_ENABLED, true);
 		return ValueUtil.toBoolean(boolVal);
 	}
@@ -83,7 +83,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 * @return
 	 */
 	public static String getSkuRankingTargetDays(JobBatch batch) {
-		// job.dps.sku.popula.rank.calc.days
+		// dps.sku.popula.rank.calc.days
 		return getConfigValue(batch, DpsConfigConstants.DPS_SKU_POPULAR_RANK_CALC_DAYS, true);
 	}
 	
@@ -95,7 +95,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 * @return
 	 */
 	public static boolean isSingleOneBoxClassEnabled(JobBatch batch) {
-		// job.dps.pick.1box.enabled
+		// dps.pick.1box.enabled
 		String boolVal = getConfigValue(batch, DpsConfigConstants.DPS_PICK_1BOX_ENABLED, true);
 		return ValueUtil.toBoolean(boolVal);
 	}
@@ -108,7 +108,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 * @return
 	 */
 	public static boolean isSingleSku1PcsClassEnabled(JobBatch batch) {
-		// job.dps.pick.1sku.1pcs.enabled
+		// dps.pick.1sku.1pcs.enabled
 		String boolVal = getConfigValue(batch, DpsConfigConstants.DPS_PICK_1SKU_1PCS_ENABLED, true);
 		return ValueUtil.toBoolean(boolVal);
 	}
@@ -120,7 +120,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 * @return
 	 */
 	public static boolean isSingleSkuNpcsClassEnabled(JobBatch batch) {
-		// job.dps.pick.1sku.npcs.enabled
+		// dps.pick.1sku.npcs.enabled
 		String boolVal = getConfigValue(batch, DpsConfigConstants.DPS_PICK_1SKU_NPCS_ENABLED, true);
 		return ValueUtil.toBoolean(boolVal);
 	}
@@ -132,7 +132,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 * @return
 	 */
 	public static boolean isRecommendCellEnabled(JobBatch batch) {
-		// job.dps.supple.recommend-cell.enabled
+		// dps.supple.recommend-cell.enabled
 		String boolVal = getConfigValue(batch, DpsConfigConstants.DPS_SUPPLE_RECOMMEND_CELL_ENABLED, true);
 		return ValueUtil.toBoolean(boolVal);
 	}
@@ -144,9 +144,20 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 * @return
 	 */
 	public static boolean isPickingWithInspectionEnabled(JobBatch batch) {
-		// job.dps.pick.with-inspection.enabled
+		// dps.pick.with-inspection.enabled
 		String boolVal = getConfigValue(batch, DpsConfigConstants.DPS_PICK_WITH_INSPECTION_ENABLED, true);
 		return ValueUtil.toBoolean(boolVal);
+	}
+	
+	/**
+	 * DPS 박스 투입시 박스 ID 에서 박스 타입을 추출 하기 위한 SPLIT 인덱스 정보 
+	 * @param batch
+	 * @return
+	 */
+	public static String getBoxTypeSplitByBoxId(JobBatch batch) {
+		// dps.input.box.type.split.index
+		String splitIndex = getConfigValue(batch, DpsConfigConstants.DPS_INPUT_BOX_TYPE_SPLIT_INDEX, false);
+		return splitIndex;
 	}
 
 }

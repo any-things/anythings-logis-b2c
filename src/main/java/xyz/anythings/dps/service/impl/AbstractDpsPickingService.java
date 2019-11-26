@@ -345,9 +345,10 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	 * 박스 투입 후 액션 
 	 * @param domainId
 	 * @param batch
-	 * @param jobList
+	 * @param bucket
+	 * @param orderNo
 	 */
-	protected void afterInputEmptyBucket(Long domainId, JobBatch batch, IBucket bucket, List<JobInstance> jobList) {
+	protected void afterInputEmptyBucket(Long domainId, JobBatch batch, IBucket bucket, String orderNo) {
 		// 1. tray 박스인 경우 tray 상태 업데트 
 		if(ValueUtil.isEqualIgnoreCase(DpsCodeConstants.BOX_TYPE_TRAY, bucket.getBucketType())) {
 			TrayBox tray = (TrayBox)bucket;
@@ -367,10 +368,10 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	 * @param orderNo
 	 * @param bucket
 	 * @param indColor
-	 * @param jobList
+	 * @param boxPackId
 	 * @return
 	 */
-	protected void doInputEmptyBucket(Long domainId, JobBatch batch, String orderNo, IBucket bucket, String indColor, List<JobInstance> jobList, String boxPackId) {
+	protected void doInputEmptyBucket(Long domainId, JobBatch batch, String orderNo, IBucket bucket, String indColor, String boxPackId) {
 		
 		// 1. JobInstance 에서 equipCd, stationCd 가져오기
 		// 1.1. 쿼리 
@@ -425,8 +426,69 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	 * @return
 	 */
 	protected String beforeInputEmptyBucket(Long domainId, JobBatch batch, boolean isBox, IBucket bucket) {
-		
 		// 1.버킷의 투입 가능 여부 확인 
+		this.isUsedBoxCheck(domainId, batch, bucket, isBox);
+		
+		// TODO 현재는 주문에만 맵핑 하도록 구현 
+		// 추후 맵핑 컬럼 적용 필요함. 
+		// 2. 박스와 매핑하고자 하는 작업 정보를 조회한다.
+		String nextOrderId = this.findNextMappingJob(domainId, batch, isBox, bucket, false);
+		
+		// 3. 이미 처리된 주문인지 한 번 더 체크
+		if(AnyEntityUtil.selectSizeByEntity(domainId, JobInput.class, "batchId,orderNo", batch.getId(), nextOrderId)>0) {
+			// 주문 은(는) 이미 투입 상태입니다
+			throw new ElidomRuntimeException(ThrowUtil.translateMessage("A_ALREADY_B_STATUS", "terms.label.order", "terms.label.input"));
+		}
+		return nextOrderId;		
+	}
+	
+	/**
+	 * 단포 버킷 투입 전 액션 
+	 * @param domainId
+	 * @param batch
+	 * @param isBox
+	 * @param bucket
+	 * @return
+	 */
+	protected String beforeInputSinglePackEmptyBucket(Long domainId, JobBatch batch, boolean isBox, IBucket bucket) {
+		// 1.버킷의 투입 가능 여부 확인 
+		this.isUsedBoxCheck(domainId, batch, bucket, isBox);
+		// 2. 박스와 매핑하고자 하는 작업 정보를 조회한다.
+		String instanceId = this.findNextMappingJob(domainId, batch, isBox, bucket, true);
+		return instanceId;
+	}
+	
+	/**
+	 * 다음 맵핑 할 작업 정보를 조회 한다. 
+	 * @param domainId
+	 * @param batch
+	 * @param isBox
+	 * @param bucket
+	 * @param isSinglePack
+	 * @return
+	 */
+	protected String findNextMappingJob(Long domainId, JobBatch batch, boolean isBox, IBucket bucket, boolean isSinglePack) {
+		String nextJobId = this.findNextMappingJob(domainId, batch, bucket.getBucketTypeCd(), bucket.getBucketCd()
+				, DpsCodeConstants.DPS_PREPROCESS_COL_ORDER
+				, isSinglePack ? DpsCodeConstants.DPS_ORDER_TYPE_OT : DpsCodeConstants.DPS_ORDER_TYPE_MT);
+		
+		if(ValueUtil.isEmpty(nextJobId)) {
+			// 박스에 할당할 주문 정보가 존재하지 않습니다
+			throw new ElidomRuntimeException(MessageUtil.getMessage("MPS_NO_ORDER_TO_ASSIGN_BOX"));
+		}
+
+		return nextJobId;
+	}
+	
+	/**
+	 * 버킷의 사용 가능 여부를 확인 
+	 * @param domainId
+	 * @param batch
+	 * @param bucket
+	 * @param isBox
+	 * @return
+	 */
+	protected boolean isUsedBoxCheck(Long domainId, JobBatch batch, IBucket bucket, boolean isBox) {
 		boolean usedBox = false;
 		if(isBox) {
 			// 1.1 박스는 쿼리를 해서 확인 
@@ -444,24 +506,7 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 			throw ThrowUtil.newValidationErrorWithNoLog(ThrowUtil.translateMessage("A_ALREADY_B_STATUS", bucketStr, "terms.label.input"));
 		}
 		
-		// TODO 현재는 주문에만 맵핑 하도록 구현 
-		// 추후 맵핑 컬럼 적용 필요함. 
-		// 3. 박스와 매핑하고자 하는 작업 정보를 조회한다.
-		String nextOrderId = this.findNextMappingJob(domainId, batch, bucket.getBucketTypeCd()
-				, DpsCodeConstants.DPS_PREPROCESS_COL_ORDER, DpsCodeConstants.DPS_ORDER_TYPE_MT);
-		
-		if(ValueUtil.isEmpty(nextOrderId)) {
-			// 박스에 할당할 주문 정보가 존재하지 않습니다
-			throw new ElidomRuntimeException(MessageUtil.getMessage("MPS_NO_ORDER_TO_ASSIGN_BOX"));
-		}
-		
-		// 3. 이미 처리된 주문인지 한 번 더 체크
-		if(AnyEntityUtil.selectSizeByEntity(domainId, JobInput.class, "batchId,orderNo", batch.getId(), nextOrderId)>0) {
-			// 주문 은(는) 이미 투입 상태입니다
-			throw new ElidomRuntimeException(ThrowUtil.translateMessage("A_ALREADY_B_STATUS", "terms.label.order", "terms.label.input"));
-		}
-		
-		return nextOrderId;		
+		return !usedBox;
 	}
 	
 	/**
@@ -476,7 +521,7 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 		
 		// 1. 박스 타입이면 박스 에서 조회 
 		if(isBox) {
-			String boxTypeCd = getBoxTypeByBoxId(batch, bucketCd);
+			String boxTypeCd = this.getBoxTypeByBoxId(batch, bucketCd);
 			BoxType boxType = DpsServiceUtil.findBoxType(domainId, boxTypeCd, withLock, true);
 			boxType.setBoxId(bucketCd);
 			return boxType;
@@ -525,9 +570,8 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	 * @return
 	 */
 	private String getBoxTypeByBoxId(JobBatch batch, String boxId) {
-		// 1. 박스 ID 에 박스 타입 split 기준, TODO BatchJobConfigUtil 메소드 호출로 수정 
-		// DpsConfigConstants.DPS_INPUT_BOX_TYPE_SPLIT_INDEX);
-		String boxTypeSplit = "0,1";
+		// 1. 박스 ID 에 박스 타입 split 기준 
+		String boxTypeSplit = DpsBatchJobConfigUtil.getBoxTypeSplitByBoxId(batch); 
 		
 		// 2. 설정 값이 없으면 기본 0,1
 		if(ValueUtil.isEmpty(boxTypeSplit) || boxTypeSplit.length() < 3) {
@@ -549,7 +593,7 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	 * @param bucketType
 	 * @return
 	 */
-	private String findNextMappingJob(Long domainId, JobBatch batch, String boxTypeCd, String mapColumn, String orderType){
+	private String findNextMappingJob(Long domainId, JobBatch batch, String boxTypeCd, String bucketCd, String mapColumn, String orderType){
 		// TODO : order / shop .... 여러타입에 대한 구현 필요 
 		// 실제 DPS 기준 주문 가공 프로세스임.
 		// 주문 처리 순서를 정할수 있는 부분으로 쿼리에 대한 수정으로 해결 가능 ? 
@@ -558,8 +602,8 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 		String qry =  this.batchQueryStore.getFindNextMappingJobQuery();
 		
 		// 2. 파라민터 
-		Map<String,Object> params = ValueUtil.newMap("domainId,mapColumn,batchId,orderType,boxTypeCd"
-				, domainId, mapColumn, batch.getId(), orderType, boxTypeCd);
+		Map<String,Object> params = ValueUtil.newMap("domainId,mapColumn,batchId,orderType,boxTypeCd,bucketCd"
+				, domainId, mapColumn, batch.getId(), orderType, boxTypeCd, bucketCd);
 		
 		// 3. 조회 ( 맵핑 기준에 따라 결과가 달라짐 )
 		return AnyEntityUtil.findItem(domainId, false, String.class, qry, params);

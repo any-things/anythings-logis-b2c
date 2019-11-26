@@ -27,5 +27,14 @@ public class DpsCodeConstants extends LogisCodeConstants {
 	/**
 	 * DPS 대상 분류 : 단포 
 	 */
-	public static final String DPS_ORDER_TYPE_OT = "MT";
+	public static final String DPS_ORDER_TYPE_OT = "OT";
+	
+	
+	/**
+	 * DPS 랙 타입 : 단포 
+	 */
+	public static final String DPS_RACK_TYPE_OT = "O";
+	
+	
+	
 }
