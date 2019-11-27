@@ -20,6 +20,7 @@ import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.base.service.util.BatchJobConfigUtil;
 import xyz.anythings.base.util.LogisBaseUtil;
 import xyz.anythings.dps.DpsConstants;
+import xyz.anythings.dps.service.util.DpsStageJobConfigUtil;
 import xyz.anythings.sys.service.AbstractQueryService;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.anythings.sys.util.AnyOrmUtil;
@@ -69,8 +70,8 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 	 */
 	private BatchReceipt createReadyToReceiveData(BatchReceipt receipt, Object ... params) {
 		// 1. 대기 상태 이거나 진행 중인 수신이 있는지 확인 
-		BatchReceipt runBatchReceipt = this.checkRunningOrderReceipt(receipt);
-		if(runBatchReceipt != null) return runBatchReceipt;
+//		BatchReceipt runBatchReceipt = this.checkRunningOrderReceipt(receipt);
+//		if(runBatchReceipt != null) return runBatchReceipt;
 		
 		// 2. WMS IF 테이블에서 수신 대상 데이터 확인
 		List<BatchReceiptItem> receiptItems = this.getWmfIfToReceiptItems(receipt);
@@ -105,21 +106,21 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 	 * @param domainId
 	 * @return
 	 */
-	private BatchReceipt checkRunningOrderReceipt(BatchReceipt receipt) {
-		Map<String,Object> params = ValueUtil.newMap("domainId,comCd,areaCd,stageCd,jobDate,status", 
-				receipt.getDomainId(), receipt.getComCd(), receipt.getAreaCd(), receipt.getStageCd(), receipt.getJobDate(),
-				ValueUtil.newStringList(DpsConstants.COMMON_STATUS_WAIT, DpsConstants.COMMON_STATUS_RUNNING));
-		
-		BatchReceipt receiptData = AnyEntityUtil.findItem(receipt.getDomainId(), false, BatchReceipt.class, this.batchQueryStore.getBatchReceiptOrderTypeStatusQuery(), params);
-		
-		// 대기 중 또는 진행 중인 수신 정보 리턴 
-		if(receiptData != null) {
-			receiptData.setItems(AnyEntityUtil.searchDetails(receipt.getDomainId(), BatchReceiptItem.class, "batchReceiptId", receiptData.getId()));
-			return receiptData;
-		}
-		
-		return null;
-	}
+//	private BatchReceipt checkRunningOrderReceipt(BatchReceipt receipt) {
+//		Map<String,Object> params = ValueUtil.newMap("domainId,comCd,areaCd,stageCd,jobDate,status", 
+//				receipt.getDomainId(), receipt.getComCd(), receipt.getAreaCd(), receipt.getStageCd(), receipt.getJobDate(),
+//				ValueUtil.newStringList(DpsConstants.COMMON_STATUS_WAIT, DpsConstants.COMMON_STATUS_RUNNING));
+//		
+//		BatchReceipt receiptData = AnyEntityUtil.findItem(receipt.getDomainId(), false, BatchReceipt.class, this.batchQueryStore.getBatchReceiptOrderTypeStatusQuery(), params);
+//		
+//		// 대기 중 또는 진행 중인 수신 정보 리턴 
+//		if(receiptData != null) {
+//			receiptData.setItems(AnyEntityUtil.searchDetails(receipt.getDomainId(), BatchReceiptItem.class, "batchReceiptId", receiptData.getId()));
+//			return receiptData;
+//		}
+//		
+//		return null;
+//	}
 	
 	/**
 	 * 주문 정보 수신 시작
@@ -132,7 +133,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		List<BatchReceiptItem> items = receipt.getItems();
 		
 		for(BatchReceiptItem item : items) {
-			if(ValueUtil.isEqualIgnoreCase(DpsConstants.JOB_TYPE_DAS, item.getJobType()) || ValueUtil.isEqualIgnoreCase(DpsConstants.JOB_TYPE_RTN, item.getJobType())) {
+			if(ValueUtil.isEqualIgnoreCase(DpsConstants.JOB_TYPE_DPS, item.getJobType())) {
 				this.startToReceiveData(receipt, item);
 			}
 		}
@@ -161,9 +162,12 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		// 1. 수신 시작 : 상태 업데이트 - 진행중 
 		receipt.updateStatusImmediately(DpsConstants.COMMON_STATUS_RUNNING);
 		
+		// 1.1. 박스 맵핑 설정 필드 가져오기  
+		String mappingColumn = DpsStageJobConfigUtil.getBoxMappingTargetField(item.getStageCd());
+		
 		// TODO : 데이터 복사 방식 / 컬럼 설정에서 가져오기 
-		String[] sourceFields = {"WMS_BATCH_NO", "WCS_BATCH_NO", "JOB_DATE", "JOB_SEQ", "JOB_TYPE", "ORDER_DATE", "ORDER_NO", "ORDER_LINE_NO", "ORDER_DETAIL_ID", "CUST_ORDER_NO", "CUST_ORDER_LINE_NO", "COM_CD", "AREA_CD", "STAGE_CD", "EQUIP_TYPE", "EQUIP_CD", "EQUIP_NM", "SUB_EQUIP_CD", "SHOP_CD", "SHOP_NM", "SKU_CD", "SKU_BARCD", "SKU_NM", "BOX_TYPE_CD", "BOX_IN_QTY", "ORDER_QTY", "PICKED_QTY", "BOXED_QTY", "CANCEL_QTY", "BOX_ID", "INVOICE_ID", "ORDER_TYPE", "CLASS_CD", "PACK_TYPE", "VEHICLE_NO", "LOT_NO", "FROM_ZONE_CD", "FROM_CELL_CD", "TO_ZONE_CD", "TO_CELL_CD"};
-		String[] targetFields = {"WMS_BATCH_NO", "WCS_BATCH_NO", "JOB_DATE", "JOB_SEQ", "JOB_TYPE", "ORDER_DATE", "ORDER_NO", "ORDER_LINE_NO", "ORDER_DETAIL_ID", "CUST_ORDER_NO", "CUST_ORDER_LINE_NO", "COM_CD", "AREA_CD", "STAGE_CD", "EQUIP_TYPE", "EQUIP_CD", "EQUIP_NM", "SUB_EQUIP_CD", "SHOP_CD", "SHOP_NM", "SKU_CD", "SKU_BARCD", "SKU_NM", "BOX_TYPE_CD", "BOX_IN_QTY", "ORDER_QTY", "PICKED_QTY", "BOXED_QTY", "CANCEL_QTY", "BOX_ID", "INVOICE_ID", "ORDER_TYPE", "CLASS_CD", "PACK_TYPE", "VEHICLE_NO", "LOT_NO", "FROM_ZONE_CD", "FROM_CELL_CD", "TO_ZONE_CD", "TO_CELL_CD"};
+		String[] sourceFields = {"WMS_BATCH_NO", "WCS_BATCH_NO", "JOB_DATE", "JOB_SEQ", "JOB_TYPE", "ORDER_DATE", "ORDER_NO", "ORDER_LINE_NO", "ORDER_DETAIL_ID", "CUST_ORDER_NO", "CUST_ORDER_LINE_NO", "COM_CD", "AREA_CD", "STAGE_CD", "EQUIP_TYPE", "EQUIP_CD", "EQUIP_NM", "SUB_EQUIP_CD", "SHOP_CD", "SHOP_NM", "SKU_CD", "SKU_BARCD", "SKU_NM", "BOX_TYPE_CD", "BOX_IN_QTY", "ORDER_QTY", "PICKED_QTY", "BOXED_QTY", "CANCEL_QTY", "BOX_ID", "INVOICE_ID", "ORDER_TYPE", "CLASS_CD", "PACK_TYPE", "VEHICLE_NO", "LOT_NO", "FROM_ZONE_CD", "FROM_CELL_CD", "TO_ZONE_CD", "TO_CELL_CD", mappingColumn};
+		String[] targetFields = {"WMS_BATCH_NO", "WCS_BATCH_NO", "JOB_DATE", "JOB_SEQ", "JOB_TYPE", "ORDER_DATE", "ORDER_NO", "ORDER_LINE_NO", "ORDER_DETAIL_ID", "CUST_ORDER_NO", "CUST_ORDER_LINE_NO", "COM_CD", "AREA_CD", "STAGE_CD", "EQUIP_TYPE", "EQUIP_CD", "EQUIP_NM", "SUB_EQUIP_CD", "SHOP_CD", "SHOP_NM", "SKU_CD", "SKU_BARCD", "SKU_NM", "BOX_TYPE_CD", "BOX_IN_QTY", "ORDER_QTY", "PICKED_QTY", "BOXED_QTY", "CANCEL_QTY", "BOX_ID", "INVOICE_ID", "ORDER_TYPE", "CLASS_CD", "PACK_TYPE", "VEHICLE_NO", "LOT_NO", "FROM_ZONE_CD", "FROM_CELL_CD", "TO_ZONE_CD", "TO_CELL_CD", "CLASS_CD"};
 		String fieldNames = "COM_CD,AREA_CD,STAGE_CD,WMS_BATCH_NO,IF_FLAG";
 		int jobSeq = JobBatch.getMaxJobSeq(receipt.getDomainId(), receipt.getComCd(), receipt.getAreaCd(), receipt.getAreaCd(), receipt.getJobDate());		
 		boolean exceptionOccurred = false;

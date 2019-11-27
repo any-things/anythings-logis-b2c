@@ -113,9 +113,9 @@ public class DpsStageJobConfigUtil extends StageJobConfigUtil {
 	 * @param stageCd 스테이지 코드
 	 * @return
 	 */
-	public static String getCellMappingTargetField(String stageCd) {
+	public static String getBoxMappingTargetField(String stageCd) {
 		// dps.preproces.cell.mapping.field
-		return getCellMappingTargetField(stageCd, DpsConstants.MODULE_DEFAULT_JOB_TYPE);
+		return getConfigValue(stageCd, DpsConstants.MODULE_DEFAULT_JOB_TYPE, DpsConfigConstants.DPS_PREPROCESS_CELL_MAPPING_FIELD, true);
 	}
 
 }
