@@ -11,6 +11,7 @@ import xyz.anythings.base.entity.Rack;
 import xyz.anythings.base.event.EventConstants;
 import xyz.anythings.base.service.api.IInstructionService;
 import xyz.anythings.base.service.impl.AbstractInstructionService;
+import xyz.anythings.dps.service.util.DpsBatchJobConfigUtil;
 import xyz.anythings.sys.event.model.EventResultSet;
 import xyz.elidom.util.ValueUtil;
 
@@ -185,12 +186,17 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		List<String> equipIdList = new ArrayList<String>();
 		for(Object equip : equipList) equipIdList.add(((Rack)equip).getId());
 		
-		// 1. 파라미터 생성
-		Map<String, Object> paramMap = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_EQUIP_ID_LIST"
-				, batch.getDomainId(), batch.getId(),ValueUtil.listToString(equipIdList));
-		// 2. 프로시져 콜 
-//		Map<?, ?> result = this.queryManager.callReturnProcedure("OP_INSTRUCT_DPS_BATCH", paramMap, Map.class);
+		// 재고 적치 추천 셀 사용 유무 
+		boolean useRecommendCell = DpsBatchJobConfigUtil.isRecommendCellEnabled(batch);
+		// 호기별 배치 분리 여부
+		boolean useSeparatedBatch = DpsBatchJobConfigUtil.isSeparatedBatchByRack(batch);
+		// 단포 작업 활성화 여부 
+		boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(batch);
 		
+		// 1. 파라미터 생성
+		Map<String, Object> paramMap = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_EQUIP_ID_LIST,P_IN_RECOMMEND_CELL,P_IN_SEPARATE_BATCH,P_IN_SINGLE_PACK"
+				, batch.getDomainId(), batch.getId(),ValueUtil.listToString(equipIdList), useRecommendCell, useSeparatedBatch, useSinglePack);
+		// 2. 프로시져 콜 
 		this.queryManager.callReturnProcedure("OP_INSTRUCT_DPS_BATCH", paramMap, Map.class);
 		
 		return 1;
