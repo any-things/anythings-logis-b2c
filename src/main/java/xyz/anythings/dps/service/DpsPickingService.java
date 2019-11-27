@@ -272,4 +272,10 @@ public class DpsPickingService extends AbstractDpsPickingService{
 		exeEvent.setExecuted(true);
 		return 0;
 	}
+
+	@Override
+	public Object boxCellMapping(JobBatch batch, String cellCd, String boxId) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }
