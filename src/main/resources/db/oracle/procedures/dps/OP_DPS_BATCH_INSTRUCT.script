@@ -33,8 +33,6 @@ create or replace PROCEDURE OP_DPS_BATCH_INSTRUCT
     P_IN_SINGLE_PACK              IN NUMBER,
     /* 재고 적치 추천 셀 사용 유무  */
     P_IN_RECOMMEND_CELL           IN NUMBER,
-    /* 작업 기준이 되는 컬럼   */
-    P_IN_MAP_COLUMN               IN VARCHAR2,
     /* TODO 주문에 호기 자동 분할 여부 */
     P_IN_SEPARATE_BATCH           IN NUMBER,
 
