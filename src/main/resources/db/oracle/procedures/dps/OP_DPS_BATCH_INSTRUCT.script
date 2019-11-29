@@ -1,0 +1,266 @@
+create or replace PROCEDURE OP_DPS_BATCH_INSTRUCT
+/***********************************************************************************/
+/*  프로시져 이름 : OP_DPS_BATCH_INSTRUCT
+/*  프로시져 호출 서비스 : 
+/*  프로시져 설명 : DPS 작업 지시 프로시저 
+/*  프로시져 로직 
+/*    1. 상위 시스템 rack 지정 여부 check
+/*      1.1. 상위 시스템에서 지정된 Rack 의 경우에는 배치를 분할 
+/*       1.1.1 기존 배치는 update
+/*       1.1.2 신규 배치는 생성 
+/*       1.1.3. 주문 데이터 분리 
+/*      1.2 Rack 에 배치 지정 
+/*    2. 단포 작업 대상 check
+/*      2.1. 단포 랙 조회 
+/*      2.2. 단포 작업 실행 데이터 생성 
+/*      2.3. 단포 주문 데이터 status update 
+/*    3. 합포 주문 데이터 status update   
+/*    4. 작업 배치 status instructed_at, update 
+/*    5. 배치 랙의 상태 Update 
+/*    6. 합포 작업 재고 추천 셀 데이터 생성  TODO
+/*  생성일시 : 2019-10-25
+/*  작성자 : 양우람 
+/*  개정 이력
+/*    1. 2019-10-25 : 최초 작성
+/*    2. 2019-11-29 : 박스 맵핑 컬럼 추가 ( CLASS_CD ) 
+/***********************************************************************************/
+(
+    /* 도메인 ID */
+    P_IN_DOMAIN_ID                IN NUMBER,
+    /* 배치 ID */
+    P_IN_BATCH_ID                 IN VARCHAR2,
+    /* 단포 작업 활성 여부 */
+    P_IN_SINGLE_PACK              IN NUMBER,
+    /* 재고 적치 추천 셀 사용 유무  */
+    P_IN_RECOMMEND_CELL           IN NUMBER,
+    /* 작업 기준이 되는 컬럼   */
+    P_IN_MAP_COLUMN               IN VARCHAR2,
+    /* TODO 주문에 호기 자동 분할 여부 */
+    P_IN_SEPARATE_BATCH           IN NUMBER,
+
+    /* 결과 코드 */
+    P_OUT_RESULT_CODE             OUT NUMBER,     -- (0 : 정상 종료, -20999 : 비정상 종료) 
+    /* 결과 메시지 */
+    P_OUT_MESSAGE                 OUT VARCHAR2    -- (OK : 정상 종료, etc : 종료 메시지 or 오류 메시지)
+) 
+IS
+    /* 프로시저 내부에서 사용할 체크 카운트 */
+    V_CHECK_CNT NUMBER;
+
+    /* JOBBATCH */
+    V_BATCH JOB_BATCHES%rowtype;
+
+    /* 단수 단포 rack */
+    V_OT_RACK RACKS%rowtype;
+
+    /* 배치 분할시 배치 ID */
+    V_BATCH_ID VARCHAR2(40);
+BEGIN
+    -- 배치 조회 
+    V_BATCH := OF_GET_JOB_BATCH(P_IN_DOMAIN_ID, P_IN_BATCH_ID);
+
+    -- 1. 상위 시스템 rack 지정 여부 check
+    SELECT COUNT(1)
+      INTO V_CHECK_CNT
+      FROM ORDERS
+     WHERE DOMAIN_ID = P_IN_DOMAIN_ID
+       AND BATCH_ID = P_IN_BATCH_ID
+       AND EQUIP_CD IS NOT NULL
+       AND ROWNUM = 1;
+
+    IF (V_CHECK_CNT = 1) THEN
+        -- 1.1. 상위 시스템에서 지정된 Rack 의 경우에는 배치를 분할 
+        FOR TEMP_BATCHES IN (
+            SELECT X.DOMAIN_ID, X.BATCH_ID
+                 , X.AREA_CD, X.STAGE_CD
+                 , X.EQUIP_TYPE, X.EQUIP_CD, Y.RACK_NM AS EQUIP_NM
+                 , COUNT(DISTINCT(CLASS_CD)) AS BATCH_ORDER_QTY
+                 , SUM(ORDER_QTY) AS BATCH_PCS
+                 , RANK() OVER (ORDER BY X.EQUIP_CD ) AS RANK_NUM
+              FROM ORDERS X
+                 , (SELECT DOMAIN_ID, AREA_CD, STAGE_CD,RACK_CD,RACK_NM
+                      FROM RACKS
+                     WHERE DOMAIN_ID = P_IN_DOMAIN_ID
+                       AND AREA_CD = V_BATCH.AREA_CD
+                       AND STAGE_CD = V_BATCH.STAGE_CD) Y
+             WHERE X.DOMAIN_ID = Y.DOMAIN_ID
+               AND X.AREA_CD = Y.AREA_CD
+               AND X.STAGE_CD = Y.STAGE_CD
+               AND X.EQUIP_CD = Y.RACK_CD 
+               AND X.DOMAIN_ID = P_IN_DOMAIN_ID
+               AND X.AREA_CD = V_BATCH.AREA_CD
+               AND X.STAGE_CD = V_BATCH.STAGE_CD
+               AND X.BATCH_ID = V_BATCH.ID
+             GROUP BY X.DOMAIN_ID, X.BATCH_ID
+                    , X.AREA_CD, X.STAGE_CD
+                    , X.EQUIP_TYPE, X.EQUIP_CD, Y.RACK_NM
+        ) LOOP
+        
+            IF ( TEMP_BATCHES.RANK_NUM = 1 ) THEN
+                -- 1.1.1 기존 배치는 update
+                UPDATE JOB_BATCHES
+                   SET EQUIP_CD = TEMP_BATCHES.EQUIP_CD
+                     , EQUIP_NM = TEMP_BATCHES.EQUIP_NM
+                     , BATCH_ORDER_QTY = TEMP_BATCHES.BATCH_ORDER_QTY
+                     , BATCH_PCS = TEMP_BATCHES.BATCH_PCS
+                 WHERE ID = TEMP_BATCHES.BATCH_ID;
+                 
+                 V_BATCH_ID := TEMP_BATCHES.BATCH_ID;
+                 
+            ELSE 
+                -- 1.1.2 신규 배치는 생성 
+                INSERT INTO JOB_BATCHES (ID, WMS_BATCH_NO, BATCH_GROUP_ID
+                                        , COM_CD, JOB_TYPE, JOB_DATE, JOB_SEQ
+                                        , AREA_CD, EQUIP_TYPE, EQUIP_CD, EQUIP_NM
+                                        , BATCH_ORDER_QTY, BATCH_PCS
+                                        , STATUS, DOMAIN_ID
+                                        , JOB_CONFIG_SET_ID, IND_CONFIG_SET_ID
+                                        , CREATOR_ID, UPDATER_ID, CREATED_AT, UPDATED_AT)
+                SELECT OF_GET_GENERATE_BATCH_ID(P_IN_DOMAIN_ID), V_BATCH.WMS_BATCH_NO , V_BATCH.BATCH_GROUP_ID
+                     , V_BATCH.COM_CD, V_BATCH.JOB_TYPE, V_BATCH.JOB_DATE, V_BATCH.JOB_SEQ
+                     , V_BATCH.AREA_CD, V_BATCH.EQUIP_TYPE, TEMP_BATCHES.EQUIP_CD, TEMP_BATCHES.EQUIP_NM
+                     , TEMP_BATCHES.BATCH_ORDER_QTY, TEMP_BATCHES.BATCH_PCS
+                     , V_BATCH.STATUS, V_BATCH.DOMAIN_ID
+                     , V_BATCH.JOB_CONFIG_SET_ID, V_BATCH.IND_CONFIG_SET_ID
+                     , 'PROC', 'PROC', SYSDATE, SYSDATE
+                  FROM DUAL;
+                  
+                V_BATCH_ID := TEMP_BATCHES.BATCH_ID;
+                
+                -- 1.1.3. 주문 데이터 분리 
+                UPDATE ORDERS
+                   SET BATCH_ID = V_BATCH_ID
+                     , EQUIP_NM = TEMP_BATCHES.EQUIP_NM
+                     , UPDATED_AT = SYSDATE
+                 WHERE DOMAIN_ID = P_IN_BATCH_ID
+                   AND BATCH_ID = V_BATCH.ID
+                   AND EQUIP_CD = TEMP_BATCHES.EQUIP_CD;
+
+            END IF;
+            
+            -- 1.2 Rack 에 배치 지정 
+            UPDATE RACKS 
+               SET BATCH_ID = V_BATCH_ID
+                 , UPDATED_AT = SYSDATE
+             WHERE DOMAIN_ID = V_BATCH.DOMAIN_ID
+               AND AREA_CD = V_BATCH.AREA_CD
+               AND STAGE_CD = V_BATCH.STAGE_CD
+               AND RACK_CD = V_BATCH.EQUIP_CD;
+               
+        END LOOP;
+    END IF;
+
+    -- 2. 단포 작업 대상 check
+    SELECT COUNT(1)
+      INTO V_CHECK_CNT
+      FROM ORDERS
+     WHERE DOMAIN_ID = P_IN_DOMAIN_ID
+       AND BATCH_ID in (SELECT ID FROM JOB_BATCHES
+                         WHERE DOMAIN_ID = P_IN_DOMAIN_ID
+                           AND BATCH_GROUP_ID =  V_BATCH.BATCH_GROUP_ID)
+       AND ORDER_TYPE = 'OT'
+       AND ROWNUM = 1;
+       
+    IF (V_CHECK_CNT = 1 AND P_IN_SINGLE_PACK = 1) THEN
+        -- 2.1. 단포 랙 조회 
+        SELECT *
+          INTO V_OT_RACK
+          FROM RACKS
+         WHERE DOMAIN_ID = P_IN_DOMAIN_ID
+           AND AREA_CD = V_BATCH.AREA_CD
+           AND STAGE_CD = V_BATCH.STAGE_CD
+           AND ACTIVE_FLAG = 1
+           AND JOB_TYPE = V_BATCH.JOB_TYPE
+           AND BATCH_ID in ( SELECT ID FROM JOB_BATCHES 
+                              WHERE DOMAIN_ID = P_IN_DOMAIN_ID
+                                AND BATCH_GROUP_ID = V_BATCH.BATCH_GROUP_ID)
+           AND RACK_TYPE = 'O';
+    
+        -- 2.2. 단포 작업 실행 데이터 생성 
+        INSERT INTO JOB_INSTANCES (ID, BATCH_ID
+                                  , JOB_DATE, JOB_SEQ, JOB_TYPE, COM_CD
+                                  , EQUIP_TYPE, EQUIP_CD, EQUIP_NM
+                                  , CLASS_CD, SKU_CD, SKU_NM, INPUT_SEQ, BOX_TYPE_CD
+                                  , SHOP_CD, ORDER_NO
+                                  , PICK_QTY, ORDER_TYPE, STATUS
+                                  , DOMAIN_ID, CREATOR_ID, UPDATER_ID, CREATED_AT, UPDATED_AT)
+        SELECT OF_GET_GENERATE_UUID(), BATCH_ID
+             , JOB_DATE, JOB_SEQ, JOB_TYPE, COM_CD
+             , EQUIP_TYPE, NVL(EQUIP_CD,V_OT_RACK.RACK_CD), NVL(EQUIP_NM,V_OT_RACK.RACK_NM)
+             , CLASS_CD, SKU_CD, MAX(SKU_NM), 0, BOX_TYPE_CD
+             , COM_CD, COM_CD
+             , SUM(ORDER_QTY) AS ORDER_QTY, ORDER_TYPE, 'W'
+             , DOMAIN_ID, 'PROC', 'PROC', SYSDATE, SYSDATE
+          FROM ORDERS
+         WHERE DOMAIN_ID = V_BATCH.DOMAIN_ID
+           AND BATCH_ID in (SELECT ID FROM JOB_BATCHES
+                             WHERE DOMAIN_ID = P_IN_DOMAIN_ID
+                               AND BATCH_GROUP_ID =  V_BATCH.BATCH_GROUP_ID)
+           AND ORDER_TYPE = 'OT'
+         GROUP BY DOMAIN_ID, BATCH_ID, JOB_DATE, JOB_SEQ, JOB_TYPE, EQUIP_TYPE, CLASS_CD, ORDER_TYPE, COM_CD, SKU_CD, BOX_TYPE_CD, EQUIP_CD, EQUIP_NM;        
+    
+    
+        -- 2.3. 단포 주문 데이터 status update 
+        UPDATE ORDERS
+           SET STATUS = 'A'
+             , EQUIP_CD = V_OT_RACK.RACK_CD
+             , EQUIP_NM = V_OT_RACK.RACK_NM
+         WHERE DOMAIN_ID = P_IN_DOMAIN_ID
+           AND BATCH_ID in (SELECT ID FROM JOB_BATCHES
+                             WHERE DOMAIN_ID = P_IN_DOMAIN_ID
+                               AND BATCH_GROUP_ID =  V_BATCH.BATCH_GROUP_ID)
+           AND STATUS = 'T'
+           AND ORDER_TYPE = 'OT';    
+    END IF;
+       
+    -- 3. 합포 주문 데이터 status update   
+    UPDATE ORDERS
+       SET STATUS = 'I'
+         , EQUIP_CD = EQUIP_CD
+         , EQUIP_NM = EQUIP_NM
+     WHERE DOMAIN_ID = P_IN_DOMAIN_ID
+       AND BATCH_ID in (SELECT ID FROM JOB_BATCHES
+                         WHERE DOMAIN_ID = P_IN_DOMAIN_ID
+                           AND BATCH_GROUP_ID =  V_BATCH.BATCH_GROUP_ID)
+       AND STATUS = 'T'
+       AND ORDER_TYPE = 'MT';
+       
+    -- 4. 작업 배치 status instructed_at, update 
+    UPDATE JOB_BATCHES
+       SET STATUS = 'RUN'
+         , INSTRUCTED_AT = SYSDATE
+     WHERE DOMAIN_ID = P_IN_DOMAIN_ID
+       AND BATCH_GROUP_ID =  V_BATCH.BATCH_GROUP_ID;
+       
+    -- 5. 배치 랙의 상태 Update 
+    UPDATE RACKS
+       SET STATUS = 'RUN'
+         , UPDATED_AT = SYSDATE
+     WHERE DOMAIN_ID = P_IN_DOMAIN_ID
+       AND BATCH_ID in (SELECT ID FROM JOB_BATCHES
+                         WHERE DOMAIN_ID = P_IN_DOMAIN_ID
+                           AND BATCH_GROUP_ID =  V_BATCH.BATCH_GROUP_ID);
+
+    -- 6. 합포 작업 재고 추천 셀 데이터 생성 
+    IF (P_IN_RECOMMEND_CELL = 1) THEN
+        OP_DPS_BATCH_RECOMM_CELL(P_IN_DOMAIN_ID, P_IN_BATCH_ID,P_OUT_RESULT_CODE,P_OUT_MESSAGE );
+    END IF;
+
+    -- 정상 처리 
+    P_OUT_RESULT_CODE := 0;
+    P_OUT_MESSAGE := 'OK';
+
+EXCEPTION
+    WHEN OTHERS THEN
+        P_OUT_RESULT_CODE := SQLCODE;
+
+        -- 개발자 에러 코드의 경우 메시지만 return
+        IF SQLCODE = -20999 THEN
+            P_OUT_MESSAGE := LTRIM(SUBSTR(SQLERRM, 11, 200));
+        ELSE 
+            -- 오라클 자체 에러인 경우 전체 메시지 리턴 
+            P_OUT_MESSAGE := SUBSTR(SQLERRM, 1, 200);
+            RAISE;
+        END IF;
+
+END OP_DPS_BATCH_INSTRUCT;

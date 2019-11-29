@@ -1,0 +1,49 @@
+create or replace PROCEDURE OP_DPS_BATCH_RECOMM_CELL
+/***********************************************************************************/
+/*  프로시져 이름 : OP_DPS_BATCH_RECOMM_CELL
+/*  프로시져 호출 서비스 : 
+/*  프로시져 설명 : DPS 합포 작업 재고 추천 셀 데이터 생성 
+/*  프로시져 로직 
+/*    1. TODO
+/*  생성일시 : 2019-11-29
+/*  작성자 : 양우람 
+/*  개정 이력
+/*    1. 2019-11-29 : 최초 작성
+/***********************************************************************************/
+(
+    /* 도메인 ID */
+    P_IN_DOMAIN_ID                IN NUMBER,
+    /* 배치 ID */
+    P_IN_BATCH_ID                 IN VARCHAR2,
+
+    /* 결과 코드 */
+    P_OUT_RESULT_CODE             OUT NUMBER,     -- (0 : 정상 종료, -20999 : 비정상 종료) 
+    /* 결과 메시지 */
+    P_OUT_MESSAGE                 OUT VARCHAR2    -- (OK : 정상 종료, etc : 종료 메시지 or 오류 메시지)
+) 
+IS
+    /* JOBBATCH */
+    V_BATCH JOB_BATCHES%rowtype;
+
+BEGIN
+    -- 배치 조회 
+    V_BATCH := OF_GET_JOB_BATCH(P_IN_DOMAIN_ID, P_IN_BATCH_ID);
+
+    -- 정상 처리 
+    P_OUT_RESULT_CODE := 0;
+    P_OUT_MESSAGE := 'OK';
+
+EXCEPTION
+    WHEN OTHERS THEN
+        P_OUT_RESULT_CODE := SQLCODE;
+
+        -- 개발자 에러 코드의 경우 메시지만 return
+        IF SQLCODE = -20999 THEN
+            P_OUT_MESSAGE := LTRIM(SUBSTR(SQLERRM, 11, 200));
+        ELSE 
+            -- 오라클 자체 에러인 경우 전체 메시지 리턴 
+            P_OUT_MESSAGE := SUBSTR(SQLERRM, 1, 200);
+            RAISE;
+        END IF;
+
+END OP_DPS_BATCH_RECOMM_CELL;

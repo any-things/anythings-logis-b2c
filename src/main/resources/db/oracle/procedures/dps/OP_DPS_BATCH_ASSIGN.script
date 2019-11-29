@@ -1,0 +1,401 @@
+create or replace PROCEDURE OP_DPS_BATCH_ASSIGN
+/***********************************************************************************/
+/*  프로시져 이름 : OP_DPS_BATCH_ASSIGN
+/*  프로시져 호출 서비스 : 
+/*  프로시져 설명 : DPS 작업 배치 할당 
+/*  프로시져 로직 
+/*    1. Loop 1. 현재 진행중인 배치의 Sku 가 적치된 재고 수량을 기준으로 많은 재고 부터 loop
+/*    2. Loop 2. 위 상품이 필요한 주문 No 리스트 검색 loop
+/*    3. Loop 3. 주문 No 가 할당 한 재고가 보유되었는지 검색 loop
+/*    4.  작업 실행 데이터 생성 및 재고 update
+/*    5. 스케쥴 잡 이므로 리턴이 없음 .
+/*  생성일시 : 2019-10-28
+/*  작성자 : 양우람 
+/*  개정 이력
+/*    1. 2019-10-28 : 최초 작성
+/***********************************************************************************/
+
+IS
+
+    -- 한번 재고 확인에 실패한 주문은 Skip 하기위한 object
+    V_SKIP_JOBS DPS_ASSIGN_SKIP_JOBS := DPS_ASSIGN_SKIP_JOBS();
+
+    V_ASSIGN_JOBS NUMBER:= 0;
+
+    -- 주문 수량 
+    -- 재고가 여러 로케이션에 분포되었을경우 처리용.
+    V_ORDER_QTY NUMBER;
+
+    -- 할당 수량 
+    V_ASSIGN_QTY NUMBER;
+
+    -- 할당 가능한 재고 조회 --
+    V_STOCK_LOAD_QTY  STOCKS.LOAD_QTY%type;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE(TO_CHAR(SYSDATE , 'HH24-MI-SS'));
+
+    FOR C_STOCK_SKUS IN(
+        WITH T_BATCH AS (
+            SELECT ID AS BATCH_ID
+                 , COM_CD
+                 , AREA_CD
+                 , STAGE_CD
+                 , EQUIP_TYPE
+                 , DOMAIN_ID
+              FROM JOB_BATCHES
+             WHERE STATUS = 'RUN'
+               AND JOB_TYPE = 'DPS'
+        ),
+        T_ORDERS AS (
+            SELECT X.DOMAIN_ID, X.BATCH_ID, X.AREA_CD, X.STAGE_CD, X.CLASS_CD, X.COM_CD, X.SKU_CD, X.ORDER_QTY
+              FROM ORDERS X
+                 , T_BATCH Y
+             WHERE X.DOMAIN_ID = Y.DOMAIN_ID
+               AND X.BATCH_ID = Y.BATCH_ID
+               AND X.STATUS = 'I'
+               AND X.ORDER_TYPE = 'MT'
+        ),
+        T_BATCH_RACKS AS (
+            SELECT Y.BATCH_ID
+                 , Y.COM_CD
+                 , Y.AREA_CD
+                 , Y.STAGE_CD
+                 , Y.EQUIP_TYPE
+                 , X.RACK_CD AS EQUIP_CD
+                 , X.RACK_NM AS EQUIP_NM
+                 , X.DOMAIN_ID
+              FROM RACKS X
+                 , T_BATCH Y
+             WHERE X.DOMAIN_ID = Y.DOMAIN_ID
+               AND X.AREA_CD = Y.AREA_CD
+               AND X.STAGE_CD = Y.STAGE_CD
+               AND X.BATCH_ID = Y.BATCH_ID
+               AND X.RACK_TYPE != 'O'
+               AND X.ACTIVE_FLAG = 1
+               AND X.STATUS = 'RUN'
+        ),
+        T_BATCH_CELLS AS (
+            SELECT Y.BATCH_ID
+                 , Y.COM_CD
+                 , Y.AREA_CD
+                 , Y.STAGE_CD
+                 , Y.EQUIP_TYPE
+                 , Y.EQUIP_CD
+                 , Y.EQUIP_NM
+                 , X.CELL_CD
+                 , X.IND_CD
+                 , Y.DOMAIN_ID
+              FROM CELLS X
+                 , T_BATCH_RACKS Y
+             WHERE X.DOMAIN_ID = Y.DOMAIN_ID
+               AND X.EQUIP_TYPE = Y.EQUIP_TYPE
+               AND X.EQUIP_CD = Y.EQUIP_CD
+               AND X.ACTIVE_FLAG = 1
+        ),
+        T_STOCKS AS (
+            SELECT X.DOMAIN_ID, X.BATCH_ID, X.COM_CD, X.SKU_CD
+                 , X.LOAD_QTY, Y.ORDER_SKU_CNT, Y.ORDER_PCS_CNT
+              FROM (
+                    SELECT X.DOMAIN_ID
+                         , Y.BATCH_ID
+                         , X.COM_CD
+                         , X.SKU_CD
+                         , SUM(X.LOAD_QTY) AS LOAD_QTY
+                      FROM STOCKS X
+                         , T_BATCH_CELLS Y
+                     WHERE X.DOMAIN_ID = Y.DOMAIN_ID
+                       AND X.EQUIP_TYPE = Y.EQUIP_TYPE
+                       AND X.EQUIP_CD = Y.EQUIP_CD
+                       AND X.CELL_CD = Y.CELL_CD
+                       AND X.COM_CD = Y.COM_CD
+                       AND X.SKU_CD IS NOT NULL
+                       AND x.LOAD_QTY != 0
+                       AND X.ACTIVE_FLAG = 1
+                     GROUP BY X.DOMAIN_ID, Y.BATCH_ID, X.COM_CD, X.SKU_CD
+                   ) X
+                 , (
+                    SELECT DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD
+                         , SUM(ORDER_QTY) AS ORDER_PCS_CNT
+                         , COUNT(1) AS ORDER_SKU_CNT
+                      FROM T_ORDERS
+                     GROUP BY DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD
+                   ) Y
+             WHERE X.DOMAIN_ID = Y.DOMAIN_ID
+               AND X.BATCH_ID = Y.BATCH_ID
+               AND X.COM_CD = Y.COM_CD
+               AND X.SKU_CD = Y.SKU_CD
+        ),
+        T_ASSIGN_SKU AS (
+            SELECT MIN(ASSIGN_PRIORITY) AS ASSIGN_PRIORITY 
+                 , DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY
+              FROM (
+                    SELECT 1 AS ASSIGN_PRIORITY, DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY
+                      FROM T_STOCKS
+                     WHERE ORDER_PCS_CNT <= LOAD_QTY
+                     UNION ALL
+                    SELECT 2 AS ASSIGN_PRIORITY, DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY
+                      FROM T_STOCKS
+                     WHERE ORDER_SKU_CNT >= LOAD_QTY
+                     UNION ALL
+                    SELECT 3 AS ASSIGN_PRIORITY, DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY
+                      FROM T_STOCKS
+                   )
+             GROUP BY DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY
+        )
+        SELECT *
+          FROM T_ASSIGN_SKU
+         ORDER BY ASSIGN_PRIORITY ASC, LOAD_QTY DESC, SKU_CD ASC
+    )
+    LOOP
+        SELECT SUM(LOAD_QTY)
+          INTO V_STOCK_LOAD_QTY
+          FROM (
+                SELECT X.DOMAIN_ID, X.BATCH_ID, Y.EQUIP_TYPE, Y.EQUIP_CD, X.RACK_NM AS EQUIP_NM
+                     , Y.CELL_CD, Y.IND_CD, Z.ID AS STOCK_ID, Z.BIN_INDEX, Z.COM_CD, Z.SKU_CD, Z.LOAD_QTY
+                  FROM (
+                        SELECT *
+                          FROM RACKS
+                         WHERE DOMAIN_ID = C_STOCK_SKUS.DOMAIN_ID
+                           AND BATCH_ID = C_STOCK_SKUS.BATCH_ID
+                           AND ACTIVE_FLAG = 1
+                           AND STATUS = 'RUN'
+                           AND RACK_TYPE != 'O'
+                       ) X
+                     , CELLS Y
+                     , STOCKS Z
+                WHERE X.DOMAIN_ID = Y.DOMAIN_ID
+                  AND X.RACK_CD = Y.EQUIP_CD
+                  AND Y.EQUIP_TYPE = 'Rack'
+                  AND Y.ACTIVE_FLAG = 1
+                  AND Y.DOMAIN_ID = Z.DOMAIN_ID
+                  AND Y.EQUIP_TYPE = Z.EQUIP_TYPE
+                  AND Y.EQUIP_CD = Z.EQUIP_CD
+                  AND Y.CELL_CD = Z.CELL_CD
+                  AND Z.ACTIVE_FLAG = 1
+                  AND Z.LOAD_QTY != 0     
+                  AND Z.COM_CD = C_STOCK_SKUS.COM_CD
+                  AND Z.SKU_CD = C_STOCK_SKUS.SKU_CD
+               );
+
+
+        IF (V_STOCK_LOAD_QTY = 0 ) THEN
+            CONTINUE;
+        END IF;
+
+        FOR C_ASSIGN_JOBS IN (
+            SELECT X.DOMAIN_ID, X.BATCH_ID, X.CLASS_CD
+                 , X.AREA_CD, X.STAGE_CD
+                 , X.COM_CD, X.SKU_CD, X.ORDER_QTY
+              FROM (
+                    SELECT X.DOMAIN_ID, X.BATCH_ID, X.AREA_CD, X.STAGE_CD
+                         , X.CLASS_CD, X.COM_CD, X.SKU_CD, SUM(ORDER_QTY) AS ORDER_QTY
+                      FROM ORDERS X
+                     WHERE X.DOMAIN_ID = C_STOCK_SKUS.DOMAIN_ID
+                       AND X.BATCH_ID = C_STOCK_SKUS.BATCH_ID
+                       AND X.COM_CD = C_STOCK_SKUS.COM_CD
+                       AND X.SKU_CD = C_STOCK_SKUS.SKU_CD
+                       AND X.STATUS = 'I'
+                       AND X.ORDER_TYPE = 'MT'                    
+                       AND (X.DOMAIN_ID, X.BATCH_ID , X.CLASS_CD) not in ( SELECT DOMAIN_ID, BATCH_ID, CLASS_CD FROM TABLE(V_SKIP_JOBS))
+                     GROUP BY X.DOMAIN_ID, X.BATCH_ID, X.AREA_CD, X.STAGE_CD, X.CLASS_CD, X.COM_CD, X.SKU_CD
+                   ) X
+             WHERE X.ORDER_QTY <= V_STOCK_LOAD_QTY
+             ORDER BY ORDER_QTY ASC
+        )
+        LOOP 
+
+            IF ( V_STOCK_LOAD_QTY < C_ASSIGN_JOBS.ORDER_QTY ) THEN 
+                V_SKIP_JOBS.EXTEND;
+                V_SKIP_JOBS(V_SKIP_JOBS.COUNT) 
+                    := DPS_ASSIGN_SKIP_JOB(C_ASSIGN_JOBS.DOMAIN_ID,C_ASSIGN_JOBS.BATCH_ID,C_ASSIGN_JOBS.CLASS_CD);
+                EXIT;
+            END IF;            
+
+
+            BEGIN -- ORDER_NO 별 exception 처리 
+                V_ASSIGN_JOBS := 0;
+
+                FOR C_ASSIGN_JOB_LINE IN (
+                    -- 주문별 상품별 가용 재고 조회 할당 여부 판별 후 할당 
+                    WITH T_CHECK_ORDER AS (
+                        SELECT DOMAIN_ID, BATCH_ID, JOB_TYPE, JOB_DATE, JOB_SEQ
+                             , CLASS_CD, ORDER_TYPE, BOX_TYPE_CD
+                             , COM_CD, SKU_CD, MAX(SKU_NM) AS SKU_NM, SUM(ORDER_QTY) AS ORDER_QTY
+                          FROM ORDERS
+                         WHERE DOMAIN_ID = C_ASSIGN_JOBS.DOMAIN_ID
+                           AND BATCH_ID = C_ASSIGN_JOBS.BATCH_ID
+                           AND CLASS_CD = C_ASSIGN_JOBS.CLASS_CD
+                         GROUP BY DOMAIN_ID, BATCH_ID, JOB_TYPE, JOB_DATE, JOB_SEQ, CLASS_CD, ORDER_TYPE, BOX_TYPE_CD, COM_CD, SKU_CD
+                    ),
+                    T_STOCKS AS (
+                        SELECT X.DOMAIN_ID, X.BATCH_ID, X.JOB_TYPE, X.JOB_DATE, X.JOB_SEQ
+                             , X.CLASS_CD, X.ORDER_TYPE, X.BOX_TYPE_CD
+                             , X.COM_CD, X.SKU_CD, X.SKU_NM
+                             , Y.EQUIP_TYPE, Y.EQUIP_CD, Y.EQUIP_NM, Y.CELL_CD, Y.IND_CD
+                             , Y.STOCK_ID, Y.BIN_INDEX, X.ORDER_QTY, NVL(Y.LOAD_QTY,0) AS LOAD_QTY
+                          FROM T_CHECK_ORDER X 
+                             , (
+                                SELECT X.DOMAIN_ID, X.BATCH_ID, Y.EQUIP_TYPE, Y.EQUIP_CD, X.RACK_NM AS EQUIP_NM
+                                     , Y.CELL_CD, Y.IND_CD, Z.ID AS STOCK_ID, Z.BIN_INDEX, Z.COM_CD, Z.SKU_CD, Z.LOAD_QTY
+                                  FROM (
+                                        SELECT *
+                                          FROM RACKS
+                                         WHERE DOMAIN_ID = C_ASSIGN_JOBS.DOMAIN_ID
+                                           AND BATCH_ID = C_ASSIGN_JOBS.BATCH_ID
+                                           AND AREA_CD = C_ASSIGN_JOBS.AREA_CD
+                                           AND STAGE_CD = C_ASSIGN_JOBS.STAGE_CD
+                                           AND ACTIVE_FLAG = 1
+                                           AND STATUS = 'RUN'
+                                           AND RACK_TYPE != 'O'
+                                       ) X
+                                     , CELLS Y
+                                     , STOCKS Z
+                                WHERE X.DOMAIN_ID = Y.DOMAIN_ID
+                                  AND X.RACK_CD = Y.EQUIP_CD
+                                  AND Y.EQUIP_TYPE = 'Rack'
+                                  AND Y.ACTIVE_FLAG = 1
+                                  AND Y.DOMAIN_ID = Z.DOMAIN_ID
+                                  AND Y.EQUIP_TYPE = Z.EQUIP_TYPE
+                                  AND Y.EQUIP_CD = Z.EQUIP_CD
+                                  AND Y.CELL_CD = Z.CELL_CD
+                                  AND Z.ACTIVE_FLAG = 1
+                                  AND Z.LOAD_QTY != 0
+                               ) Y
+                         WHERE X.DOMAIN_ID = Y.DOMAIN_ID(+)
+                           AND X.BATCH_ID = Y.BATCH_ID(+)
+                           AND X.COM_CD = Y.COM_CD(+)
+                           AND X.SKU_CD = Y.SKU_CD(+)
+                    ),
+                    T_ASSIGN_CHECK AS (
+                        SELECT SUM(CHECK_STOCK) AS ASSIGN_CHECK
+                          FROM (
+                                SELECT CASE WHEN SUM(LOAD_QTY) - MAX(ORDER_QTY) < 0 THEN 1
+                                            ELSE 0
+                                        END AS CHECK_STOCK
+                                  FROM T_STOCKS
+                                 GROUP BY COM_CD, SKU_CD
+                               )
+                    ),
+                    T_ORDER_STOCKS AS (
+                        SELECT X.*
+                             , ROW_NUMBER() OVER (PARTITION BY COM_CD, SKU_CD ORDER BY LOAD_SUM_QTY) AS CHECK_ROW
+                             , SUM(CASE WHEN LOAD_SUM_QTY < ORDER_QTY THEN 0
+                                        ELSE 1
+                                    END) OVER ( PARTITION BY COM_CD, SKU_CD ORDER BY LOAD_SUM_QTY) AS ROW_POINT
+                          FROM (
+                                SELECT X.*
+                                     , SUM(LOAD_QTY) OVER (PARTITION BY COM_CD, SKU_CD 
+                                                               ORDER BY LOAD_QTY DESC, CELL_CD, BIN_INDEX ) AS LOAD_SUM_QTY
+                                  FROM T_STOCKS X
+                               ) X
+                    )
+                    SELECT *
+                      FROM (
+                            SELECT X.*, Z.*
+                                 , ROW_NUMBER() OVER (PARTITION BY X.COM_CD, X.SKU_CD ORDER BY X.LOAD_SUM_QTY ) AS ROW_NUM
+                              FROM T_ORDER_STOCKS X
+                                 , T_ASSIGN_CHECK Z
+                             WHERE EXISTS (SELECT 1 
+                                             FROM T_ORDER_STOCKS Y
+                                            WHERE Y.ROW_POINT = 1
+                                              AND Y.COM_CD = X.COM_CD
+                                              AND Y.SKU_CD = X.SKU_CD 
+                                              AND Y.CHECK_ROW >= X.CHECK_ROW)
+                           )
+                     ORDER BY COM_CD,SKU_CD, ROW_NUM
+                )
+                LOOP
+                    IF ( C_ASSIGN_JOB_LINE.ASSIGN_CHECK != 0 ) THEN 
+                        V_SKIP_JOBS.EXTEND;
+                        V_SKIP_JOBS(V_SKIP_JOBS.COUNT) 
+                            := DPS_ASSIGN_SKIP_JOB(C_ASSIGN_JOBS.DOMAIN_ID,C_ASSIGN_JOBS.BATCH_ID,C_ASSIGN_JOBS.CLASS_CD);
+                        EXIT;
+                    END IF;
+
+                    V_ASSIGN_JOBS := 1;
+
+                    IF (C_ASSIGN_JOB_LINE.ROW_NUM = 1) THEN
+                        IF ( C_ASSIGN_JOB_LINE.COM_CD = C_STOCK_SKUS.COM_CD 
+                            AND C_ASSIGN_JOB_LINE.SKU_CD = C_STOCK_SKUS.SKU_CD) THEN
+
+                            V_STOCK_LOAD_QTY := V_STOCK_LOAD_QTY - C_ASSIGN_JOB_LINE.ORDER_QTY;
+                        END IF;
+
+                        V_ORDER_QTY := C_ASSIGN_JOB_LINE.ORDER_QTY;
+
+                    END IF;
+
+                    -- 할당 수량 계산 
+                    SELECT CASE WHEN V_ORDER_QTY > C_ASSIGN_JOB_LINE.LOAD_QTY THEN C_ASSIGN_JOB_LINE.LOAD_QTY
+                                ELSE V_ORDER_QTY
+                            END 
+                       INTO V_ASSIGN_QTY
+                       FROM DUAL;
+
+
+                    -- 작업 실행 데이터 생성 
+                    INSERT INTO JOB_INSTANCES (ID, BATCH_ID
+                                              , JOB_DATE, JOB_SEQ, JOB_TYPE, COM_CD
+                                              , CLASS_CD
+                                              , ORDER_NO, SHOP_CD
+                                              , EQUIP_TYPE, EQUIP_CD, EQUIP_NM, SUB_EQUIP_CD, IND_CD
+                                              , SKU_CD, SKU_NM, INPUT_SEQ, BOX_TYPE_CD
+                                              , PICK_QTY, ORDER_TYPE, STATUS
+                                              , DOMAIN_ID, CREATOR_ID, UPDATER_ID, CREATED_AT, UPDATED_AT )
+                    SELECT OF_GET_GENERATE_UUID(), C_ASSIGN_JOB_LINE.BATCH_ID
+                         , C_ASSIGN_JOB_LINE.JOB_DATE, C_ASSIGN_JOB_LINE.JOB_SEQ, C_ASSIGN_JOB_LINE.JOB_TYPE, C_ASSIGN_JOB_LINE.COM_CD
+                         , C_ASSIGN_JOB_LINE.CLASS_CD
+                         , C_ASSIGN_JOB_LINE.COM_CD, C_ASSIGN_JOB_LINE.COM_CD
+                         , C_ASSIGN_JOB_LINE.EQUIP_TYPE, C_ASSIGN_JOB_LINE.EQUIP_CD, C_ASSIGN_JOB_LINE.EQUIP_NM, C_ASSIGN_JOB_LINE.CELL_CD, C_ASSIGN_JOB_LINE.IND_CD
+                         , C_ASSIGN_JOB_LINE.SKU_CD, C_ASSIGN_JOB_LINE.SKU_NM, 0, C_ASSIGN_JOB_LINE.BOX_TYPE_CD
+                         , V_ASSIGN_QTY, C_ASSIGN_JOB_LINE.ORDER_TYPE, 'BW'
+                         , C_ASSIGN_JOB_LINE.DOMAIN_ID, 'PROC', 'PROC', SYSDATE, SYSDATE 
+                      FROM DUAL;
+
+
+                      UPDATE STOCKS 
+                         SET ALLOC_QTY = ALLOC_QTY + V_ASSIGN_QTY
+                           , LOAD_QTY = LOAD_QTY - V_ASSIGN_QTY
+                           , UPDATED_AT = SYSDATE
+                       WHERE ID = C_ASSIGN_JOB_LINE.STOCK_ID;
+
+                       V_ORDER_QTY := V_ORDER_QTY - V_ASSIGN_QTY;
+
+                END LOOP;
+
+                IF (V_ASSIGN_JOBS = 1 ) THEN
+                    -- 할당이 된 주문 No 상태 UPdate 
+                    UPDATE ORDERS SET STATUS = 'A'
+                                    , UPDATED_AT = SYSDATE
+                     WHERE DOMAIN_ID = C_ASSIGN_JOBS.DOMAIN_ID
+                       AND BATCH_ID = C_ASSIGN_JOBS.BATCH_ID
+                       AND CLASS_CD = C_ASSIGN_JOBS.CLASS_CD;
+
+                   COMMIT;
+
+                END IF;
+
+            EXCEPTION
+                WHEN OTHERS THEN
+                    DBMS_OUTPUT.PUT_LINE(SQLCODE);
+                    DBMS_OUTPUT.PUT_LINE(SQLERRM);
+                    ROLLBACK;
+            END ;
+
+        END LOOP;
+
+    END LOOP;
+
+    ROLLBACK;
+
+    V_SKIP_JOBS.DELETE;
+
+    DBMS_OUTPUT.PUT_LINE(TO_CHAR(SYSDATE , 'HH24-MI-SS'));
+
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE(SQLCODE);
+        DBMS_OUTPUT.PUT_LINE(SQLERRM);
+        ROLLBACK;
+END OP_DPS_BATCH_ASSIGN;
