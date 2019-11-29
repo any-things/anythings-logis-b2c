@@ -65,25 +65,31 @@ public class DpsIndicationService extends AbstractExecutionService implements II
 	}
 
 	@Override
-	public void indicatorOffAll(Long domainId, String batchId) {
+	public void indicatorOffAll(JobBatch batch) {
 		// TODO Auto-generated method stub
 		
 	}
 
 	@Override
-	public void indicatorListOff(Long domainId, String equipType, String equipCd, String stationCd) {
+	public void indicatorListOff(Long domainId, String stageCd, String equipType, String equipCd, String stationCd) {
 		// TODO Auto-generated method stub
 		
 	}
 
 	@Override
-	public void indicatorOff(Long domainId, String batchId, String jobType, String gwCd, String indCd) {
+	public void indicatorOff(Long domainId, String stageCd, String gwPath, String indCd) {
 		// TODO Auto-generated method stub
 		
 	}
 
 	@Override
-	public void displayForBoxMapping(JobBatch batch, String gwCd, String indCd) {
+	public void indicatorOff(Long domainId, String stageCd, String indCd) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void displayForBoxMapping(JobBatch batch, String gwPath, String indCd) {
 		// TODO Auto-generated method stub
 		
 	}
@@ -95,7 +101,7 @@ public class DpsIndicationService extends AbstractExecutionService implements II
 	}
 
 	@Override
-	public void displayForNoBoxError(JobBatch batch, String gwCd, String indCd) {
+	public void displayForNoBoxError(JobBatch batch, String gwPath, String indCd) {
 		// TODO Auto-generated method stub
 		
 	}
@@ -107,41 +113,43 @@ public class DpsIndicationService extends AbstractExecutionService implements II
 	}
 
 	@Override
-	public void displayForString(Long domainId, String batchId, String jobType, String gwCd, String indCd,
-			String firstSegStr, String secondSegStr, String thirdSegStr) {
+	public void displayForString(Long domainId, String batchId, String stageCd, String jobType, String gwPath,
+			String indCd, String showStr) {
 		// TODO Auto-generated method stub
 		
 	}
 
 	@Override
-	public void displayForString(Long domainId, String batchId, String jobType, String indCd, String firstSegStr,
-			String secondSegStr, String thirdSegStr) {
+	public void displayForString(Long domainId, String batchId, String stageCd, String jobType, String indCd,
+			String showStr) {
 		// TODO Auto-generated method stub
 		
 	}
 
 	@Override
-	public void displayForCellCd(Long domainId, String batchId, String jobType, String gwCd, String indCd,
+	public void displayForCellCd(Long domainId, String batchId, String stageCd, String jobType, String gwPath,
+			String indCd, String cellCd) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void displayForCellCd(Long domainId, String batchId, String stageCd, String jobType, String indCd,
 			String cellCd) {
 		// TODO Auto-generated method stub
 		
 	}
 
 	@Override
-	public void displayForCellCd(Long domainId, String batchId, String jobType, String indCd, String cellCd) {
+	public void displayForIndCd(Long domainId, String batchId, String stageCd, String jobType, String gwPath,
+			String indCd, String cellCd) {
 		// TODO Auto-generated method stub
 		
 	}
 
 	@Override
-	public void displayForIndCd(Long domainId, String batchId, String jobType, String gwCd, String indCd,
+	public void displayForIndCd(Long domainId, String batchId, String stageCd, String jobType, String indCd,
 			String cellCd) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void displayForIndCd(Long domainId, String batchId, String jobType, String indCd, String cellCd) {
 		// TODO Auto-generated method stub
 		
 	}
@@ -175,4 +183,5 @@ public class DpsIndicationService extends AbstractExecutionService implements II
 		// TODO Auto-generated method stub
 		return null;
 	}
+
 }
