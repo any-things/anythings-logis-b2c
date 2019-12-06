@@ -281,11 +281,11 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	/**
 	 * 4-1. 기타 : 배치 내 모든 분류 작업이 완료되었는지 여부 
 	 * 
-	 * @param batchId
+	 * @param batch
 	 * @return
 	 */
 	@Override
-	public boolean checkEndClassifyAll(String batchId) {
+	public boolean checkEndClassifyAll(JobBatch batch) {
 		return false;
 	}
 		
