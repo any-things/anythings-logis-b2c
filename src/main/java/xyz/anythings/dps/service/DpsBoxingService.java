@@ -10,6 +10,7 @@ import xyz.anythings.base.entity.JobConfigSet;
 import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.entity.WorkCell;
 import xyz.anythings.base.service.impl.AbstractBoxingService;
+import xyz.anythings.base.service.util.BatchJobConfigUtil;
 import xyz.anythings.dps.DpsConstants;
 
 /**
@@ -38,8 +39,7 @@ public class DpsBoxingService extends AbstractBoxingService {
 	 */
 	@Override
 	public JobConfigSet getJobConfigSet(String batchId) {
-		// TODO Auto-generated method stub
-		return null;
+		return BatchJobConfigUtil.getConfigSetService().getConfigSet(batchId);
 	}
 
 	/**
