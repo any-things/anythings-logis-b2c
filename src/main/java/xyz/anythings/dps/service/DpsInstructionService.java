@@ -203,15 +203,22 @@ public class DpsInstructionService extends AbstractExecutionService implements I
 	 */
 	private void doUpdateClassificationCodes(JobBatch batch, Object ... params) {
 		// 1. 소분류 매핑 필드 - class_cd 매핑 
-		String class1TargetField = DpsBatchJobConfigUtil.getBoxMappingTargetField(batch);
+		String classTargetField = DpsBatchJobConfigUtil.getBoxMappingTargetField(batch);
 		
-		// 2. 방면분류 매핑 필드 - class2_cd 매핑
-		String class2TargetField = DpsBatchJobConfigUtil.getMappingFieldForOutClassification(batch);
+		if(ValueUtil.isNotEmpty(classTargetField)) {
+			String sql = "UPDATE ORDERS SET CLASS_CD = :classCd WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId";
+			Map<String, Object> updateParams = ValueUtil.newMap("classCd", classTargetField);
+			this.queryManager.executeBySql(sql, updateParams);
+		}
+
+		// 2. 방면분류 매핑 필드 - box_class_cd 매핑
+		String boxClassTargetField = DpsBatchJobConfigUtil.getMappingFieldForOutClassification(batch);
 		
-		// 3. 주문 정보 업데이트
-		String sql = "UPDATE ORDERS SET CLASS_CD = :classCd, CLASS2_CD = :class2Cd WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId";
-		Map<String, Object> updateParams = ValueUtil.newMap("classCd,class2Cd", class1TargetField, class2TargetField);
-		this.queryManager.executeBySql(sql, updateParams);
+		if(ValueUtil.isNotEmpty(boxClassTargetField)) {
+			String sql = "UPDATE ORDERS SET BOX_CLASS_CD = :boxClassCd WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId";
+			Map<String, Object> updateParams = ValueUtil.newMap("boxClassCd", boxClassTargetField);
+			this.queryManager.executeBySql(sql, updateParams);
+		}
 	}
 	
 	/**
