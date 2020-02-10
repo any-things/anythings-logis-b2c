@@ -46,7 +46,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	}
 	
 	/**
-	 * 소분류를 위해 박스에 할당할 대상 필드 (매장, 상품, 주문번호 …)
+	 * 소분류를 위해 박스에 할당할 대상 필드 (주문의 class_cd에 복사할 필드명 - 매장, 상품, 주문번호 …)
 	 * 
 	 * @param batch
 	 * @return
@@ -57,14 +57,14 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	}
 		
 	/**
-	 * 방면분류를 위한 주문 매핑 필드 (주문의 class2_cd에 복사할 필드명)
+	 * 방면분류를 위한 주문 매핑 필드 (주문의 box_class_cd에 복사할 필드명)
 	 * 
 	 * @param batch
 	 * @return
 	 */
 	public static String getMappingFieldForOutClassification(JobBatch batch) {
 		// dps.out.classification.mapping.field
-		return getConfigValue(batch, DpsConfigConstants.DPS_CLASSIFICATION2_MAPPING_FIELD, true);
+		return getConfigValue(batch, DpsConfigConstants.DPS_OUT_CLASSIFICATION_MAPPING_FIELD, true);
 	}
 	
 	/**

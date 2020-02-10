@@ -108,7 +108,7 @@ public class DpsStageJobConfigUtil extends StageJobConfigUtil {
 	
 	
 	/**
-	 * DPS 박스에에 할당할 대상 필드 (매장, 상품, 주문번호 …)
+	 * DPS 박스에 할당할 대상 필드 (매장, 상품, 주문번호 …)
 	 * 
 	 * @param stageCd 스테이지 코드
 	 * @return
