@@ -17,10 +17,7 @@ import xyz.elidom.sys.util.ValueUtil;
  * DPS 작업 설정 항목
  * 	job.dps.input.box.type						투입 박스 유형
  * 	job.dps.preproces.cell.mapping.field		셀에 할당할 대상 필드 (매장, 상품, 주문번호…)
- * 
- *  job.dps.class_cd.mapping.field				소분류를 위한 주문 매핑 필드 (주문의 class_cd에 복사할 필드명)
- *  job.dps.class2_cd.mapping.field				방면분류를 위한 주문 매핑 필드 (주문의 class2_cd에 복사할 필드명)
- *  
+ *  job.dps.box.out.class.field					방면분류를 위한 주문 매핑 필드 (주문의 box_class_cd에 복사할 필드명)
  * 	job.dps.station.wait-pool.count				작업 스테이션에 대기할 박스 최대 개수 (-1이면 무한대)
  * 	job.dps.batch.split-by-rack.enabled			호기별로 배치 분리 처리 여부
  * 	job.dps.sku.popula.rank.calc.days			SKU 물량 Rank 선정 기준 데이터 범위 (일자)
@@ -62,9 +59,9 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 * @param batch
 	 * @return
 	 */
-	public static String getMappingFieldForOutClassification(JobBatch batch) {
-		// dps.out.classification.mapping.field
-		return getConfigValue(batch, DpsConfigConstants.DPS_OUT_CLASSIFICATION_MAPPING_FIELD, true);
+	public static String getBoxOutClassTargetField(JobBatch batch) {
+		// dps.box.out.class.field
+		return getConfigValue(batch, DpsConfigConstants.DPS_BOX_OUT_CLASS_FIELD, true);
 	}
 	
 	/**

@@ -11,7 +11,6 @@ import xyz.anythings.base.entity.BoxPack;
 import xyz.anythings.base.entity.BoxType;
 import xyz.anythings.base.entity.Cell;
 import xyz.anythings.base.entity.JobBatch;
-import xyz.anythings.base.entity.JobConfigSet;
 import xyz.anythings.base.entity.JobInput;
 import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.entity.Order;
@@ -27,48 +26,49 @@ import xyz.anythings.base.model.Category;
 import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.base.query.store.BoxQueryStore;
 import xyz.anythings.base.service.api.IBoxingService;
-import xyz.anythings.base.service.api.IPickingService;
+import xyz.anythings.base.service.impl.AbstractClassificationService;
 import xyz.anythings.dps.DpsCodeConstants;
 import xyz.anythings.dps.DpsConstants;
-import xyz.anythings.dps.service.DpsBoxingService;
-import xyz.anythings.dps.service.DpsJobStatusService;
+import xyz.anythings.dps.service.api.IDpsBoxingService;
+import xyz.anythings.dps.service.api.IDpsPickingService;
 import xyz.anythings.dps.service.util.DpsBatchJobConfigUtil;
 import xyz.anythings.dps.service.util.DpsServiceUtil;
 import xyz.anythings.sys.model.BaseResponse;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.elidom.exception.server.ElidomRuntimeException;
-import xyz.elidom.orm.IQueryManager;
 import xyz.elidom.sys.entity.User;
 import xyz.elidom.sys.util.DateUtil;
 import xyz.elidom.sys.util.MessageUtil;
 import xyz.elidom.sys.util.ThrowUtil;
-import xyz.elidom.util.BeanUtil;
 import xyz.elidom.util.ValueUtil;
 
-public abstract class AbstractDpsPickingService implements IPickingService {
-	
-	/**
-	 * 쿼리 매니저 
-	 */
-	@Autowired
-	protected IQueryManager queryManager;
+/**
+ * DPS 피킹 추상 클래스
+ * 
+ * @author shortstop
+ */
+public abstract class AbstractDpsPickingService extends AbstractClassificationService implements IDpsPickingService {
 	
 	/**
 	 * 박싱 서비스 
 	 */
 	@Autowired
-	protected DpsBoxingService dpsBoxingService;
-	
+	protected IDpsBoxingService dpsBoxingService;
 	/**
 	 * DPS 작업 상태 서비스 
 	 */
 	@Autowired
 	protected DpsJobStatusService dpsJobStatusService;
-	
-	
+	/**
+	 * 배치 쿼리 스토어
+	 */
 	@Autowired
 	protected BatchQueryStore batchQueryStore;
-	
+	/**
+	 * 박스 쿼리 스토어
+	 */
+	@Autowired
+	protected BoxQueryStore boxQueryStore;
 
 	/***********************************************************************************************/
 	/*   분류 모듈 정보    */
@@ -84,30 +84,6 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 		return DpsConstants.JOB_TYPE_DPS;
 	}
 
-	/**
-	 * 1-2. 분류 모듈 정보 : 작업 배치별 작업 설정 정보
-	 * 
-	 * @param batchId
-	 * @return
-	 */
-	@Override
-	public JobConfigSet getJobConfigSet(String batchId) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	/**
-	 * 1-3. 분류 모듈 정보 : 작업 배치별 표시기 설정 정보
-	 * 
-	 * @param batchId
-	 * @return
-	 */
-	/*@Override
-	public IndConfigSet getIndConfigSet(String batchId) {
-		// TODO Auto-generated method stub
-		return null;
-	}*/
-	
 	/**
 	 * 1-4. 모듈별 박싱 처리 서비스
 	 * 
@@ -327,28 +303,31 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 
 	/**
 	 * 박스 패킹 정보 생성 
-	 * @param domainId
+	 * 
 	 * @param batch
 	 * @param bucket
 	 * @param orderNo
 	 * @param boxPackId
 	 */
-	protected void createBoxPackData(Long domainId, JobBatch batch, IBucket bucket, String orderNo, String boxPackId) {
+	protected void createBoxPackData(JobBatch batch, IBucket bucket, String orderNo, String boxPackId) {
+		// 박스 정보 생성 
+		this.dpsBoxingService.fullBoxing(batch, null, null, orderNo, bucket, boxPackId);
+		
 		// 1. boxItems 생성 
-		this.dpsBoxingService.createBoxItemsDataByOrder(domainId, batch, orderNo, boxPackId);
+		//this.dpsBoxingService.createBoxItemsByOrder(batch, orderNo, boxPackId);
 		
 		// 2. boxItem 정보로 boxPack 생성  
-		this.dpsBoxingService.createBoxPackDataByBoxItems(domainId, batch, orderNo, bucket.getBucketType(), bucket.getBucketTypeCd(), boxPackId);
+		// this.dpsBoxingService.createBoxPackByBoxItems(batch, orderNo, bucket.getBucketType(), bucket.getBucketTypeCd(), boxPackId);
 	}
 	
 	/**
 	 * 박스 투입 후 액션 
-	 * @param domainId
+	 * 
 	 * @param batch
 	 * @param bucket
 	 * @param orderNo
 	 */
-	protected void afterInputEmptyBucket(Long domainId, JobBatch batch, IBucket bucket, String orderNo) {
+	protected void afterInputEmptyBucket(JobBatch batch, IBucket bucket, String orderNo) {
 		// 1. tray 박스인 경우 tray 상태 업데트 
 		if(ValueUtil.isEqualIgnoreCase(DpsCodeConstants.BOX_TYPE_TRAY, bucket.getBucketType())) {
 			TrayBox tray = (TrayBox)bucket;
@@ -371,18 +350,18 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	 * @param boxPackId
 	 * @return
 	 */
-	protected void doInputEmptyBucket(Long domainId, JobBatch batch, String orderNo, IBucket bucket, String indColor, String boxPackId) {
+	protected void doInputEmptyBucket(JobBatch batch, String orderNo, IBucket bucket, String indColor, String boxPackId) {
 		
 		// 1. JobInstance 에서 input 리스트 생성 쿼리 - 조회 
-		List<JobInput> inputList = this.selectNewInputList(domainId, batch, orderNo, false);
+		List<JobInput> inputList = this.selectNewInputList(batch, orderNo, false);
 		
 		// 2. 인풋 Seq 데이터 및 Pack 데이터 생성 
-		this.createInputData(domainId, batch, inputList, orderNo, bucket, indColor, boxPackId);
+		this.createInputData(batch, inputList, orderNo, bucket, indColor, boxPackId);
 	}
 	
 	/**
 	 * 박스 혹은 트레이를 작업에 투입 
-	 * @param domainId
+	 * 
 	 * @param batch
 	 * @param orderNo
 	 * @param bucket
@@ -390,18 +369,18 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	 * @param boxPackId
 	 * @return
 	 */
-	protected void doInputSinglePackEmptyBucket(Long domainId, JobBatch batch, String orderNo, IBucket bucket, String indColor, String boxPackId) {
+	protected void doInputSinglePackEmptyBucket(JobBatch batch, String orderNo, IBucket bucket, String indColor, String boxPackId) {
 		
 		// 1. JobInstance 에서 input 리스트 생성 쿼리 - 조회 
-		List<JobInput> inputList = this.selectNewInputList(domainId, batch, orderNo, true);
+		List<JobInput> inputList = this.selectNewInputList(batch, orderNo, true);
 		
 		// 2. 인풋 Seq 데이터 및 Pack 데이터 생성 
-		this.createInputData(domainId, batch, inputList, orderNo, bucket, indColor, boxPackId);
+		this.createInputData(batch, inputList, orderNo, bucket, indColor, boxPackId);
 	}
 	
 	/**
 	 * 인풋 Seq 데이터 및 Pack 데이터 생성 
-	 * @param domainId
+	 * 
 	 * @param batch
 	 * @param inputList
 	 * @param orderNo
@@ -409,16 +388,16 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	 * @param indColor
 	 * @param boxPackId
 	 */
-	private void createInputData(Long domainId, JobBatch batch, List<JobInput> inputList, String orderNo, IBucket bucket, String indColor, String boxPackId) {
+	private void createInputData(JobBatch batch, List<JobInput> inputList, String orderNo, IBucket bucket, String indColor, String boxPackId) {
 
 		// 1. 투입 번호 셋팅 및 input 데이터 생성  
 		// 1.1 주문 - 박스 ID 매핑 쿼리 
 		String mapInstanceBox = this.batchQueryStore.getRackDpsBatchMapBoxIdAndSeqQuery();
 		Map<String,Object> mappingParams 
 			= ValueUtil.newMap("domainId,batchId,equipType,orderNo,userId,boxId,colorCd,inputAt,boxPackId"
-				, domainId,batch.getId(), batch.getEquipType(), orderNo, User.currentUser().getId(),bucket.getBucketCd(),indColor,DateUtil.currentTimeStr(),boxPackId);
+				, batch.getDomainId(), batch.getId(), batch.getEquipType(), orderNo, User.currentUser().getId(), bucket.getBucketCd(), indColor, DateUtil.currentTimeStr(), boxPackId);
 		
-		for(JobInput input : inputList ) {
+		for(JobInput input : inputList) {
 			// 1.1. 다음 투입 번호
 			int newSeq = this.dpsJobStatusService.findNextInputSeq(batch);
 			
@@ -430,7 +409,6 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 			input.setColorCd(indColor);
 			input.setInputType(DpsCodeConstants.JOB_INPUT_TYPE_PCS); // TODO : config 처리 필요 
 			input.setStatus(DpsCodeConstants.JOB_INPUT_STATUS_WAIT);
-			
 			
 			// 1.3. 주문 - 박스 ID 매핑 params 셋 
 			mappingParams.put("inputSeq", newSeq);
@@ -446,18 +424,19 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	
 	/**
 	 * JobInstance 에서 input 리스트 생성 쿼리 - 조회 
-	 * @param domainId
+	 * 
 	 * @param batch
 	 * @param orderNo
+	 * @param isSinglePack
 	 * @return
 	 */
-	private List<JobInput> selectNewInputList(Long domainId, JobBatch batch, String orderNo, boolean isSinglePack) {
+	private List<JobInput> selectNewInputList(JobBatch batch, String orderNo, boolean isSinglePack) {
 		// 1. JobInstance 에서 equipCd, stationCd 가져오기
 		// 1.1. 쿼리 
 		String newInputsQuery = this.batchQueryStore.getRackDpsBatchNewInputDataQuery();
 		
 		// 1.2. 파라미터 
-		Map<String,Object> params = ValueUtil.newMap("domainId,batchId,equipType,orderNo", domainId,batch.getId(), batch.getEquipType(), orderNo);
+		Map<String,Object> params = ValueUtil.newMap("domainId,batchId,equipType,orderNo", batch.getDomainId(), batch.getId(), batch.getEquipType(), orderNo);
 		
 		if(isSinglePack) {
 			params.put("orderType", DpsCodeConstants.DPS_ORDER_TYPE_OT);
@@ -466,69 +445,73 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 		}
 		
 		// 1.3. 조회 
-		List<JobInput> inputList = AnyEntityUtil.searchItems(domainId, false, JobInput.class, newInputsQuery, params);
-
-		return inputList;
+		return AnyEntityUtil.searchItems(batch.getDomainId(), false, JobInput.class, newInputsQuery, params);
 	}
 	
-	
 	/**
-	 * 버킷 투입 전 액션 
-	 * @param domainId
+	 * 버킷 투입 전 액션
+	 * 
 	 * @param batch
 	 * @param isBox
 	 * @param bucket
 	 * @return
 	 */
-	protected String beforeInputEmptyBucket(Long domainId, JobBatch batch, boolean isBox, IBucket bucket) {
+	protected String beforeInputEmptyBucket(JobBatch batch, boolean isBox, IBucket bucket) {
+		
+		Long domainId = batch.getDomainId();
+		
 		// 1.버킷의 투입 가능 여부 확인 
-		this.isUsedBoxCheck(domainId, batch, bucket, isBox);
+		this.isUsedBoxCheck(batch, bucket, isBox);
 		
 		// TODO 현재는 주문에만 맵핑 하도록 구현 
 		// 추후 맵핑 컬럼 적용 필요함. 
 		// 2. 박스와 매핑하고자 하는 작업 정보를 조회한다.
-		String nextOrderId = this.findNextMappingJob(domainId, batch, isBox, bucket, false);
+		String nextOrderId = this.findNextMappingJob(batch, isBox, bucket, false);
 		
 		// 3. 이미 처리된 주문인지 한 번 더 체크
-		if(AnyEntityUtil.selectSizeByEntity(domainId, JobInput.class, "batchId,orderNo", batch.getId(), nextOrderId)>0) {
+		if(AnyEntityUtil.selectSizeByEntity(domainId, JobInput.class, "batchId,orderNo", batch.getId(), nextOrderId) > 0) {
 			// 주문 은(는) 이미 투입 상태입니다
 			throw new ElidomRuntimeException(ThrowUtil.translateMessage("A_ALREADY_B_STATUS", "terms.label.order", "terms.label.input"));
 		}
+		
 		return nextOrderId;		
 	}
 	
 	/**
-	 * 단포 버킷 투입 전 액션 
-	 * @param domainId
+	 * 단포 버킷 투입 전 액션
+	 * 
 	 * @param batch
 	 * @param isBox
 	 * @param bucket
 	 * @return
 	 */
-	protected JobInstance beforeInputSinglePackEmptyBucket(Long domainId, JobBatch batch, boolean isBox, IBucket bucket) {
+	protected JobInstance beforeInputSinglePackEmptyBucket(JobBatch batch, boolean isBox, IBucket bucket) {
+				
 		// 1. 박스와 매핑하고자 하는 작업 정보를 조회한다.
-		String instanceId = this.findNextMappingJob(domainId, batch, isBox, bucket, true);
+		String instanceId = this.findNextMappingJob(batch, isBox, bucket, true);
 		JobInstance job = AnyEntityUtil.findEntityById(false, JobInstance.class, instanceId);
 		
 		// 2. 기존에 맵핑된 작업을 재 사용하는 것이 아니면 
 		if(ValueUtil.isNotEqual(job.getBoxId(), bucket.getBucketCd())) {
 			// 2.1 버킷의 투입 가능 여부 확인 
-			this.isUsedBoxCheck(domainId, batch, bucket, isBox);
+			this.isUsedBoxCheck(batch, bucket, isBox);
 		}
+		
 		return job;
 	}
 	
 	/**
 	 * 다음 맵핑 할 작업 정보를 조회 한다. 
-	 * @param domainId
+	 * 
 	 * @param batch
 	 * @param isBox
 	 * @param bucket
 	 * @param isSinglePack
 	 * @return
 	 */
-	protected String findNextMappingJob(Long domainId, JobBatch batch, boolean isBox, IBucket bucket, boolean isSinglePack) {
-		String nextJobId = this.findNextMappingJob(domainId, batch, bucket.getBucketTypeCd(), bucket.getBucketCd()
+	protected String findNextMappingJob(JobBatch batch, boolean isBox, IBucket bucket, boolean isSinglePack) {
+		
+		String nextJobId = this.findNextMappingJob(batch, bucket.getBucketTypeCd(), bucket.getBucketCd()
 				, DpsCodeConstants.DPS_PREPROCESS_COL_ORDER
 				, isSinglePack ? DpsCodeConstants.DPS_ORDER_TYPE_OT : DpsCodeConstants.DPS_ORDER_TYPE_MT);
 		
@@ -542,23 +525,25 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	
 	/**
 	 * 버킷의 사용 가능 여부를 확인 
-	 * @param domainId
+	 * 
 	 * @param batch
 	 * @param bucket
 	 * @param isBox
 	 * @return
 	 */
-	protected boolean isUsedBoxCheck(Long domainId, JobBatch batch, IBucket bucket, boolean isBox) {
+	protected boolean isUsedBoxCheck(JobBatch batch, IBucket bucket, boolean isBox) {
 		boolean usedBox = false;
+		
 		if(isBox) {
 			// 1.1 박스는 쿼리를 해서 확인 
-			usedBox = this.checkUniqueBoxId(domainId, batch, bucket.getBucketCd());
+			usedBox = this.checkUniqueBoxId(batch, bucket.getBucketCd());
 		} else {
 			// 1.2 트레이는 상태가 WAIT 인 트레이만 사용 가능 
 			if(ValueUtil.isNotEqual(bucket.getStatus(), DpsConstants.COMMON_STATUS_WAIT)) {
 				usedBox = true;
 			}
 		}
+		
 		// 2. 중복되는 버킷이 있으면 사용중 이면 불가 
 		if(usedBox) {
 			// 박스 / 트레이 은(는) 이미 투입 상태입니다
@@ -572,35 +557,33 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	/**
 	 * 버킷이 투입 가능한 버킷인 지 확인 및 해당 버킷에 Locking
 	 * 
-	 * @param domainId
 	 * @param batch
 	 * @param bucketCd
 	 * @param inputType
 	 */
-	protected IBucket vaildInputBucketByBucketCd(Long domainId, JobBatch batch, String bucketCd, boolean isBox, boolean withLock) {
+	protected IBucket vaildInputBucketByBucketCd(JobBatch batch, String bucketCd, boolean isBox, boolean withLock) {
 		
 		// 1. 박스 타입이면 박스 에서 조회 
 		if(isBox) {
 			String boxTypeCd = this.getBoxTypeByBoxId(batch, bucketCd);
-			BoxType boxType = DpsServiceUtil.findBoxType(domainId, boxTypeCd, withLock, true);
+			BoxType boxType = DpsServiceUtil.findBoxType(batch.getDomainId(), boxTypeCd, withLock, true);
 			boxType.setBoxId(bucketCd);
 			return boxType;
 			
 		// 2. 트레이 타입이면 트레이에서 조회 
 		} else {
-			return DpsServiceUtil.findTrayBox(domainId, bucketCd, withLock, true);
+			return DpsServiceUtil.findTrayBox(batch.getDomainId(), bucketCd, withLock, true);
 		}
 	}
 
 	/**
 	 * 배치 설정에 박스 아이디 유니크 범위로 중복 여부 확인 
 	 * 
-	 * @param domainId
 	 * @param batch
 	 * @param boxId
 	 * @return
 	 */
-	private boolean checkUniqueBoxId(Long domainId, JobBatch batch, String boxId) {
+	private boolean checkUniqueBoxId(JobBatch batch, String boxId) {
 		// 1. 박스 아이디 유니크 범위 설정, TODO API에 기본값 및 존재하지 않는 경우 예외 발생 여부 옵션 필요 
 		String uniqueScope = DpsBatchJobConfigUtil.getBoxIdUniqueScope(batch, false);
 		
@@ -611,13 +594,13 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 		
 		// 2. 파라미터 셋팅 
 		Map<String,Object> params = ValueUtil.newMap("domainId,boxId,batchId,uniqueScope"
-				, domainId, boxId, batch.getId(), uniqueScope);
+				, batch.getDomainId(), boxId, batch.getId(), uniqueScope);
 		
 		// 3. 쿼리 
-		String qry = BeanUtil.get(BoxQueryStore.class).getBoxIdUniqueCheckQuery();
+		String qry = this.boxQueryStore.getBoxIdUniqueCheckQuery();
 		
 		// 4. 조회 dup Cnt == 0  중복 없음 
-		int dupCnt = BeanUtil.get(IQueryManager.class).selectBySql(qry, params, Integer.class);
+		int dupCnt = this.queryManager.selectBySql(qry, params, Integer.class);
 
 		return dupCnt == 0 ? false : true;
 	}
@@ -644,25 +627,27 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 		return boxType;
 	}
 	
-	
-	
 	/**
 	 * 다음 맵핑 할 작업을 찾는다.
-	 * @param domainId
+	 * 
 	 * @param batch
-	 * @param bucketType
+	 * @param boxTypeCd
+	 * @param bucketCd
+	 * @param mapColumn
+	 * @param orderType
 	 * @return
 	 */
-	private String findNextMappingJob(Long domainId, JobBatch batch, String boxTypeCd, String bucketCd, String mapColumn, String orderType){
-		// TODO : order / shop .... 여러타입에 대한 구현 필요 
+	private String findNextMappingJob(JobBatch batch, String boxTypeCd, String bucketCd, String mapColumn, String orderType) {
+		// TODO : order / shop .... 여러 타입에 대한 구현 필요 
 		// 실제 DPS 기준 주문 가공 프로세스임.
 		// 주문 처리 순서를 정할수 있는 부분으로 쿼리에 대한 수정으로 해결 가능 ? 
 		
 		// 1. 쿼리 
 		String qry =  this.batchQueryStore.getFindNextMappingJobQuery();
 		
-		// 2. 파라민터 
-		Map<String,Object> params = ValueUtil.newMap("domainId,mapColumn,batchId,orderType,boxTypeCd,bucketCd"
+		// 2. 파라미터
+		Long domainId = batch.getDomainId();
+		Map<String, Object> params = ValueUtil.newMap("domainId,mapColumn,batchId,orderType,boxTypeCd,bucketCd"
 				, domainId, mapColumn, batch.getId(), orderType, boxTypeCd, bucketCd);
 		
 		// 3. 조회 ( 맵핑 기준에 따라 결과가 달라짐 )
@@ -676,13 +661,14 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 
 	/**
 	 * 소분류 작업 처리 전 처리 액션
+	 * 
 	 * @param batch
 	 * @param job
 	 * @param cell
 	 * @param pickQty
-	 * @return 
+	 * @return
 	 */
-	protected int beforeConfirmPick(long domainId, JobBatch batch, JobInstance job, Cell cell, int pickQty) {
+	protected int beforeConfirmPick(JobBatch batch, JobInstance job, Cell cell, int pickQty) {
 		// 1. 작업이 이미 완료되었다면 리턴
 		if(job.isDoneJob()) {
 			return 0;
@@ -696,32 +682,32 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 			pickQty = job.getPickQty() - job.getPickedQty();
 		}
 		
-		// 3. 피킹 수량 리턴
+		// 4. 피킹 수량 리턴
 		return pickQty;
 	}
 	
 	/**
-	 * 소분류 작업 처리 
+	 * 소분류 작업 처리
+	 * 
 	 * @param batch
 	 * @param job
 	 * @param cell
 	 * @param pickQty
 	 */
-	protected void doConfirmPick(long domainId, JobBatch batch, JobInstance job, Cell cell, int pickQty) {
+	protected void doConfirmPick(JobBatch batch, JobInstance job, Cell cell, int pickQty) {
 		// 1. 피킹 작업 처리
 		job.setStatus(DpsConstants.JOB_STATUS_FINISH);
 		job.setPickEndedAt(DateUtil.currentTimeStr());
 		job.setPickedQty(pickQty);
 		job.setPickingQty(0);
 		job.setUpdatedAt(new Date());
-		
 		this.queryManager.update(job, DpsConstants.ENTITY_FIELD_STATUS, "pickEndedAt", "pickedQty", "pickingQty", DpsConstants.ENTITY_FIELD_UPDATED_AT);
 
 		// 2. 합포의 경우 에만 
 		if(ValueUtil.isEqualIgnoreCase(job.getOrderType(), DpsCodeConstants.DPS_ORDER_TYPE_MT)) {
 			// 2.1 Lock 을 걸고 재고 조회 
 			// TODO : BIN 인덱스 
-			Stock stock = AnyEntityUtil.findEntityBy(domainId, true, true, Stock.class, null, "equipType,equipCd,cellCd,comCd,skuCd", job.getEquipType(),job.getEquipCd(),job.getSubEquipCd(),job.getComCd(),job.getSkuCd());
+			Stock stock = AnyEntityUtil.findEntityBy(batch.getDomainId(), true, true, Stock.class, null, "equipType,equipCd,cellCd,comCd,skuCd", job.getEquipType(),job.getEquipCd(),job.getSubEquipCd(),job.getComCd(),job.getSkuCd());
 			stock.setAllocQty(stock.getAllocQty() - pickQty);
 			stock.setPickedQty(stock.getPickedQty() + pickQty);
 			stock.setUpdatedAt(new Date());
@@ -735,19 +721,21 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 	}
 
 	/**
-	 * 소분류 작업 처리 후처리 액션  
+	 * 소분류 작업 처리 후처리 액션
+	 * 
 	 * @param batch
 	 * @param job
 	 * @param cell
 	 * @param resQty
 	 */
-	protected void afterComfirmPick(long domainId, JobBatch batch, JobInstance job, Cell cell, Integer resQty) {
+	protected void afterComfirmPick(JobBatch batch, JobInstance job, Cell cell, Integer resQty) {
 		
-		Map<String,Object> params = ValueUtil.newMap("domainId,batchId,orderNo,comCd,skuCd,resQty", domainId, batch.getId(), job.getOrderNo(), job.getComCd(), job.getSkuCd(), resQty);
+		Long domainId = batch.getDomainId();
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,orderNo,comCd,skuCd,resQty", domainId, batch.getId(), job.getOrderNo(), job.getComCd(), job.getSkuCd(), resQty);
 		
 		// 1. 주문 확정 수량 업데이트
 		String findOrderList = this.batchQueryStore.getFindOrderQtyUpdateListQuery();
-		List<Order> orderList = AnyEntityUtil.searchItems(domainId, false, Order.class, findOrderList, params) ;
+		List<Order> orderList = AnyEntityUtil.searchItems(domainId, false, Order.class, findOrderList, params);
 		
 		int pickedQty = resQty;
 		int orderPickedQty = 0;
@@ -756,8 +744,11 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 		List<String> updateOrderList = new ArrayList<String>();
 		
 		for(Order order : orderList) {
-			if(pickedQty > order.getOrderQty()) orderPickedQty = order.getOrderQty();
-			else orderPickedQty = pickedQty;
+			if(pickedQty > order.getOrderQty()) {
+				orderPickedQty = order.getOrderQty();
+			} else {
+				orderPickedQty = pickedQty;
+			}
 			
 			order.setStatus(Order.STATUS_RUNNING);
 			order.setUpdatedAt(now);
@@ -767,38 +758,39 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 			updateOrderList.add(order.getId());
 		}
 		
-		this.queryManager.updateBatch(orderList, DpsConstants.ENTITY_FIELD_STATUS,DpsConstants.ENTITY_FIELD_UPDATED_AT,"pickedQty");
+		this.queryManager.updateBatch(orderList, DpsConstants.ENTITY_FIELD_STATUS, DpsConstants.ENTITY_FIELD_UPDATED_AT, "pickedQty");
 		
 		// 2. 박스 실적 데이터의 상태를 '작업 중' (혹은 '피킹 중')으로 변경
 		BoxPack boxPack = AnyEntityUtil.findEntityById(true, BoxPack.class, job.getBoxPackId());
 		boxPack.setPickedQty(boxPack.getPickedQty() + resQty);
 		boxPack.setUpdatedAt(now);
 		
-		this.queryManager.update(boxPack,DpsConstants.ENTITY_FIELD_UPDATED_AT,"pickedQty");
+		this.queryManager.update(boxPack,DpsConstants.ENTITY_FIELD_UPDATED_AT, "pickedQty");
 		
 		// 3. 박스 상세 데이터의 picked_qty를 올리고 주문 수량 만큼 분류가 끝났는지 체크하여 상태를 '분류 중'으로 변경한다.
-		this.dpsBoxingService.updateBoxItemDataByOrder(domainId, job.getBoxPackId(), updateOrderList);
+		this.dpsBoxingService.updateBoxItemsByOrder(domainId, job.getBoxPackId(), updateOrderList);
 		
 		// 4. TODO : 표시기에 해당 몇 개 처리되었는지 표시 ?? 
 		
 		// 5. 작업이 끝난 후 Station 의 JobInput Data Update  
-		this.updateJobInputEndStatusWithLock(domainId, batch, job, cell);
+		this.updateJobInputEndStatusWithLock(batch, job, cell);
 		
 		// 6. TODO : 모바일 새로고침 명령 전달
-//		RefreshEvent event = new RefreshEvent(job.getDomainId(), job.getJobType(),location.getRegionCd(), location.getZoneCd(),null, RefreshEvent.REFRESH_DETAILS);
-//	    this.eventPublisher.publishEvent(event);
+		// RefreshEvent event = new RefreshEvent(job.getDomainId(), job.getJobType(),location.getRegionCd(), location.getZoneCd(),null, RefreshEvent.REFRESH_DETAILS);
+		// this.eventPublisher.publishEvent(event);
 	}
 	
 	/**
-	 * 작업 시퀀스에 대한 존의 작업 완료 여부를 판별해 상태 Update 
-	 * @param domainId
+	 * 작업 시퀀스에 대한 존의 작업 완료 여부를 판별해 상태 Update
+	 * 
 	 * @param batch
 	 * @param job
 	 * @param cell
 	 */
-	private void updateJobInputEndStatusWithLock(long domainId, JobBatch batch, JobInstance job, Cell cell) {
+	private void updateJobInputEndStatusWithLock(JobBatch batch, JobInstance job, Cell cell) {
 		
 		// 1. JobInput 조회 및 Lock 
+		Long domainId = batch.getDomainId();
 		JobInput input = AnyEntityUtil.findEntityBy(domainId, true, true, JobInput.class, null
 									, "batchId,equipType,equipCd,orderNo,inputSeq"
 									, batch.getId(), job.getEquipType(), job.getEquipCd(), job.getOrderNo(), job.getInputSeq());
@@ -815,4 +807,5 @@ public abstract class AbstractDpsPickingService implements IPickingService {
 			this.queryManager.update(input, DpsConstants.ENTITY_FIELD_STATUS, DpsConstants.ENTITY_FIELD_UPDATED_AT);
 		}
 	}
+
 }

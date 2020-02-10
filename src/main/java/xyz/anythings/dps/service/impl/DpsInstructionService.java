@@ -1,4 +1,4 @@
-package xyz.anythings.dps.service;
+package xyz.anythings.dps.service.impl;
 
 import java.util.List;
 import java.util.Map;
@@ -212,7 +212,7 @@ public class DpsInstructionService extends AbstractExecutionService implements I
 		}
 
 		// 2. 방면분류 매핑 필드 - box_class_cd 매핑
-		String boxClassTargetField = DpsBatchJobConfigUtil.getMappingFieldForOutClassification(batch);
+		String boxClassTargetField = DpsBatchJobConfigUtil.getBoxOutClassTargetField(batch);
 		
 		if(ValueUtil.isNotEmpty(boxClassTargetField)) {
 			String sql = "UPDATE ORDERS SET BOX_CLASS_CD = :boxClassCd WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId";
