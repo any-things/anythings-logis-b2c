@@ -4,12 +4,8 @@ create or replace PROCEDURE OP_DPS_BATCH_INSTRUCT
 /*  프로시져 호출 서비스 : 
 /*  프로시져 설명 : DPS 작업 지시 프로시저 
 /*  프로시져 로직 
-/*    1. 상위 시스템 rack 지정 여부 check
+/*    1. 상위 시스템 rack 지정 여부 
 /*      1.1. 상위 시스템에서 지정된 Rack 의 경우에는 배치를 분할 
-/*       1.1.1 기존 배치는 update
-/*       1.1.2 신규 배치는 생성 
-/*       1.1.3. 주문 데이터 분리 
-/*      1.2 Rack 에 배치 지정 
 /*    2. 단포 작업 대상 check
 /*      2.1. 단포 랙 조회 
 /*      2.2. 단포 작업 실행 데이터 생성 
@@ -30,11 +26,11 @@ create or replace PROCEDURE OP_DPS_BATCH_INSTRUCT
     /* 배치 ID */
     P_IN_BATCH_ID                 IN VARCHAR2,
     /* 단포 작업 활성 여부 */
-    P_IN_SINGLE_PACK              IN NUMBER,
+    P_IN_SINGLE_PACK              IN NUMBER,  -- 단포 대상 호기에 작업 할당 여부 
     /* 재고 적치 추천 셀 사용 유무  */
     P_IN_RECOMMEND_CELL           IN NUMBER,
-    /* TODO 주문에 호기 자동 분할 여부 */
-    P_IN_SEPARATE_BATCH           IN NUMBER,
+    /* 주문 호기 분할 여부 */
+    P_IN_SEPARATED_BATCH          IN NUMBER, -- 배치를 호기 별로 분할 처리 ( 상위 시스템에서 수신한 주문에 호기가 지정되더 있음 )
 
     /* 결과 코드 */
     P_OUT_RESULT_CODE             OUT NUMBER,     -- (0 : 정상 종료, -20999 : 비정상 종료) 
@@ -57,95 +53,10 @@ BEGIN
     -- 배치 조회 
     V_BATCH := OF_GET_JOB_BATCH(P_IN_DOMAIN_ID, P_IN_BATCH_ID);
 
-    -- 1. 상위 시스템 rack 지정 여부 check
-    SELECT COUNT(1)
-      INTO V_CHECK_CNT
-      FROM ORDERS
-     WHERE DOMAIN_ID = P_IN_DOMAIN_ID
-       AND BATCH_ID = P_IN_BATCH_ID
-       AND EQUIP_CD IS NOT NULL
-       AND ROWNUM = 1;
-
-    IF (V_CHECK_CNT = 1) THEN
+    -- 1. 상위 시스템 rack 지정 여부
+    IF (P_IN_SEPARATED_BATCH = 1) THEN
         -- 1.1. 상위 시스템에서 지정된 Rack 의 경우에는 배치를 분할 
-        FOR TEMP_BATCHES IN (
-            SELECT X.DOMAIN_ID, X.BATCH_ID
-                 , X.AREA_CD, X.STAGE_CD
-                 , X.EQUIP_TYPE, X.EQUIP_CD, Y.RACK_NM AS EQUIP_NM
-                 , COUNT(DISTINCT(CLASS_CD)) AS BATCH_ORDER_QTY
-                 , SUM(ORDER_QTY) AS BATCH_PCS
-                 , RANK() OVER (ORDER BY X.EQUIP_CD ) AS RANK_NUM
-              FROM ORDERS X
-                 , (SELECT DOMAIN_ID, AREA_CD, STAGE_CD,RACK_CD,RACK_NM
-                      FROM RACKS
-                     WHERE DOMAIN_ID = P_IN_DOMAIN_ID
-                       AND AREA_CD = V_BATCH.AREA_CD
-                       AND STAGE_CD = V_BATCH.STAGE_CD) Y
-             WHERE X.DOMAIN_ID = Y.DOMAIN_ID
-               AND X.AREA_CD = Y.AREA_CD
-               AND X.STAGE_CD = Y.STAGE_CD
-               AND X.EQUIP_CD = Y.RACK_CD 
-               AND X.DOMAIN_ID = P_IN_DOMAIN_ID
-               AND X.AREA_CD = V_BATCH.AREA_CD
-               AND X.STAGE_CD = V_BATCH.STAGE_CD
-               AND X.BATCH_ID = V_BATCH.ID
-             GROUP BY X.DOMAIN_ID, X.BATCH_ID
-                    , X.AREA_CD, X.STAGE_CD
-                    , X.EQUIP_TYPE, X.EQUIP_CD, Y.RACK_NM
-        ) LOOP
-        
-            IF ( TEMP_BATCHES.RANK_NUM = 1 ) THEN
-                -- 1.1.1 기존 배치는 update
-                UPDATE JOB_BATCHES
-                   SET EQUIP_CD = TEMP_BATCHES.EQUIP_CD
-                     , EQUIP_NM = TEMP_BATCHES.EQUIP_NM
-                     , BATCH_ORDER_QTY = TEMP_BATCHES.BATCH_ORDER_QTY
-                     , BATCH_PCS = TEMP_BATCHES.BATCH_PCS
-                 WHERE ID = TEMP_BATCHES.BATCH_ID;
-                 
-                 V_BATCH_ID := TEMP_BATCHES.BATCH_ID;
-                 
-            ELSE 
-                -- 1.1.2 신규 배치는 생성 
-                INSERT INTO JOB_BATCHES (ID, WMS_BATCH_NO, BATCH_GROUP_ID
-                                        , COM_CD, JOB_TYPE, JOB_DATE, JOB_SEQ
-                                        , AREA_CD, EQUIP_TYPE, EQUIP_CD, EQUIP_NM
-                                        , BATCH_ORDER_QTY, BATCH_PCS
-                                        , STATUS, DOMAIN_ID
-                                        , JOB_CONFIG_SET_ID, IND_CONFIG_SET_ID
-                                        , CREATOR_ID, UPDATER_ID, CREATED_AT, UPDATED_AT)
-                SELECT OF_GET_GENERATE_BATCH_ID(P_IN_DOMAIN_ID), V_BATCH.WMS_BATCH_NO , V_BATCH.BATCH_GROUP_ID
-                     , V_BATCH.COM_CD, V_BATCH.JOB_TYPE, V_BATCH.JOB_DATE, V_BATCH.JOB_SEQ
-                     , V_BATCH.AREA_CD, V_BATCH.EQUIP_TYPE, TEMP_BATCHES.EQUIP_CD, TEMP_BATCHES.EQUIP_NM
-                     , TEMP_BATCHES.BATCH_ORDER_QTY, TEMP_BATCHES.BATCH_PCS
-                     , V_BATCH.STATUS, V_BATCH.DOMAIN_ID
-                     , V_BATCH.JOB_CONFIG_SET_ID, V_BATCH.IND_CONFIG_SET_ID
-                     , 'PROC', 'PROC', SYSDATE, SYSDATE
-                  FROM DUAL;
-                  
-                V_BATCH_ID := TEMP_BATCHES.BATCH_ID;
-                
-                -- 1.1.3. 주문 데이터 분리 
-                UPDATE ORDERS
-                   SET BATCH_ID = V_BATCH_ID
-                     , EQUIP_NM = TEMP_BATCHES.EQUIP_NM
-                     , UPDATED_AT = SYSDATE
-                 WHERE DOMAIN_ID = P_IN_BATCH_ID
-                   AND BATCH_ID = V_BATCH.ID
-                   AND EQUIP_CD = TEMP_BATCHES.EQUIP_CD;
-
-            END IF;
-            
-            -- 1.2 Rack 에 배치 지정 
-            UPDATE RACKS 
-               SET BATCH_ID = V_BATCH_ID
-                 , UPDATED_AT = SYSDATE
-             WHERE DOMAIN_ID = V_BATCH.DOMAIN_ID
-               AND AREA_CD = V_BATCH.AREA_CD
-               AND STAGE_CD = V_BATCH.STAGE_CD
-               AND RACK_CD = V_BATCH.EQUIP_CD;
-               
-        END LOOP;
+        OP_DPS_BATCH_SEPARATE(P_IN_DOMAIN_ID, P_IN_BATCH_ID,P_OUT_RESULT_CODE,P_OUT_MESSAGE );
     END IF;
 
     -- 2. 단포 작업 대상 check
