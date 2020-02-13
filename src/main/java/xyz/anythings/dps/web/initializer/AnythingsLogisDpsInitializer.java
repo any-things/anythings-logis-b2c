@@ -11,6 +11,8 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import xyz.anythings.dps.config.ModuleProperties;
+import xyz.anythings.dps.query.store.DpsPickQueryStore;
+import xyz.elidom.orm.IQueryManager;
 import xyz.elidom.sys.config.ModuleConfigSet;
 import xyz.elidom.sys.system.service.api.IEntityFieldCache;
 import xyz.elidom.sys.system.service.api.IServiceFinder;
@@ -41,6 +43,12 @@ public class AnythingsLogisDpsInitializer {
 	@Autowired
 	private ModuleConfigSet configSet;
 	
+	@Autowired
+	private IQueryManager queryManager;
+	
+	@Autowired
+	private DpsPickQueryStore dpsPickQueryStore;
+	
 	@EventListener({ ContextRefreshedEvent.class })
 	public void refresh(ContextRefreshedEvent event) {
 		this.logger.info("Anythings Logistics DPS module refreshing...");
@@ -54,6 +62,7 @@ public class AnythingsLogisDpsInitializer {
 		
 		this.configSet.addConfig(this.module.getName(), this.module);
 		this.scanServices();
+		this.initQueryStores();
 		this.logger.info("Anythings Logistics DPS module initialized!");
     }
 	
@@ -64,4 +73,13 @@ public class AnythingsLogisDpsInitializer {
 		this.entityFieldCache.scanEntityFieldsByBasePackage(this.module.getBasePackage());
 		this.restFinder.scanServicesByPackage(this.module.getName(), this.module.getBasePackage());
 	}
+	
+	/**
+	 * 쿼리 스토어 초기화
+	 */
+	private void initQueryStores() {
+		String dbType = this.queryManager.getDbType();
+		this.dpsPickQueryStore.initQueryStore(dbType);
+	}
+
 }
