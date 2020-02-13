@@ -31,14 +31,13 @@ import xyz.elidom.sys.util.MessageUtil;
 import xyz.elidom.sys.util.ValueUtil;
 import xyz.elidom.util.DateUtil;
 
-
 /**
  * DPS 박스 처리 포함한 피킹 서비스 트랜잭션 구현
  * 
  * @author yang
  */
 @Component("dpsPickingService")
-public class DpsPickingService extends AbstractDpsPickingService implements IDpsPickingService {	
+public class DpsPickingService extends AbstractPickingService implements IDpsPickingService {	
 
 	/************************************************************************************************/
 	/*   									버킷 투입													*/ 
@@ -111,9 +110,8 @@ public class DpsPickingService extends AbstractDpsPickingService implements IDps
 	 */
 	public Object inputEmptyBucket(JobBatch batch, boolean isBox, String bucketCd, Object... params) {
 				
-		// 1. 투입 가능한 버킷인지 체크 (박스 or 트레이)
-		//  - 박스 타입이면 박스 타입에 락킹 - 즉 동일 박스 타입의 박스는 동시에 하나씩만 투입가능하다.
-		//  - 트레이 타입이면 버킷에 락킹 - 하나의 버킷은 당연히 한 번에 하나만 투입가능하다.
+		// 1. 투입 가능한 버킷인지 체크 (박스 or 트레이) 
+		//    -> 박스 타입이면 박스 타입에 락킹 (즉 동일 박스 타입의 박스는 동시에 하나씩만 투입 가능) / 트레이 타입이면 버킷에 락킹 (하나의 버킷은 한 번에 하나만 투입 가능)
 		IBucket bucket = this.vaildInputBucketByBucketCd(batch, bucketCd, isBox, true);
 		
 		// 2. 박스 투입 전 체크 - 주문 번호 조회 
@@ -130,7 +128,7 @@ public class DpsPickingService extends AbstractDpsPickingService implements IDps
 			throw new ElidomRuntimeException(MessageUtil.getMessage("MPS_NO_ORDER_TO_INPUT"));
 		}
 		
-		// 5. 박스 BoxPack, BoxItem 생성
+		// 5. 박스 마스터 & 내품 내역 생성
 		BoxPack box = this.dpsBoxingService.fullBoxing(batch, null, jobList, orderNo, bucket.getBucketType(), bucket.getBucketTypeCd());	
 		
 		// 6. 투입
@@ -169,7 +167,7 @@ public class DpsPickingService extends AbstractDpsPickingService implements IDps
 		// 3. 버킷 투입 전 체크 - 작업 ID  
 		JobInstance job = this.beforeInputSinglePackEmptyBucket(batch, isBox, bucket);
 
-		if(ValueUtil.isEmpty(job)) {
+		if(job == null) {
 			// 투입 가능한 주문이 없습니다.
 			throw new ElidomRuntimeException(MessageUtil.getMessage("MPS_NO_ORDER_TO_INPUT"));
 		}
@@ -184,16 +182,13 @@ public class DpsPickingService extends AbstractDpsPickingService implements IDps
 		job.setColorCd(indColor);
 		job.setBoxTypeCd(bucket.getBucketTypeCd());
 		job.setBoxId(bucket.getBucketCd());
+		job.setBoxPackId(AnyValueUtil.newUuid36());
 		job.setStatus(LogisConstants.JOB_STATUS_PICKING);
 		job.setInputAt(DateUtil.currentTimeStr());
-		job.setBoxPackId(AnyValueUtil.newUuid36());
 		this.queryManager.update(job, "colorCd", "boxTypeCd", "boxId", "boxPackId", "status", "inputAt", "updaterId", "updatedAt");
 		
-		// 6. 박스 BoxPack, BoxItem 생성
+		// 6. 박스 마스터 & 내품 내역 생성
 		this.dpsBoxingService.fullBoxing(batch, null, ValueUtil.toList(job), job.getBoxPackId());		
-		
-		// 단포 작업은 굳이 투입 정보를 추가하지 말자
-		//this.doInputSinglePackEmptyBucket(batch, job.getOrderNo(), bucket, bucket.getBucketColor(), box.getId());
 		
 		// 7. 박스 투입 후 액션 
 		this.afterInputEmptyBucket(batch, bucket, job.getOrderNo());
@@ -238,15 +233,11 @@ public class DpsPickingService extends AbstractDpsPickingService implements IDps
 			throw new ElidomServiceException("확정 처리는 피킹중 상태에서만 가능합니다.");
 		}
 		
-		// 2. Cell 조회 
+		// 2. 합포의 경우에 CELL 사용 
 		Long domainId = batch.getDomainId();
-		Cell cell = null;
-		
-		// 2.1 합포의 경우에만 CELL 사용 
-		if(ValueUtil.isEqualIgnoreCase(job.getOrderType(), DpsCodeConstants.DPS_ORDER_TYPE_MT)) {
-			cell = AnyEntityUtil.findEntityBy(domainId, true, Cell.class, null, "equipType,equipCd,cellCd", job.getEquipType(), job.getEquipCd(), job.getSubEquipCd());
-		}
-		
+		Cell cell = (ValueUtil.isEqualIgnoreCase(job.getOrderType(), DpsCodeConstants.DPS_ORDER_TYPE_MT)) ? 
+				    AnyEntityUtil.findEntityBy(domainId, true, Cell.class, null, "equipType,equipCd,cellCd", job.getEquipType(), job.getEquipCd(), job.getSubEquipCd()) : null;
+				
 		// 3. 작업 처리 전 액션 
 		int pickQty = this.beforeConfirmPick(batch, job, cell, resQty);
 		

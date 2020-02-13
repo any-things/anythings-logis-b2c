@@ -5,19 +5,14 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
-import xyz.anythings.base.LogisConstants;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.Rack;
 import xyz.anythings.base.event.EventConstants;
-import xyz.anythings.base.event.main.BatchInstructEvent;
 import xyz.anythings.base.service.api.IInstructionService;
+import xyz.anythings.base.service.impl.AbstractInstructionService;
 import xyz.anythings.dps.service.util.DpsBatchJobConfigUtil;
 import xyz.anythings.sys.event.model.EventResultSet;
-import xyz.anythings.sys.service.AbstractExecutionService;
-import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.anythings.sys.util.AnyOrmUtil;
-import xyz.elidom.dbist.dml.Query;
-import xyz.elidom.sys.SysConstants;
 import xyz.elidom.sys.util.ThrowUtil;
 import xyz.elidom.util.ValueUtil;
 
@@ -27,7 +22,7 @@ import xyz.elidom.util.ValueUtil;
  * @author yang
  */
 @Component("dpsInstructionService")
-public class DpsInstructionService extends AbstractExecutionService implements IInstructionService {
+public class DpsInstructionService extends AbstractInstructionService implements IInstructionService {
 
 	@Override
 	public Map<String, Object> searchInstructionData(JobBatch batch, Object... params) {
@@ -50,7 +45,7 @@ public class DpsInstructionService extends AbstractExecutionService implements I
 			rack.setBatchId(batch.getId());
 		}
 		
-		AnyOrmUtil.updateBatch(rackList, 100, "batchId", "updatedAt");
+		AnyOrmUtil.updateBatch(rackList, 100, "batchId", "updaterId", "updatedAt");
 		
 		// 4. 소분류 코드, 방면 분류 코드 값을 설정에 따라서 주문 정보에 추가한다.
 		this.doUpdateClassificationCodes(batch, params);
@@ -120,8 +115,25 @@ public class DpsInstructionService extends AbstractExecutionService implements I
 
 	@Override
 	public int cancelInstructionBatch(JobBatch batch) {
-		// TODO - 토털 피킹 I/F가 완료되었을 경우 어떻게 처리할 것인지 확실치 않으므로 일단 지원하지 않음
-		throw ThrowUtil.newNotSupportedMethodYet();
+		// 1. 작업 지시 취소 전 처리 이벤트 
+		EventResultSet befResult = this.publishInstructionCancelEvent(EventConstants.EVENT_STEP_BEFORE, batch, null);
+		
+		// 2. 다음 처리 취소일 경우 결과 리턴 
+		if(befResult.isAfterEventCancel()) {
+			return ValueUtil.toInteger(befResult.getResult());
+		}
+		
+		// 3. 작업 지시 취소 후 처리 이벤트
+		EventResultSet aftResult = this.publishInstructionCancelEvent(EventConstants.EVENT_STEP_AFTER, batch, null);
+		
+		// 4. 후 처리 이벤트 실행 후 리턴 결과가 있으면 해당 결과 리턴 
+		if(aftResult.isExecuted()) {
+			if(aftResult.getResult() != null ) { 
+				return ValueUtil.toInteger(aftResult.getResult());
+			}
+		}
+		
+		return 0;		
 	}
 	
 	/**
@@ -139,60 +151,6 @@ public class DpsInstructionService extends AbstractExecutionService implements I
 		if(ValueUtil.isEmpty(batch.getIndConfigSetId())) {
 			throw ThrowUtil.newIndConfigNotSet();
 		}		
-	}
-	
-	/**
-	 * 배치 데이터에 대해 설비 정보 여부 를 찾아 대상 설비 리스트를 리턴
-	 * 
-	 * @param batch
-	 * @param equipIdList
-	 * @return
-	 */
-	private List<?> searchEquipListByBatch(JobBatch batch, List<String> equipIdList) {
-		Class<?> equipClazz = null;
-		
-		// 1. 설비 타입에 대한 마스터 엔티티 구분
-		if(ValueUtil.isEqual(batch.getEquipType(), LogisConstants.EQUIP_TYPE_RACK)) {
-			equipClazz = Rack.class;
-		} else {
-			// TODO : 소터 등등등 추가 
-			return null;
-		}
-		
-		// 2. 작업 대상 설비가 있으면 그대로 return 
-		if(ValueUtil.isNotEmpty(equipIdList)) {
-			return this.searchEquipByIds(batch.getDomainId(), equipClazz, equipIdList);
-		}
-		
-		// 3. batch 에 작업 대상 설비 타입만 지정되어 있으면 
-		return this.searchEquipByBatch(equipClazz, batch);
-	}
-	
-	/**
-	 * 설비 ID 리스트로 설비 마스터 조회
-	 * 
-	 * @param domainId
-	 * @param clazz
-	 * @param equipIdList
-	 * @return
-	 */
-	private <T> List<T> searchEquipByIds(long domainId, Class<T> clazz, List<String> equipIdList) {
-		Query condition = AnyOrmUtil.newConditionForExecution(domainId);
-		condition.addFilter(LogisConstants.ENTITY_FIELD_ID, SysConstants.IN, equipIdList);
-		return this.queryManager.selectList(clazz,condition);
-	}
-	
-	/**
-	 * 배치 정보로 설비 마스터 리스트 조회 
-	 * 
-	 * @param clazz
-	 * @param batch
-	 * @return
-	 */
-	private <T> List<T> searchEquipByBatch(Class<T> clazz, JobBatch batch) {
-		return AnyEntityUtil.searchEntitiesBy(batch.getDomainId(), false, clazz, null
-				, "areaCd,stageCd,activeFlag,jobType,batchId"
-				, batch.getAreaCd(), batch.getStageCd(), Boolean.TRUE, batch.getJobType(), batch.getId());	
 	}
 		
 	/**
@@ -386,7 +344,8 @@ public class DpsInstructionService extends AbstractExecutionService implements I
 	/**
 	 * 작업 병합 처리
 	 * 
-	 * @param batch
+	 * @param mainBatch
+	 * @param newBatch
 	 * @param equipList
 	 * @param params
 	 * @return
@@ -445,7 +404,6 @@ public class DpsInstructionService extends AbstractExecutionService implements I
 	 * 							이벤트 전송
 	/******************************************************************/
 	
-
 	/**
 	 * 대상 분류 이벤트 전송
 	 * 
@@ -456,7 +414,7 @@ public class DpsInstructionService extends AbstractExecutionService implements I
 	 * @return
 	 */
 	private EventResultSet publishClassificationEvent(short eventStep, JobBatch batch, List<?> equipList, Object... params) {
-		return this.publishInstructEvent(batch.getDomainId(), EventConstants.EVENT_INSTRUCT_TYPE_CLASSIFICATION, eventStep, batch, equipList, params);
+		return this.publishInstructEvent(EventConstants.EVENT_INSTRUCT_TYPE_CLASSIFICATION, eventStep, batch, equipList, params);
 	}
 	
 	/**
@@ -468,34 +426,7 @@ public class DpsInstructionService extends AbstractExecutionService implements I
 	 * @return
 	 */
 	private EventResultSet publishRequestBoxEvent(JobBatch batch, List<?> equipList, Object... params) {
-		return this.publishInstructEvent(batch.getDomainId(), EventConstants.EVENT_INSTRUCT_TYPE_BOX_REQ, EventConstants.EVENT_STEP_ALONE, batch, equipList, params);
-	}
-		
-	/**
-	 * 작업 지시 이벤트 전송
-	 * 
-	 * @param eventStep
-	 * @param batch
-	 * @param equipList
-	 * @param params
-	 * @return
-	 */
-	private EventResultSet publishInstructionEvent(short eventStep, JobBatch batch, List<?> equipList, Object... params) {
-		return this.publishInstructEvent(batch.getDomainId(), EventConstants.EVENT_INSTRUCT_TYPE_INSTRUCT, eventStep, batch, equipList, params);
-	}
-	
-	/**
-	 * 작업 병합 이벤트 전송
-	 * 
-	 * @param eventStep
-	 * @param mainBatch
-	 * @param newBatch
-	 * @param equipList
-	 * @param params
-	 * @return
-	 */
-	private EventResultSet publishMergingEvent(short eventStep, JobBatch mainBatch, JobBatch newBatch, List<?> equipList, Object... params) {
-		return this.publishInstructEvent(mainBatch.getDomainId(), EventConstants.EVENT_INSTRUCT_TYPE_MERGE, eventStep, mainBatch, equipList, newBatch, params);
+		return this.publishInstructEvent(EventConstants.EVENT_INSTRUCT_TYPE_BOX_REQ, EventConstants.EVENT_STEP_ALONE, batch, equipList, params);
 	}
 	
 	/**
@@ -508,7 +439,7 @@ public class DpsInstructionService extends AbstractExecutionService implements I
 	 * @return
 	 */
 	private EventResultSet publishRecommendCellsEvent(short eventStep, JobBatch batch, List<?> equipList, Object... params) {
-		return this.publishInstructEvent(batch.getDomainId(), EventConstants.EVENT_INSTRUCT_TYPE_RECOMMEND_CELLS, eventStep, batch, equipList, params);
+		return this.publishInstructEvent(EventConstants.EVENT_INSTRUCT_TYPE_RECOMMEND_CELLS, eventStep, batch, equipList, params);
 	}
 	
 	/**
@@ -521,32 +452,7 @@ public class DpsInstructionService extends AbstractExecutionService implements I
 	 * @return
 	 */
 	private EventResultSet publishTotalPickingEvent(short eventStep, JobBatch batch, List<?> equipList, Object... params) {
-		return this.publishInstructEvent(batch.getDomainId(), EventConstants.EVENT_INSTRUCT_TYPE_TOTAL_PICKING, eventStep, batch, equipList, params);
-	}
-	
-	/**
-	 * 작업 지시 이벤트 전송 공통
-	 * 
-	 * @param domainId
-	 * @param eventType
-	 * @param eventStep
-	 * @param batch
-	 * @param equipList
-	 * @param params
-	 * @return
-	 */
-	private EventResultSet publishInstructEvent(long domainId, short eventType, short eventStep, JobBatch batch, List<?> equipList, Object... params) {
-		// 1. 이벤트 생성 
-		BatchInstructEvent event = new BatchInstructEvent(domainId, eventType, eventStep);
-		event.setJobBatch(batch);
-		event.setJobType(batch.getJobType());
-		event.setEquipType(batch.getEquipType());
-		event.setEquipList(equipList);
-		event.setPayLoad(params);
-		
-		// 2. event publish
-		event = (BatchInstructEvent)this.eventPublisher.publishEvent(event);
-		return event.getEventResultSet();
+		return this.publishInstructEvent(EventConstants.EVENT_INSTRUCT_TYPE_TOTAL_PICKING, eventStep, batch, equipList, params);
 	}
 
 }

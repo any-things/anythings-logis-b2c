@@ -67,50 +67,19 @@ public class DpsBoxingService extends AbstractBoxingService implements IDpsBoxin
 		// 3. boxItem 정보로 boxPack 생성  
 		return this.createBoxPackByBoxItems(batch, orderNo, boxType, boxTypeCd, boxPackId);
 	}
-	
-	/**
-	 * 배치, 주문 번호 로 BoxItem 데이터를 생성 한다.
-	 * 
-	 * @param batch
-	 * @param orderNo
-	 * @param boxPackId
-	 */
-	public void createBoxItemsByOrder(JobBatch batch, String orderNo, String boxPackId) {
-		String qry = this.boxQueryStore.getCreateBoxItemsDataByOrderQuery();
-		Map<String, Object> param = 
-				ValueUtil.newMap("domainId,batchId,orderNo,userId,boxPackId", batch.getDomainId(), batch.getId(), orderNo, User.currentUser().getId(), boxPackId);
-		this.queryManager.executeBySql(qry, param);
-	}
-	
-	/**
-	 * 배치, 주문 번호 로 BoxItem 데이터를 생성 한다.
-	 * 
-	 * @param batch
-	 * @param orderNo
-	 * @param boxType
-	 * @param boxTypeCd
-	 * @param boxPackId
-	 */
-	public BoxPack createBoxPackByBoxItems(JobBatch batch, String orderNo, String boxType, String boxTypeCd, String boxPackId) {
-		String qry = this.boxQueryStore.getCreateBoxPackDataByBoxItemsQuery();
-		Map<String, Object> param = 
-				ValueUtil.newMap("domainId,batchId,orderNo,userId,boxPackId,boxType,boxTypeCd"
-				, batch.getDomainId(), batch.getId(), orderNo, User.currentUser().getId(), boxPackId, boxType, boxTypeCd);
-		this.queryManager.executeBySql(qry, param);
-		return this.queryManager.select(BoxPack.class, boxPackId);
-	}
 
 	/**
-	 * BoxPack 정보 orderIds를 기준으로 BoxItem 데이터의 수량을 Update.
+	 * BoxPack 정보 주문 정보의 ID를 기준으로 박스 내품 수량을 업데이트
 	 * 
 	 * @param domainId
 	 * @param boxPackId
-	 * @param orderIds
+	 * @param idsOfOrders
+	 * @param toStatus
 	 */
 	@Override
-	public void updateBoxItemsByOrder(Long domainId, String boxPackId, List<String> orderIds) {
+	public void updateBoxItemsAfterPick(Long domainId, String boxPackId, List<String> idsOfOrders, String toStatus) {
 		String qry = this.boxQueryStore.getUpdateBoxItemDataByOrderQuery();
-		Map<String, Object> param = ValueUtil.newMap("domainId,boxPackId,orderIds", domainId,boxPackId,orderIds);
+		Map<String, Object> param = ValueUtil.newMap("domainId,boxPackId,orderIds,status", domainId, boxPackId, idsOfOrders, toStatus);
 		this.queryManager.executeBySql(qry, param);
 	}
 	
@@ -181,6 +150,38 @@ public class DpsBoxingService extends AbstractBoxingService implements IDpsBoxin
 	public List<BoxPack> batchBoxing(JobBatch batch) {
 		// DPS에서는 구현 필요 없음
 		return null;
+	}
+	
+	/**
+	 * 배치, 주문 번호로 박스 내품 데이터를 생성
+	 * 
+	 * @param batch
+	 * @param orderNo
+	 * @param boxPackId
+	 */
+	protected void createBoxItemsByOrder(JobBatch batch, String orderNo, String boxPackId) {
+		String qry = this.boxQueryStore.getCreateBoxItemsDataByOrderQuery();
+		Map<String, Object> param = 
+				ValueUtil.newMap("domainId,batchId,orderNo,userId,boxPackId", batch.getDomainId(), batch.getId(), orderNo, User.currentUser().getId(), boxPackId);
+		this.queryManager.executeBySql(qry, param);
+	}
+	
+	/**
+	 * 배치, 주문 번호로 박스 데이터를 생성 
+	 * 
+	 * @param batch
+	 * @param orderNo
+	 * @param boxType
+	 * @param boxTypeCd
+	 * @param boxPackId
+	 */
+	protected BoxPack createBoxPackByBoxItems(JobBatch batch, String orderNo, String boxType, String boxTypeCd, String boxPackId) {
+		String qry = this.boxQueryStore.getCreateBoxPackDataByBoxItemsQuery();
+		Map<String, Object> param = 
+				ValueUtil.newMap("domainId,batchId,orderNo,userId,boxPackId,boxType,boxTypeCd"
+				, batch.getDomainId(), batch.getId(), orderNo, User.currentUser().getId(), boxPackId, boxType, boxTypeCd);
+		this.queryManager.executeBySql(qry, param);
+		return this.queryManager.select(BoxPack.class, boxPackId);
 	}
 
 }
