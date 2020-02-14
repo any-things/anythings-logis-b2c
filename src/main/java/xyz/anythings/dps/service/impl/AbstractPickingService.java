@@ -651,8 +651,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 * @return
 	 */
 	protected List<JobInstance> searchJobListForIndOn(JobBatch batch, String orderNo) {
-		// TODO 쿼리로 처리 (점등을 위한 게이트웨이, 표시기 정보까지 모두 조회)
-		return AnyEntityUtil.searchEntitiesBy(batch.getDomainId(), false, JobInstance.class, null, "batchId,jobType,orderNo", batch.getId(), batch.getJobType(), orderNo);
+		return this.dpsJobStatusService.searchPickingJobList(batch, null, orderNo);
 	}
 
 	/**
@@ -673,7 +672,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 			return 0;
 		}
 		
-		// 3. 피킹 수량 보정 - 주문 수량 보다 처리 수량이 큰경우 차이 값 만큼만 처리 
+		// 3. 피킹 수량 보정 - 주문 수량 보다 처리 수량이 큰 경우 차이 값 만큼만 처리 
 		if(job.getPickedQty() + pickQty > job.getPickQty()) {
 			pickQty = job.getPickQty() - job.getPickedQty();
 		}
@@ -692,13 +691,16 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 */
 	protected void doConfirmPick(JobBatch batch, JobInstance job, Cell cell, int pickQty) {
 		// 1. 피킹 작업 처리
-		job.setStatus(DpsConstants.JOB_STATUS_FINISH);
-		job.setPickEndedAt(DateUtil.currentTimeStr());
-		job.setPickedQty(pickQty);
+		job.setPickedQty(job.getPickedQty() == null ? pickQty : job.getPickedQty() + pickQty);
 		job.setPickingQty(0);
-		this.queryManager.update(job, DpsConstants.ENTITY_FIELD_STATUS, "pickEndedAt", "pickedQty", "pickingQty", DpsConstants.ENTITY_FIELD_UPDATER_ID, DpsConstants.ENTITY_FIELD_UPDATED_AT);
+		
+		if(job.getPickedQty() >= job.getPickQty()) {
+			job.setStatus(DpsConstants.JOB_STATUS_FINISH);
+			job.setPickEndedAt(DateUtil.currentTimeStr());			
+		}
+		this.queryManager.update(job, "pickEndedAt", "pickedQty", "pickingQty", DpsConstants.ENTITY_FIELD_STATUS, DpsConstants.ENTITY_FIELD_UPDATER_ID, DpsConstants.ENTITY_FIELD_UPDATED_AT);
 
-		// 2. 합포의 경우 에만 
+		// 2. 합포의 경우에만 
 		if(ValueUtil.isEqualIgnoreCase(job.getOrderType(), DpsCodeConstants.DPS_ORDER_TYPE_MT)) {			
 			this.serviceDispatcher.getStockService().removeStockForPicking(job.getDomainId(), job.getEquipType(), job.getEquipCd(), job.getSubEquipCd(), job.getComCd(), job.getSkuCd(), -1 * pickQty);
 		}
@@ -710,18 +712,18 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 * @param batch
 	 * @param job
 	 * @param cell
-	 * @param resQty
+	 * @param pickQty
 	 */
-	protected void afterComfirmPick(JobBatch batch, JobInstance job, Cell cell, Integer resQty) {
+	protected void afterComfirmPick(JobBatch batch, JobInstance job, Cell cell, Integer pickQty) {
 
 		// 1. 처리한 작업과 연관된 주문 데이터 조회 
 		Long domainId = batch.getDomainId();
-		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,orderNo,comCd,skuCd,resQty", domainId, batch.getId(), job.getOrderNo(), job.getComCd(), job.getSkuCd(), resQty);
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,orderNo,comCd,skuCd,resQty", domainId, batch.getId(), job.getOrderNo(), job.getComCd(), job.getSkuCd(), pickQty);
 		String findOrderList = this.batchQueryStore.getFindOrderQtyUpdateListQuery();
 		List<Order> orderList = AnyEntityUtil.searchItems(domainId, false, Order.class, findOrderList, params);
 		
 		// 2. 주문 확정 수량 업데이트
-		int pickedQty = resQty;
+		int pickedQty = pickQty;
 		int orderPickedQty = 0;
 		List<String> updateOrderList = new ArrayList<String>(orderList.size());
 		
@@ -741,7 +743,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 		// 4. 박스 처리 정보 업데이트를 위해 조회 & 총 확정 수량 업데이트
 		if(this.dpsBoxingService == null) this.getBoxingService();
 		BoxPack boxPack = AnyEntityUtil.findEntityById(true, BoxPack.class, job.getBoxPackId());
-		boxPack.setPickedQty(boxPack.getPickedQty() + resQty);
+		boxPack.setPickedQty(boxPack.getPickedQty() + pickQty);
 		
 		// 5. 작업이 해당 스테이션에서 완료되었다면 
 		if(isStationJobEnded) {
