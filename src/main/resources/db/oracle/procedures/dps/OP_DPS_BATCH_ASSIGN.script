@@ -13,6 +13,7 @@ create or replace PROCEDURE OP_DPS_BATCH_ASSIGN
 /*  작성자 : 양우람 
 /*  개정 이력
 /*    1. 2019-10-28 : 최초 작성
+/*    2. 2020-02-14 : CLASS_CD 적용 및 Rack 이 지정된 배치 ... 
 /***********************************************************************************/
 
 IS
@@ -31,6 +32,10 @@ IS
 
     -- 할당 가능한 재고 조회 --
     V_STOCK_LOAD_QTY  STOCKS.LOAD_QTY%type;
+    
+    
+    -- TODO : 호기가 지정된 배치의 할당의 경우 고려 필요 
+    V_SEPARATED_BATCH NUMBER;
 
 BEGIN
     DBMS_OUTPUT.PUT_LINE(TO_CHAR(SYSDATE , 'HH24-MI-SS'));
@@ -48,7 +53,7 @@ BEGIN
                AND JOB_TYPE = 'DPS'
         ),
         T_ORDERS AS (
-            SELECT X.DOMAIN_ID, X.BATCH_ID, X.AREA_CD, X.STAGE_CD, X.CLASS_CD, X.COM_CD, X.SKU_CD, X.ORDER_QTY
+            SELECT X.DOMAIN_ID, X.BATCH_ID, X.AREA_CD, X.STAGE_CD, X.EQUIP_CD, X.CLASS_CD, X.COM_CD, X.SKU_CD, X.ORDER_QTY
               FROM ORDERS X
                  , T_BATCH Y
              WHERE X.DOMAIN_ID = Y.DOMAIN_ID
@@ -213,7 +218,7 @@ BEGIN
             END IF;            
 
 
-            BEGIN -- ORDER_NO 별 exception 처리 
+            BEGIN -- CLASS_CD 별 exception 처리 
                 V_ASSIGN_JOBS := 0;
 
                 FOR C_ASSIGN_JOB_LINE IN (
@@ -346,7 +351,7 @@ BEGIN
                     SELECT OF_GET_GENERATE_UUID(), C_ASSIGN_JOB_LINE.BATCH_ID
                          , C_ASSIGN_JOB_LINE.JOB_DATE, C_ASSIGN_JOB_LINE.JOB_SEQ, C_ASSIGN_JOB_LINE.JOB_TYPE, C_ASSIGN_JOB_LINE.COM_CD
                          , C_ASSIGN_JOB_LINE.CLASS_CD
-                         , C_ASSIGN_JOB_LINE.COM_CD, C_ASSIGN_JOB_LINE.COM_CD
+                         , C_ASSIGN_JOB_LINE.CLASS_CD, C_ASSIGN_JOB_LINE.COM_CD   -- ORDER_NO 가 Not null 이라서....
                          , C_ASSIGN_JOB_LINE.EQUIP_TYPE, C_ASSIGN_JOB_LINE.EQUIP_CD, C_ASSIGN_JOB_LINE.EQUIP_NM, C_ASSIGN_JOB_LINE.CELL_CD, C_ASSIGN_JOB_LINE.IND_CD
                          , C_ASSIGN_JOB_LINE.SKU_CD, C_ASSIGN_JOB_LINE.SKU_NM, 0, C_ASSIGN_JOB_LINE.BOX_TYPE_CD
                          , V_ASSIGN_QTY, C_ASSIGN_JOB_LINE.ORDER_TYPE, 'BW'
