@@ -62,6 +62,12 @@ WHERE
     #if($statuses)
     AND JOB.STATUS IN (:statuses)
     #end
+    #if($classCd)
+    AND JOB.CLASS_CD = :classCd
+    #end
+    #if($boxClassCd)
+    AND JOB.BOX_CLASS_CD = :boxClassCd
+    #end
     #if($boxId)
     AND JOB.BOX_ID = :boxId
     #end
