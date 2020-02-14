@@ -13,7 +13,6 @@ create or replace PROCEDURE OP_DPS_BATCH_INSTRUCT
 /*    3. 합포 주문 데이터 status update   
 /*    4. 작업 배치 status instructed_at, update 
 /*    5. 배치 랙의 상태 Update 
-/*    6. 합포 작업 재고 추천 셀 데이터 생성  TODO
 /*  생성일시 : 2019-10-25
 /*  작성자 : 양우람 
 /*  개정 이력
@@ -27,8 +26,6 @@ create or replace PROCEDURE OP_DPS_BATCH_INSTRUCT
     P_IN_BATCH_ID                 IN VARCHAR2,
     /* 단포 작업 활성 여부 */
     P_IN_SINGLE_PACK              IN NUMBER,  -- 단포 대상 호기에 작업 할당 여부 
-    /* 재고 적치 추천 셀 사용 유무  */
-    P_IN_RECOMMEND_CELL           IN NUMBER,
     /* 주문 호기 분할 여부 */
     P_IN_SEPARATED_BATCH          IN NUMBER, -- 배치를 호기 별로 분할 처리 ( 상위 시스템에서 수신한 주문에 호기가 지정되더 있음 )
 
@@ -151,11 +148,6 @@ BEGIN
        AND BATCH_ID in (SELECT ID FROM JOB_BATCHES
                          WHERE DOMAIN_ID = P_IN_DOMAIN_ID
                            AND BATCH_GROUP_ID =  V_BATCH.BATCH_GROUP_ID);
-
-    -- 6. 합포 작업 재고 추천 셀 데이터 생성 
-    IF (P_IN_RECOMMEND_CELL = 1) THEN
-        OP_DPS_BATCH_RECOMM_CELL(P_IN_DOMAIN_ID, P_IN_BATCH_ID,P_OUT_RESULT_CODE,P_OUT_MESSAGE );
-    END IF;
 
     -- 정상 처리 
     P_OUT_RESULT_CODE := 0;

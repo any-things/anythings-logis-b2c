@@ -307,15 +307,13 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	private int processInstruction(JobBatch batch, Object ... params) {
 		// 1. 단포 작업 활성화 여부 
 		boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(batch);
-		// 2. 재고 적치 추천 셀 사용 유무 
-		boolean useRecommendCell = DpsBatchJobConfigUtil.isRecommendCellEnabled(batch);
-		// 3. 호기별 배치 분리 여부
+		// 2. 호기별 배치 분리 여부
 		boolean useSeparatedBatch = DpsBatchJobConfigUtil.isSeparatedBatchByRack(batch);
 
-		// 4. 파라미터 생성
-		Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_SINGLE_PACK,P_IN_RECOMMEND_CELL,P_IN_SEPARATE_BATCH"
-				, batch.getDomainId(), batch.getId(), useSinglePack, useRecommendCell, useSeparatedBatch);
-		// 5. 프로시져 콜
+		// 3. 파라미터 생성
+		Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_SINGLE_PACK,P_IN_SEPARATE_BATCH"
+				, batch.getDomainId(), batch.getId(), useSinglePack, useSeparatedBatch);
+		// 4. 프로시져 콜
 		this.queryManager.callReturnProcedure("OP_DPS_BATCH_INSTRUCT", inputParams, Map.class);
 		
 		return 1;
@@ -386,15 +384,13 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	private int processMerging(JobBatch mainBatch, JobBatch newBatch, Object ... params) {
 		// 1. 단포 작업 활성화 여부 
 		boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(mainBatch);
-		// 2. 재고 적치 추천 셀 사용 유무 
-		boolean useRecommendCell = DpsBatchJobConfigUtil.isRecommendCellEnabled(mainBatch);
-		// 3. 호기별 배치 분리 여부
+		// 2. 호기별 배치 분리 여부
 		boolean useSeparatedBatch = DpsBatchJobConfigUtil.isSeparatedBatchByRack(mainBatch);
 
-		// 4. 인풋 파라미터 설정
-		Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_SINGLE_PACK,P_IN_RECOMMEND_CELL,P_IN_SEPARATE_BATCH"
-				, mainBatch.getDomainId(), mainBatch.getId(), newBatch.getId(), useSinglePack, useRecommendCell, useSeparatedBatch);
-		// 5. 프로시져 콜 
+		// 3. 인풋 파라미터 설정
+		Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_SINGLE_PACK,P_IN_SEPARATE_BATCH"
+				, mainBatch.getDomainId(), mainBatch.getId(), newBatch.getId(), useSinglePack, useSeparatedBatch);
+		// 4. 프로시져 콜 
 		this.queryManager.callReturnProcedure("OP_DPS_BATCH_MERGE", inputParams, Map.class);
 		
 		return 1;
