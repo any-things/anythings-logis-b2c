@@ -12,7 +12,7 @@ import xyz.anythings.base.entity.JobInput;
 import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.model.BatchProgressRate;
 import xyz.anythings.base.service.impl.AbstractJobStatusService;
-import xyz.anythings.dps.model.DpsSinglePackInform;
+import xyz.anythings.dps.model.DpsSinglePackSummary;
 import xyz.anythings.dps.query.store.DpsPickQueryStore;
 import xyz.anythings.dps.service.api.IDpsJobStatusService;
 import xyz.anythings.sys.util.AnyEntityUtil;
@@ -129,7 +129,7 @@ public class DpsJobStatusService extends AbstractJobStatusService implements IDp
 	}
 	
 	@Override
-	public List<DpsSinglePackInform> searchSinglePackInfo(JobBatch batch, String skuCd, String boxType, Integer jobPcs) {
+	public List<DpsSinglePackSummary> searchSinglePackInfo(JobBatch batch, String skuCd, String boxType, Integer jobPcs) {
 		
 		String singlePackInformQry = this.batchQueryStore.getRackDpsSinglePackInformQuery();
 		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,skuCd", batch.getDomainId(), batch.getId(), skuCd);
@@ -139,7 +139,7 @@ public class DpsJobStatusService extends AbstractJobStatusService implements IDp
 			params.put("jobPcs", jobPcs);
 		}
 		
-		return AnyEntityUtil.searchItems(batch.getDomainId(), false, DpsSinglePackInform.class, singlePackInformQry, params);
+		return AnyEntityUtil.searchItems(batch.getDomainId(), false, DpsSinglePackSummary.class, singlePackInformQry, params);
 	}
 
 }

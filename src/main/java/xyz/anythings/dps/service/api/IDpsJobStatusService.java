@@ -4,7 +4,7 @@ import java.util.List;
 
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.service.api.IJobStatusService;
-import xyz.anythings.dps.model.DpsSinglePackInform;
+import xyz.anythings.dps.model.DpsSinglePackSummary;
 
 /**
  * DPS용 작업 상태 조회 서비스 API
@@ -22,5 +22,5 @@ public interface IDpsJobStatusService extends IJobStatusService {
 	 * @param jobPcs
 	 * @return
 	 */
-	public List<DpsSinglePackInform> searchSinglePackInfo(JobBatch batch, String skuCd, String boxType, Integer jobPcs);
+	public List<DpsSinglePackSummary> searchSinglePackInfo(JobBatch batch, String skuCd, String boxType, Integer jobPcs);
 }

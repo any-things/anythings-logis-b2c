@@ -108,6 +108,7 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 	 * @param params
 	 * @return
 	 */
+	@Override
 	public Object inputEmptyBucket(JobBatch batch, boolean isBox, String bucketCd, Object... params) {
 				
 		// 1. 투입 가능한 버킷인지 체크 (박스 or 트레이) 
@@ -121,7 +122,7 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 		String indColor = ValueUtil.isEmpty(bucket.getBucketColor()) ? BatchIndConfigUtil.getDpsJobColor(batch.getId()) : bucket.getBucketColor();
 		
 		// 4. 주문 번호로 매핑된 작업을 모두 조회
-		List<JobInstance> jobList = this.searchJobListForIndOn(batch, orderNo);
+		List<JobInstance> jobList = this.dpsJobStatusService.searchPickingJobList(batch, null, orderNo);
 
 		if(ValueUtil.isEmpty(jobList)) {
 			// 투입 가능한 주문이 없습니다.
@@ -151,11 +152,11 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 	 * @param params
 	 * @return
 	 */
+	@Override
 	public Object inputSinglePackEmptyBucket(JobBatch batch, boolean isBox, String skuCd, String bucketCd, Object... params) {
 		
 		// 1. 단포 전용 호기 Lock
-		Long domainId = batch.getDomainId();
-		Query condition = AnyOrmUtil.newConditionForExecution(domainId);
+		Query condition = AnyOrmUtil.newConditionForExecution(batch.getDomainId());
 		condition.addFilter("areaCd", batch.getAreaCd());
 		condition.addFilter("stageCd", batch.getStageCd());
 		condition.addFilter("rackType", DpsCodeConstants.DPS_RACK_TYPE_OT);
@@ -227,6 +228,7 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 	 * @param job
 	 * @param resQty
 	 */
+	@Override
 	public void confirmPick(JobBatch batch, JobInstance job, int resQty) {
 		// 1. 작업 상태 체크
 		if(ValueUtil.isNotEqual(job.getStatus(), DpsConstants.JOB_STATUS_PICKING)) {

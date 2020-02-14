@@ -246,7 +246,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	public BoxPack fullBoxing(IClassifyRunEvent exeEvent) {
 		JobBatch batch = exeEvent.getJobBatch();
 		JobInstance job = exeEvent.getJobInstance();
-		List<JobInstance> jobList = this.searchJobListForIndOn(batch, job.getOrderNo());
+		List<JobInstance> jobList = this.dpsJobStatusService.searchPickingJobList(batch, null, job.getOrderNo());
 		return this.getBoxingService(batch).fullBoxing(batch, null, jobList);
 	}
 
@@ -378,7 +378,9 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	protected void doInputEmptyBucket(JobBatch batch, String orderNo, IBucket bucket, String indColor, String boxPackId) {
 		
 		// 1. 주문 번호로 투입 정보 조회  
-		List<JobInput> inputList = this.searchInputList(batch, orderNo, false);
+		String newInputsQuery = this.batchQueryStore.getRackDpsBatchNewInputDataQuery();
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipType,orderNo,orderType", batch.getDomainId(), batch.getId(), batch.getEquipType(), orderNo, DpsCodeConstants.DPS_ORDER_TYPE_MT);
+		List<JobInput> inputList = AnyEntityUtil.searchItems(batch.getDomainId(), false, JobInput.class, newInputsQuery, params);		
 		
 		// 2. 투입 정보 생성 및 작업 데이터 업데이트 
 		this.createInputData(batch, inputList, orderNo, bucket, indColor, boxPackId);
@@ -394,7 +396,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 * @param indColor
 	 * @param boxPackId
 	 */
-	private void createInputData(JobBatch batch, List<JobInput> inputList, String orderNo, IBucket bucket, String indColor, String boxPackId) {
+	protected void createInputData(JobBatch batch, List<JobInput> inputList, String orderNo, IBucket bucket, String indColor, String boxPackId) {
 
 		// 1. 주문 - 박스 ID 매핑 쿼리 추출
 		this.getJobStatusService(batch);
@@ -426,26 +428,6 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 		
 		// 6. 투입 정보 일괄 생성 
 		this.queryManager.insertBatch(inputList);
-	}
-	
-	/**
-	 * 주문 번호로 투입 리스트 생성을 위한 조회 
-	 * 
-	 * @param batch
-	 * @param orderNo
-	 * @param isSinglePack
-	 * @return
-	 */
-	private List<JobInput> searchInputList(JobBatch batch, String orderNo, boolean isSinglePack) {
-		// 1. 쿼리 
-		String newInputsQuery = this.batchQueryStore.getRackDpsBatchNewInputDataQuery();
-		
-		// 2. 파라미터 
-		String orderClass = isSinglePack ? DpsCodeConstants.DPS_ORDER_TYPE_OT : DpsCodeConstants.DPS_ORDER_TYPE_MT;
-		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipType,orderNo,orderType", batch.getDomainId(), batch.getId(), batch.getEquipType(), orderNo, orderClass);
-		
-		// 3. 조회 
-		return AnyEntityUtil.searchItems(batch.getDomainId(), false, JobInput.class, newInputsQuery, params);
 	}
 	
 	/**
@@ -644,17 +626,6 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	/************************************************************************************************/
 
 	/**
-	 * 주문에 걸린 작업 리스트를 모두 조회
-	 * 
-	 * @param batch
-	 * @param orderNo
-	 * @return
-	 */
-	protected List<JobInstance> searchJobListForIndOn(JobBatch batch, String orderNo) {
-		return this.dpsJobStatusService.searchPickingJobList(batch, null, orderNo);
-	}
-
-	/**
 	 * 소분류 작업 처리 전 처리 액션
 	 * 
 	 * @param batch
@@ -722,7 +693,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 		String findOrderList = this.batchQueryStore.getFindOrderQtyUpdateListQuery();
 		List<Order> orderList = AnyEntityUtil.searchItems(domainId, false, Order.class, findOrderList, params);
 		
-		// 2. 주문 확정 수량 업데이트
+		// 2. 주문 확정 수량 및 상태 업데이트
 		int pickedQty = pickQty;
 		int orderPickedQty = 0;
 		List<String> updateOrderList = new ArrayList<String>(orderList.size());
@@ -771,13 +742,10 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 		
 		this.queryManager.update(boxPack, DpsConstants.ENTITY_FIELD_UPDATED_AT, DpsConstants.ENTITY_FIELD_STATUS, "pickedQty");
 		
-		// 7. 표시기에 몇 개 처리되었는지 표시
-		// this.serviceDispatcher.getIndicationService(batch).indicatorOnForPick(job, null, job.getPickedQty(), null);
+		// 7. TODO : BIN 사용 여부 설정에서 조회하여 사용한다면 처리한 셀에 다른 BIN의 상품이 걸려 있는 경우 표시기 점등 처리
 		
-		// 8. TODO : 처리한 셀에 다른 BIN의 상품이 걸려 있는 경우 표시기 점등 처리 		
-		
-		// 9. 모바일 새로고침 명령 전달
-		this.serviceDispatcher.getDeviceService().sendMessageToWorkerDevice(domainId, cell.getEquipType(), cell.getEquipCd(), cell.getEquipZone(), "REFRESH", "confirm-pick");
+		// 8. 모바일 새로고침 명령 전달
+		this.serviceDispatcher.getDeviceService().sendMessageToDevice(domainId, cell.getEquipType(), cell.getEquipCd(), cell.getEquipZone(), "REFRESH", "confirm-pick");
 	}
 	
 	/**
@@ -786,6 +754,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 * @param batch
 	 * @param job
 	 * @param cell
+	 * @param status
 	 */
 	private void updateJobInputStatus(JobBatch batch, JobInstance job, Cell cell, String status) {		
 		JobInput input = AnyEntityUtil.findEntityBy(batch.getDomainId(), true, true, JobInput.class, null

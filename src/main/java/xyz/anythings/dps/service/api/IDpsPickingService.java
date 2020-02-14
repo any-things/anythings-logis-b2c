@@ -26,7 +26,7 @@ public interface IDpsPickingService extends IPickingService {
 	public void confirmPick(JobBatch batch, JobInstance job, int resQty);
 	
 	/**
-	 * 박스 또는 트레이 투입
+	 * 박스 투입
 	 * 
 	 * @param batch
 	 * @param isBox
@@ -36,6 +36,16 @@ public interface IDpsPickingService extends IPickingService {
 	 */
 	public Object inputEmptyBucket(JobBatch batch, boolean isBox, String bucketCd, Object... params);
 	
-	// TODO 단포 처리 API 등 DPS Specific 서비스 추가
+	/**
+	 * 단포 박스 투입 
+	 * 
+	 * @param batch
+	 * @param isBox
+	 * @param skuCd
+	 * @param bucketCd
+	 * @param params
+	 * @return
+	 */
+	public Object inputSinglePackEmptyBucket(JobBatch batch, boolean isBox, String skuCd, String bucketCd, Object... params);
 	
 }
