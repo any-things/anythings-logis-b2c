@@ -258,9 +258,9 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		
 		if(useRecommendCell) {
 			// 1. 파라미터 생성
-			Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_RECOMMEND_CELL", batch.getDomainId(), batch.getId(), useRecommendCell);
+			Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID", batch.getDomainId(), batch.getId());
 			// 2. 프로시져 콜 
-			this.queryManager.callReturnProcedure("OP_DPS_RECOMMEND_CELLS", inputParams, Map.class);
+			this.queryManager.callReturnProcedure("OP_DPS_BATCH_RECOMM_CELL", inputParams, Map.class);
 		}		
 	}
 	
