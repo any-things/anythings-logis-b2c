@@ -33,6 +33,7 @@ import xyz.anythings.dps.service.api.IDpsJobStatusService;
 import xyz.anythings.dps.service.api.IDpsPickingService;
 import xyz.anythings.dps.service.util.DpsBatchJobConfigUtil;
 import xyz.anythings.dps.service.util.DpsServiceUtil;
+import xyz.anythings.gw.service.mq.model.device.DeviceCommand;
 import xyz.anythings.sys.model.BaseResponse;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.anythings.sys.util.AnyOrmUtil;
@@ -745,7 +746,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 		// 7. TODO : BIN 사용 여부 설정에서 조회하여 사용한다면 처리한 셀에 다른 BIN의 상품이 걸려 있는 경우 표시기 점등 처리
 		
 		// 8. 모바일 새로고침 명령 전달
-		this.serviceDispatcher.getDeviceService().sendMessageToDevice(domainId, cell.getEquipType(), cell.getEquipCd(), cell.getEquipZone(), "REFRESH", "confirm-pick");
+		this.serviceDispatcher.getDeviceService().sendMessageToDevice(domainId, DeviceCommand.EQUIP_TABLET, batch.getStageCd(), cell.getEquipType(), cell.getEquipCd(), cell.getStationCd(), null, batch.getJobType(), DeviceCommand.COMMAND_REFRESH, "confirm-pick", null);
 	}
 	
 	/**
