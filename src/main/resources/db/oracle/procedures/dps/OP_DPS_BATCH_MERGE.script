@@ -209,7 +209,7 @@ BEGIN
        
     -- 5. 작업 배치 instructed_at, update 
     UPDATE JOB_BATCHES Y
-       SET INSTRUCTED_AT = DECODE(Y.ID, Y.BATCH_GROUP_ID, INSTRUCTED_AT, SYSDATE)
+       SET INSTRUCTED_AT = NVL(INSTRUCTED_AT , SYSDATE )
          , (BATCH_ORDER_QTY, BATCH_PCS) = (SELECT COUNT(DISTINCT CLASS_CD), NVL(SUM(ORDER_QTY),0)
                                              FROM ORDERS X
                                             WHERE X.DOMAIN_ID = Y.DOMAIN_ID
