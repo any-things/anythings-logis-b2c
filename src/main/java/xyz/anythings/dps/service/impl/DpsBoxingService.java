@@ -55,7 +55,7 @@ public class DpsBoxingService extends AbstractBoxingService implements IDpsBoxin
 	@Override
 	public BoxPack fullBoxing(JobBatch batch, WorkCell workCell, List<JobInstance> jobList, Object... params) {
 		// 1. 박스 유형 (BOX / TRAY)
-		String boxType = DpsBatchJobConfigUtil.getInputBoxType(batch);		
+		String boxType = DpsBatchJobConfigUtil.getInputBoxType(batch);
 		JobInstance job = jobList.get(0);
 		String orderNo = job.getOrderNo();
 		String boxTypeCd = job.getBoxTypeCd();

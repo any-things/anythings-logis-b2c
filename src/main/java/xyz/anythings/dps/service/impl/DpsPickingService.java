@@ -189,7 +189,7 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 		this.queryManager.update(job, "colorCd", "boxTypeCd", "boxId", "boxPackId", "status", "inputAt", "updaterId", "updatedAt");
 		
 		// 6. 박스 마스터 & 내품 내역 생성
-		this.dpsBoxingService.fullBoxing(batch, null, ValueUtil.toList(job), job.getBoxPackId());		
+		this.getBoxingService().fullBoxing(batch, null, ValueUtil.toList(job), job.getBoxPackId());
 		
 		// 7. 박스 투입 후 액션 
 		this.afterInputEmptyBucket(batch, bucket, job.getOrderNo());
