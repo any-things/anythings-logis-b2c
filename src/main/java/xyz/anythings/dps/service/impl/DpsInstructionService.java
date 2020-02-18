@@ -164,17 +164,19 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		String classTargetField = DpsBatchJobConfigUtil.getBoxMappingTargetField(batch);
 		
 		if(ValueUtil.isNotEmpty(classTargetField)) {
-			String sql = "UPDATE ORDERS SET CLASS_CD = :classCd WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId";
-			Map<String, Object> updateParams = ValueUtil.newMap("classCd", classTargetField);
+			String sql = "UPDATE ORDERS SET CLASS_CD = %s WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId";
+			sql = String.format(sql, classTargetField);
+			Map<String, Object> updateParams = ValueUtil.newMap("domainId,batchId", batch.getDomainId(), batch.getId());
 			this.queryManager.executeBySql(sql, updateParams);
 		}
 
 		// 2. 방면분류 매핑 필드 - box_class_cd 매핑
-		String boxClassTargetField = DpsBatchJobConfigUtil.getBoxOutClassTargetField(batch);
+		String boxClassTargetField = DpsBatchJobConfigUtil.getBoxOutClassTargetField(batch , false);
 		
 		if(ValueUtil.isNotEmpty(boxClassTargetField)) {
-			String sql = "UPDATE ORDERS SET BOX_CLASS_CD = :boxClassCd WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId";
-			Map<String, Object> updateParams = ValueUtil.newMap("boxClassCd", boxClassTargetField);
+			String sql = "UPDATE ORDERS SET BOX_CLASS_CD = %s WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId";
+			sql = String.format(sql, boxClassTargetField);
+			Map<String, Object> updateParams = ValueUtil.newMap("domainId,batchId", batch.getDomainId(), batch.getId());
 			this.queryManager.executeBySql(sql, updateParams);
 		}
 	}
@@ -311,7 +313,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		boolean useSeparatedBatch = DpsBatchJobConfigUtil.isSeparatedBatchByRack(batch);
 
 		// 3. 파라미터 생성
-		Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_SINGLE_PACK,P_IN_SEPARATE_BATCH"
+		Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_SINGLE_PACK,P_IN_SEPARATED_BATCH"
 				, batch.getDomainId(), batch.getId(), useSinglePack, useSeparatedBatch);
 		// 4. 프로시져 콜
 		this.queryManager.callReturnProcedure("OP_DPS_BATCH_INSTRUCT", inputParams, Map.class);
@@ -388,7 +390,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		boolean useSeparatedBatch = DpsBatchJobConfigUtil.isSeparatedBatchByRack(mainBatch);
 
 		// 3. 인풋 파라미터 설정
-		Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_SINGLE_PACK,P_IN_SEPARATE_BATCH"
+		Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_SINGLE_PACK,P_IN_SEPARATED_BATCH"
 				, mainBatch.getDomainId(), mainBatch.getId(), newBatch.getId(), useSinglePack, useSeparatedBatch);
 		// 4. 프로시져 콜 
 		this.queryManager.callReturnProcedure("OP_DPS_BATCH_MERGE", inputParams, Map.class);

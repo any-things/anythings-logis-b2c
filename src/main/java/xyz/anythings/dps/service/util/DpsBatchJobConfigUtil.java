@@ -61,7 +61,19 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 */
 	public static String getBoxOutClassTargetField(JobBatch batch) {
 		// dps.box.out.class.field
-		return getConfigValue(batch, DpsConfigConstants.DPS_BOX_OUT_CLASS_FIELD, true);
+		return getBoxOutClassTargetField(batch, true);
+	}
+	
+	/**
+	 * 방면분류를 위한 주문 매핑 필드 (주문의 box_class_cd에 복사할 필드명)
+	 * 
+	 * @param batch
+	 * @param exceptionWhenEmptyValue
+	 * @return
+	 */
+	public static String getBoxOutClassTargetField(JobBatch batch, boolean exceptionWhenEmptyValue) {
+		// dps.box.out.class.field
+		return getConfigValue(batch, DpsConfigConstants.DPS_BOX_OUT_CLASS_FIELD, exceptionWhenEmptyValue);
 	}
 	
 	/**
