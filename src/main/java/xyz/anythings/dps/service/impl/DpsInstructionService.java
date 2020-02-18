@@ -94,6 +94,11 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		// 1. 작업 배치 정보로 설비 리스트 조회
 		List<?> equipList = this.searchEquipListByBatch(mainBatch, null);
 		
+		// 2. 병합의 경우에는 메인 배치의 설정 셋을 가져온다 .
+		newBatch.setJobConfigSetId(mainBatch.getJobConfigSetId());
+		newBatch.setIndConfigSetId(mainBatch.getIndConfigSetId());
+		this.queryManager.update(newBatch , "jobConfigSetId","indConfigSetId");
+		
 		// 2. 소분류 코드, 방면 분류 코드 값을 설정에 따라서 주문 정보에 추가한다.
 		this.doUpdateClassificationCodes(newBatch, params);
 
@@ -390,8 +395,8 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		boolean useSeparatedBatch = DpsBatchJobConfigUtil.isSeparatedBatchByRack(mainBatch);
 
 		// 3. 인풋 파라미터 설정
-		Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_SINGLE_PACK,P_IN_SEPARATED_BATCH"
-				, mainBatch.getDomainId(), mainBatch.getId(), newBatch.getId(), useSinglePack, useSeparatedBatch);
+		Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_MAIN_BATCH_ID,P_IN_SINGLE_PACK,P_IN_SEPARATED_BATCH"
+				, mainBatch.getDomainId(), newBatch.getId(), mainBatch.getId(), useSinglePack, useSeparatedBatch);
 		// 4. 프로시져 콜 
 		this.queryManager.callReturnProcedure("OP_DPS_BATCH_MERGE", inputParams, Map.class);
 		
