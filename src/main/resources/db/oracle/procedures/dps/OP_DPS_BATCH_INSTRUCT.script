@@ -92,7 +92,7 @@ BEGIN
              , JOB_DATE, JOB_SEQ, JOB_TYPE, COM_CD
              , EQUIP_TYPE, NVL(EQUIP_CD,V_OT_RACK.RACK_CD), NVL(EQUIP_NM,V_OT_RACK.RACK_NM)
              , CLASS_CD, SKU_CD, MAX(SKU_NM), 0, BOX_TYPE_CD
-             , COM_CD, COM_CD
+             , COM_CD, CLASS_CD
              , SUM(ORDER_QTY) AS ORDER_QTY, ORDER_TYPE, 'W'
              , DOMAIN_ID, 'PROC', 'PROC', SYSDATE, SYSDATE
           FROM ORDERS
