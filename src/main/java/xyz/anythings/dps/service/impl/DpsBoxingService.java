@@ -75,11 +75,16 @@ public class DpsBoxingService extends AbstractBoxingService implements IDpsBoxin
 	 * @param boxPackId
 	 * @param idsOfOrders
 	 * @param toStatus
+	 * @param updatePassFlag
 	 */
 	@Override
-	public void updateBoxItemsAfterPick(Long domainId, String boxPackId, List<String> idsOfOrders, String toStatus) {
+	public void updateBoxItemsAfterPick(Long domainId, String boxPackId, List<String> idsOfOrders, String toStatus, boolean updatePassFlag) {
 		String qry = this.boxQueryStore.getUpdateBoxItemDataByOrderQuery();
 		Map<String, Object> param = ValueUtil.newMap("domainId,boxPackId,orderIds,status", domainId, boxPackId, idsOfOrders, toStatus);
+		if(updatePassFlag) {
+			param.put("updatePassFlag", true);
+		}
+		
 		this.queryManager.executeBySql(qry, param);
 	}
 	

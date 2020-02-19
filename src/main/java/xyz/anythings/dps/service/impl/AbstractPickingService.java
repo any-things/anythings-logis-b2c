@@ -3,6 +3,7 @@ package xyz.anythings.dps.service.impl;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -39,6 +40,7 @@ import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.anythings.sys.util.AnyOrmUtil;
 import xyz.elidom.dbist.dml.Query;
 import xyz.elidom.exception.server.ElidomRuntimeException;
+import xyz.elidom.sys.SysConstants;
 import xyz.elidom.sys.entity.User;
 import xyz.elidom.sys.util.DateUtil;
 import xyz.elidom.sys.util.MessageUtil;
@@ -292,9 +294,13 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 */
 	@Override
 	public boolean checkStationJobsEnd(JobBatch batch, String stationCd, JobInstance job) {
-		String sql = "select id from job_instances where domain_id = :domainId and cell_cd in (select cell_cd from cells where domain_id = :domainId and station_cd = :stationCd) and order_no = :orderNo and box_id = :boxId and status in (:statuses)";
-		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,orderNo,boxId,status", batch.getDomainId(), batch.getId(), job.getOrderNo(), job.getBoxId(), LogisConstants.JOB_STATUS_WIP);
-		return this.queryManager.selectSizeBySql(sql, params) == 0;
+		if(this.isMultiSkuOrder(job.getOrderType())) {
+			String sql = "select id from job_instances where domain_id = :domainId and cell_cd in (select cell_cd from cells where domain_id = :domainId and station_cd = :stationCd) and order_no = :orderNo and box_id = :boxId and status in (:statuses)";
+			Map<String, Object> params = ValueUtil.newMap("domainId,batchId,orderNo,boxId,status", batch.getDomainId(), batch.getId(), job.getOrderNo(), job.getBoxId(), LogisConstants.JOB_STATUS_WIP);
+			return this.queryManager.selectSizeBySql(sql, params) == 0;
+		} else {
+			return job.getPickedQty() >= job.getPickQty();
+		}
 	}
 	
 	/************************************************************************************************/
@@ -665,15 +671,21 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 		// 1. 피킹 작업 처리
 		job.setPickedQty(job.getPickedQty() == null ? pickQty : job.getPickedQty() + pickQty);
 		job.setPickingQty(0);
+		String currentTime = DateUtil.currentTimeStr();
+		
+		if(ValueUtil.isEmpty(job.getPickStartedAt())) {
+			job.setPickStartedAt(currentTime);
+		}
 		
 		if(job.getPickedQty() >= job.getPickQty()) {
 			job.setStatus(DpsConstants.JOB_STATUS_FINISH);
-			job.setPickEndedAt(DateUtil.currentTimeStr());			
+			job.setPickEndedAt(currentTime);			
 		}
-		this.queryManager.update(job, "pickEndedAt", "pickedQty", "pickingQty", DpsConstants.ENTITY_FIELD_STATUS, DpsConstants.ENTITY_FIELD_UPDATER_ID, DpsConstants.ENTITY_FIELD_UPDATED_AT);
+		
+		this.queryManager.update(job, "pickStartedAt", "pickEndedAt", "pickedQty", "pickingQty", DpsConstants.ENTITY_FIELD_STATUS, DpsConstants.ENTITY_FIELD_UPDATER_ID, DpsConstants.ENTITY_FIELD_UPDATED_AT);
 
 		// 2. 합포의 경우에만 
-		if(ValueUtil.isEqualIgnoreCase(job.getOrderType(), DpsCodeConstants.DPS_ORDER_TYPE_MT)) {			
+		if(this.isMultiSkuOrder(job.getOrderType())) {			
 			this.serviceDispatcher.getStockService().removeStockForPicking(job.getDomainId(), job.getEquipType(), job.getEquipCd(), job.getSubEquipCd(), job.getComCd(), job.getSkuCd(), -1 * pickQty);
 		}
 	}
@@ -687,85 +699,158 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 * @param pickQty
 	 */
 	protected void afterComfirmPick(JobBatch batch, JobInstance job, Cell cell, Integer pickQty) {
-
-		// 1. 처리한 작업과 연관된 주문 데이터 조회 
-		Long domainId = batch.getDomainId();
-		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,orderNo,comCd,skuCd,resQty", domainId, batch.getId(), job.getOrderNo(), job.getComCd(), job.getSkuCd(), pickQty);
-		String findOrderList = this.batchQueryStore.getFindOrderQtyUpdateListQuery();
-		List<Order> orderList = AnyEntityUtil.searchItems(domainId, false, Order.class, findOrderList, params);
+		// 1. 합포 여부 
+		boolean multiSkuOrder = this.isMultiSkuOrder(job.getOrderType());
 		
-		// 2. 주문 확정 수량 및 상태 업데이트
-		int pickedQty = pickQty;
-		int orderPickedQty = 0;
-		List<String> updateOrderList = new ArrayList<String>(orderList.size());
-		
-		for(Order order : orderList) {
-			orderPickedQty = (pickedQty > order.getOrderQty()) ? order.getOrderQty() : pickedQty;
-			order.setStatus(Order.STATUS_RUNNING);
-			order.setPickedQty(order.getPickedQty() + orderPickedQty);
-			pickedQty -= orderPickedQty;
-			updateOrderList.add(order.getId());
+		// 2. 작업 정보와 연관된 주문을 조회해서 피킹 확정 수량을 업데이트한다.
+		List<String> orderIdList = this.updateOrdersByPick(job, pickQty);
+		if(orderIdList == null || orderIdList.isEmpty()) {
+			// TODO 에러를 던질 지 체크
+			return;
 		}
 		
-		this.queryManager.updateBatch(orderList, DpsConstants.ENTITY_FIELD_STATUS, DpsConstants.ENTITY_FIELD_UPDATED_AT, "pickedQty");
-				
 		// 3. 작업이 해당 스테이션에서 끝났는지 체크
-		boolean isStationJobEnded = this.checkStationJobsEnd(batch, cell.getStationCd(), job);
+		boolean isStationJobEnded = this.checkStationJobsEnd(batch, (cell != null ? cell.getStationCd() : null), job);
 
 		// 4. 박스 처리 정보 업데이트를 위해 조회 & 총 확정 수량 업데이트
-		if(this.dpsBoxingService == null) this.getBoxingService();
 		BoxPack boxPack = AnyEntityUtil.findEntityById(true, BoxPack.class, job.getBoxPackId());
 		boxPack.setPickedQty(boxPack.getPickedQty() + pickQty);
+		String boxStatus = BoxPack.BOX_STATUS_ASSORT;
+		// 검수 완료 여부
+		boolean passFlag = false;
 		
-		// 5. 작업이 해당 스테이션에서 완료되었다면 
+		// 5. 작업이 해당 스테이션에서 완료되었다면
 		if(isStationJobEnded) {
 			// 5-1. 작업 스테이션의 투입 정보 상태 '완료'로 업데이트
 			this.updateJobInputStatus(batch, job, cell, DpsCodeConstants.JOB_INPUT_STATUS_FINISHED);
 
-			// 5-2. 주문(박스)에 대한 피킹이 모두 완료되었는지 체크 
-			boolean isBoxJobEnded = this.checkBoxingEnd(batch, job.getOrderNo(), job.getBoxId());
-			
-			if(isBoxJobEnded) {
-				// 5-3. 박스 내품 & 박스 상태 '박싱 완료'로 변경  
-				boxPack.setStatus(BoxPack.BOX_STATUS_BOXED);
-				this.dpsBoxingService.updateBoxItemsAfterPick(domainId, job.getBoxPackId(), updateOrderList, BoxPack.BOX_STATUS_BOXED);
-			} else {
-				// 5-4. 박스 내품 & 박스 상태 '분류 중'으로 변경  
-				boxPack.setStatus(BoxPack.BOX_STATUS_ASSORT);
-				this.dpsBoxingService.updateBoxItemsAfterPick(domainId, job.getBoxPackId(), updateOrderList, BoxPack.BOX_STATUS_ASSORT);
-			}
-			
-		// 6. 그렇지 않으면 박스 & 박스 내품 상태 '분류 중'으로 변경
-		} else {
-			boxPack.setStatus(BoxPack.BOX_STATUS_ASSORT);
-			this.dpsBoxingService.updateBoxItemsAfterPick(domainId, job.getBoxPackId(), updateOrderList, BoxPack.BOX_STATUS_ASSORT);
+			// 5-2. 주문(박스)에 대한 피킹이 모두 완료되었는지 체크 			
+			if(this.checkBoxingEnd(batch, job.getOrderNo(), job.getBoxId())) {
+				// 5-3. 박스 내품 & 박스 상태 '박싱 완료'로 변경
+				boxStatus = BoxPack.BOX_STATUS_BOXED;
+				// 5-4. 검수 완료 여부 ...
+				passFlag = this.getPassFlag(job, multiSkuOrder, true);
+				// 5-5. 작업의 '박싱 시각'을 업데이트
+				String sql = "update job_instances set boxed_at = :currentTime where domain_id = :domainId and batch_id = :batchId and order_no = :orderNo";
+				this.queryManager.executeBySql(sql, ValueUtil.newMap("domainId,batchId,orderNo,currentTime", job.getDomainId(), job.getBatchId(), job.getOrderNo(), job.getPickEndedAt()));
+			} 			
 		}
 		
-		this.queryManager.update(boxPack, DpsConstants.ENTITY_FIELD_UPDATED_AT, DpsConstants.ENTITY_FIELD_STATUS, "pickedQty");
+		boxPack.setPassFlag(passFlag);
+		boxPack.setStatus(boxStatus);
+		this.queryManager.update(boxPack, DpsConstants.ENTITY_FIELD_STATUS, "pickedQty", "passFlag", DpsConstants.ENTITY_FIELD_UPDATER_ID, DpsConstants.ENTITY_FIELD_UPDATED_AT);
+		if(this.dpsBoxingService == null) this.getBoxingService();
+		this.dpsBoxingService.updateBoxItemsAfterPick(batch.getDomainId(), job.getBoxPackId(), orderIdList, boxStatus, passFlag);
 		
-		// 7. TODO : BIN 사용 여부 설정에서 조회하여 사용한다면 처리한 셀에 다른 BIN의 상품이 걸려 있는 경우 표시기 점등 처리
+		// 6. TODO : BIN 사용 여부 설정에서 조회하여 사용한다면 처리한 셀에 다른 BIN의 상품이 걸려 있는 경우 표시기 점등 처리
 		
-		// 8. 모바일 새로고침 명령 전달
-		this.serviceDispatcher.getDeviceService().sendMessageToDevice(domainId, DeviceCommand.EQUIP_TABLET, batch.getStageCd(), cell.getEquipType(), cell.getEquipCd(), cell.getStationCd(), null, batch.getJobType(), DeviceCommand.COMMAND_REFRESH, "confirm-pick", null);
+		// 7. 모바일 새로고침 명령 전달
+		if(multiSkuOrder) {
+			this.serviceDispatcher.getDeviceService().sendMessageToDevice(batch.getDomainId(), DeviceCommand.EQUIP_TABLET, batch.getStageCd(), cell.getEquipType(), cell.getEquipCd(), cell.getStationCd(), null, batch.getJobType(), DeviceCommand.COMMAND_REFRESH, "confirm-pick", null);
+		}
 	}
 	
 	/**
-	 * 투입 정보의 상태를 업데이트 
+	 * 작업의 검수 완료 여부 리턴
+	 * 
+	 * @param job
+	 * @param multiSkuOrder
+	 * @param isFinished
+	 * @return
+	 */
+	private boolean getPassFlag(JobInstance job, boolean multiSkuOrder, boolean isFinished) {
+		// TODO 설정을 이용 ...
+		// 1. 검수 여부를 사용하는지 설정에서 체크 (일단 합포인 경우는 사용 안 함 - 즉 검수 화면에서 검수, 단포인 경우는 사용)
+		boolean usePassFlag = !multiSkuOrder;
+		// 2. 완료 여부
+		return usePassFlag && isFinished;
+	}
+	
+	/**
+	 * 피킹 처리에 따른 주문 정보 업데이트
+	 * 
+	 * @param job
+	 * @param pickQty
+	 * @return
+	 */
+	private List<String> updateOrdersByPick(JobInstance job, int pickQty) {
+		List<Order> orderList = this.searchOrdersByJob(job);
+		if(ValueUtil.isEmpty(orderList)) {
+			return null;
+		}
+		
+		List<String> orderIds = new ArrayList<String>(orderList.size());
+		int remainPickQty = pickQty;
+		
+		for(Order order : orderList) {
+			if(remainPickQty <= 0) {
+				break;
+			}
+			
+			int orderMaxPickQty = order.getOrderQty() - order.getPickedQty();
+			int orderPickQty = (orderMaxPickQty >= pickQty) ? pickQty : pickQty - orderMaxPickQty;
+			remainPickQty = remainPickQty - orderPickQty;
+			order.setPickedQty(ValueUtil.toInteger(order.getPickedQty()) + orderPickQty);
+			order.setStatus(order.getPickedQty() >= order.getOrderQty() ? Order.STATUS_FINISHED : Order.STATUS_RUNNING);
+			this.queryManager.update(order, "status", "pickedQty", "updatedAt");
+			orderIds.add(order.getId());
+		}
+
+		return orderIds;
+	}
+	
+	/**
+	 * 박스 내품 내역을 생성하기 위해 주문 내역 정보를 조회
+	 * 
+	 * @param job
+	 * @return
+	 */
+	private List<Order> searchOrdersByJob(JobInstance job) {
+		// TODO 쿼리로 이동
+		StringJoiner sql = new StringJoiner(SysConstants.LINE_SEPARATOR);
+		sql.add("SELECT * FROM (")
+		   .add("	SELECT")
+		   .add("		ID, DOMAIN_ID, SKU_CD, ORDER_QTY, PICKED_QTY")
+		   .add("	FROM")
+		   .add("		ORDERS")
+		   .add("	WHERE")
+		   .add("		DOMAIN_ID = :domainId AND BATCH_ID = :batchId AND ORDER_NO = :orderNo AND COM_CD = :comCd AND SKU_CD = :skuCd AND (ORDER_QTY > PICKED_QTY)")
+		   .add(") ORDER BY PICKED_QTY ASC");
+		
+		Map<String, Object> params = 
+				ValueUtil.newMap("domainId,batchId,orderNo,comCd,skuCd", job.getDomainId(), job.getBatchId(), job.getOrderNo(), job.getComCd(), job.getSkuCd());
+		return this.queryManager.selectListBySql(sql.toString(), params, Order.class, 0, 0);
+	}
+	
+	/**
+	 * 합포인 경우 투입 정보의 상태를 업데이트 
 	 * 
 	 * @param batch
 	 * @param job
 	 * @param cell
 	 * @param status
 	 */
-	private void updateJobInputStatus(JobBatch batch, JobInstance job, Cell cell, String status) {		
-		JobInput input = AnyEntityUtil.findEntityBy(batch.getDomainId(), true, true, JobInput.class, null
-									, "batchId,equipType,equipCd,orderNo,inputSeq"
-									, batch.getId(), job.getEquipType(), job.getEquipCd(), job.getOrderNo(), job.getInputSeq());
-		
-		if(input != null) {
-			input.setStatus(status);
-			this.queryManager.update(input, DpsConstants.ENTITY_FIELD_STATUS, DpsConstants.ENTITY_FIELD_UPDATED_AT);
+	private void updateJobInputStatus(JobBatch batch, JobInstance job, Cell cell, String status) {
+		if(this.isMultiSkuOrder(job.getOrderType())) {
+			JobInput input = AnyEntityUtil.findEntityBy(batch.getDomainId(), true, true, JobInput.class, null
+										, "batchId,equipType,equipCd,orderNo,inputSeq"
+										, batch.getId(), job.getEquipType(), job.getEquipCd(), job.getOrderNo(), job.getInputSeq());
+			
+			if(input != null) {
+				input.setStatus(status);
+				this.queryManager.update(input, DpsConstants.ENTITY_FIELD_STATUS, DpsConstants.ENTITY_FIELD_UPDATED_AT);
+			}
 		}
+	}
+	
+	/**
+	 * 주문이 합포인지 여부
+	 * 
+	 * @param orderType
+	 * @return
+	 */
+	private boolean isMultiSkuOrder(String orderType) {
+		return ValueUtil.isEqualIgnoreCase(orderType, DpsCodeConstants.DPS_ORDER_TYPE_MT);
 	}
 
 }

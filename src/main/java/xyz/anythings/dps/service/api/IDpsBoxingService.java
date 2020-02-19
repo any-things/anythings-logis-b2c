@@ -18,8 +18,9 @@ public interface IDpsBoxingService extends IBoxingService {
 	 * @param boxPackId
 	 * @param idsOfOrders
 	 * @param toStatus
+	 * @param updatePassFlag
 	 */
-	public void updateBoxItemsAfterPick(Long domainId, String boxPackId, List<String> idsOfOrders, String toStatus);
+	public void updateBoxItemsAfterPick(Long domainId, String boxPackId, List<String> idsOfOrders, String toStatus, boolean updatePassFlag);
 	
 	// TODO 단포 박싱 처리 추가 ...
 }
