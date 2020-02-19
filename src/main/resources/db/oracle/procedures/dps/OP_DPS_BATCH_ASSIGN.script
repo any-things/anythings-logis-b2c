@@ -14,6 +14,7 @@ create or replace PROCEDURE OP_DPS_BATCH_ASSIGN
 /*  개정 이력
 /*    1. 2019-10-28 : 최초 작성
 /*    2. 2020-02-14 : CLASS_CD 적용 및 Rack 이 지정된 배치 ... 
+/*    3. 2020-02-19 : 박스 요청 프로세스 사용 여부 설정 적용 ( true : 작업 할당시 상태 'BW' / false : 작업 할당시 상태 'W' )
 /***********************************************************************************/
 
 IS
@@ -42,15 +43,21 @@ BEGIN
 
     FOR C_STOCK_SKUS IN(
         WITH T_BATCH AS (
-            SELECT ID AS BATCH_ID
-                 , COM_CD
-                 , AREA_CD
-                 , STAGE_CD
-                 , EQUIP_TYPE
-                 , DOMAIN_ID
-              FROM JOB_BATCHES
-             WHERE STATUS = 'RUN'
-               AND JOB_TYPE = 'DPS'
+           SELECT X.ID AS BATCH_ID
+                 , X.COM_CD
+                 , X.AREA_CD
+                 , X.STAGE_CD
+                 , X.EQUIP_TYPE
+                 , X.DOMAIN_ID
+                 , NVL(Y.BOX_REQ_ENABLE, 0) AS BOX_REQ_ENABLE  -- 박스 요청 프로세스 사용 여부 
+              FROM JOB_BATCHES X
+                 , (SELECT DOMAIN_ID, JOB_CONFIG_SET_ID, DECODE(VALUE,'true',1,0) AS BOX_REQ_ENABLE
+                      FROM JOB_CONFIGS
+                     WHERE NAME = 'dps.preprocess.box-request.enabled' ) Y
+             WHERE X.DOMAIN_ID = Y.DOMAIN_ID(+)
+               AND X.JOB_CONFIG_SET_ID = Y.JOB_CONFIG_SET_ID(+)
+               AND X.STATUS = 'RUN'
+               AND X.JOB_TYPE = 'DPS'
         ),
         T_ORDERS AS (
             SELECT X.DOMAIN_ID, X.BATCH_ID, X.AREA_CD, X.STAGE_CD, X.EQUIP_CD, X.CLASS_CD, X.COM_CD, X.SKU_CD, X.ORDER_QTY
@@ -70,6 +77,7 @@ BEGIN
                  , X.RACK_CD AS EQUIP_CD
                  , X.RACK_NM AS EQUIP_NM
                  , X.DOMAIN_ID
+                 , Y.BOX_REQ_ENABLE
               FROM RACKS X
                  , T_BATCH Y
              WHERE X.DOMAIN_ID = Y.DOMAIN_ID
@@ -91,6 +99,7 @@ BEGIN
                  , X.CELL_CD
                  , X.IND_CD
                  , Y.DOMAIN_ID
+                 , Y.BOX_REQ_ENABLE
               FROM CELLS X
                  , T_BATCH_RACKS Y
              WHERE X.DOMAIN_ID = Y.DOMAIN_ID
@@ -100,13 +109,14 @@ BEGIN
         ),
         T_STOCKS AS (
             SELECT X.DOMAIN_ID, X.BATCH_ID, X.COM_CD, X.SKU_CD
-                 , X.LOAD_QTY, Y.ORDER_SKU_CNT, Y.ORDER_PCS_CNT
+                 , X.LOAD_QTY, Y.ORDER_SKU_CNT, Y.ORDER_PCS_CNT, X.BOX_REQ_ENABLE
               FROM (
                     SELECT X.DOMAIN_ID
                          , Y.BATCH_ID
                          , X.COM_CD
                          , X.SKU_CD
                          , SUM(X.LOAD_QTY) AS LOAD_QTY
+                         , Y.BOX_REQ_ENABLE
                       FROM STOCKS X
                          , T_BATCH_CELLS Y
                      WHERE X.DOMAIN_ID = Y.DOMAIN_ID
@@ -117,7 +127,7 @@ BEGIN
                        AND X.SKU_CD IS NOT NULL
                        AND x.LOAD_QTY != 0
                        AND X.ACTIVE_FLAG = 1
-                     GROUP BY X.DOMAIN_ID, Y.BATCH_ID, X.COM_CD, X.SKU_CD
+                     GROUP BY X.DOMAIN_ID, Y.BATCH_ID, X.COM_CD, X.SKU_CD, Y.BOX_REQ_ENABLE
                    ) X
                  , (
                     SELECT DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD
@@ -133,20 +143,20 @@ BEGIN
         ),
         T_ASSIGN_SKU AS (
             SELECT MIN(ASSIGN_PRIORITY) AS ASSIGN_PRIORITY 
-                 , DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY
+                 , DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY, BOX_REQ_ENABLE
               FROM (
-                    SELECT 1 AS ASSIGN_PRIORITY, DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY
+                    SELECT 1 AS ASSIGN_PRIORITY, DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY, BOX_REQ_ENABLE
                       FROM T_STOCKS
                      WHERE ORDER_PCS_CNT <= LOAD_QTY
                      UNION ALL
-                    SELECT 2 AS ASSIGN_PRIORITY, DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY
+                    SELECT 2 AS ASSIGN_PRIORITY, DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY, BOX_REQ_ENABLE
                       FROM T_STOCKS
                      WHERE ORDER_SKU_CNT >= LOAD_QTY
                      UNION ALL
-                    SELECT 3 AS ASSIGN_PRIORITY, DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY
+                    SELECT 3 AS ASSIGN_PRIORITY, DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY, BOX_REQ_ENABLE
                       FROM T_STOCKS
                    )
-             GROUP BY DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY
+             GROUP BY DOMAIN_ID, BATCH_ID, COM_CD, SKU_CD, LOAD_QTY, BOX_REQ_ENABLE
         )
         SELECT *
           FROM T_ASSIGN_SKU
@@ -354,7 +364,7 @@ BEGIN
                          , C_ASSIGN_JOB_LINE.CLASS_CD, C_ASSIGN_JOB_LINE.COM_CD  
                          , C_ASSIGN_JOB_LINE.EQUIP_TYPE, C_ASSIGN_JOB_LINE.EQUIP_CD, C_ASSIGN_JOB_LINE.EQUIP_NM, C_ASSIGN_JOB_LINE.CELL_CD, C_ASSIGN_JOB_LINE.IND_CD
                          , C_ASSIGN_JOB_LINE.SKU_CD, C_ASSIGN_JOB_LINE.SKU_NM, 0, C_ASSIGN_JOB_LINE.BOX_TYPE_CD
-                         , V_ASSIGN_QTY, C_ASSIGN_JOB_LINE.ORDER_TYPE, 'BW'
+                         , V_ASSIGN_QTY, C_ASSIGN_JOB_LINE.ORDER_TYPE, DECODE(C_STOCK_SKUS.BOX_REQ_ENABLE, 1, 'BW', 'W')
                          , C_ASSIGN_JOB_LINE.DOMAIN_ID, 'PROC', 'PROC', SYSDATE, SYSDATE 
                       FROM DUAL;
 
