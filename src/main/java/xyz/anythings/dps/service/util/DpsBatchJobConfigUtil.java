@@ -26,6 +26,7 @@ import xyz.elidom.sys.util.ValueUtil;
  * 	job.dps.pick.1sku.npcs.enabled				단포 대상 분류 여부
  * 	job.dps.supple.recommend-cell.enabled		추천 로케이션 사용 여부
  * 	job.dps.pick.with-inspection.enabled		피킹과 동시에 검수 처리할 것인지 여부
+ *  job.dps.preproces.cell.mapping.field        박스 요청 프로세스 사용 여부
  * 
  * @author shortstop
  */
@@ -185,4 +186,27 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 		return splitIndex;
 	}
 
+	/**
+	 * 박스 요청 프로세스 사용 여부
+	 * 
+	 * @param batch
+	 * @return
+	 */
+	public static boolean isBoxRequestProcessEnabled(JobBatch batch) {
+		// dps.preprocess.box-request.enabled
+		return isBoxRequestProcessEnabled(batch, true);
+	}
+	
+	/**
+	 * 박스 요청 프로세스 사용 여부
+	 * 
+	 * @param batch
+	 * @param exceptionWhenEmptyValue
+	 * @return
+	 */
+	public static boolean isBoxRequestProcessEnabled(JobBatch batch, boolean exceptionWhenEmptyValue) {
+		// dps.preprocess.box-request.enabled
+		String boolVal = getConfigValue(batch, DpsConfigConstants.DPS_PREPROCESS_BOX_REQUEST_ENABLED, exceptionWhenEmptyValue);
+		return ValueUtil.toBoolean(boolVal);
+	}
 }
