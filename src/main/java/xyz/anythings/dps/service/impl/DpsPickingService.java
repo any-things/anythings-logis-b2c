@@ -122,6 +122,7 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 		String indColor = ValueUtil.isEmpty(bucket.getBucketColor()) ? BatchIndConfigUtil.getDpsJobColor(batch.getId()) : bucket.getBucketColor();
 		
 		// 4. 주문 번호로 매핑된 작업을 모두 조회
+		if(this.dpsJobStatusService == null) this.getJobStatusService(batch);
 		List<JobInstance> jobList = this.dpsJobStatusService.searchPickingJobList(batch, null, orderNo);
 
 		if(ValueUtil.isEmpty(jobList)) {
@@ -129,16 +130,24 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 			throw new ElidomRuntimeException(MessageUtil.getMessage("MPS_NO_ORDER_TO_INPUT"));
 		}
 		
-		// 5. 박스 마스터 & 내품 내역 생성
-		BoxPack box = this.dpsBoxingService.fullBoxing(batch, null, jobList, orderNo, bucket.getBucketType(), bucket.getBucketTypeCd());	
+		// 5. 작업 데이터에 박스 ID 설정
+		for(JobInstance job : jobList) {
+			job.setBoxId(bucketCd);
+		}
 		
-		// 6. 투입
+		this.queryManager.updateBatch(jobList, "boxId", "updaterId", "updatedAt");
+		
+		// 6. 박스 마스터 & 내품 내역 생성
+		if(this.dpsBoxingService == null) this.getBoxingService();
+		BoxPack box = this.dpsBoxingService.fullBoxing(batch, null, jobList);
+		
+		// 7. 투입
 		this.doInputEmptyBucket(batch, orderNo, bucket, indColor, box.getId());
 		
-		// 7. 박스 투입 후 액션 
+		// 8. 박스 투입 후 액션 
 		this.afterInputEmptyBucket(batch, bucket, orderNo);
 		
-		// 8. 투입 정보 리턴
+		// 9. 투입 정보 리턴
 		return jobList;
 	}
 	

@@ -115,7 +115,7 @@ public class DpsJobStatusService extends AbstractJobStatusService implements IDp
 		
 		// 표시기 점등을 위해서 다른 테이블의 데이터도 필요해서 쿼리로 조회 
 		String sql = this.pickQueryStore.getSearchPickingJobListQuery();
-		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,stageCd,equipType,stationCd,classCd,statuses", batch.getDomainId(), batch.getId(), batch.getStageCd(), batch.getEquipType(), stationCd, classCd, LogisConstants.JOB_STATUS_IPC);
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,stageCd,equipType,stationCd,classCd,statuses", batch.getDomainId(), batch.getId(), batch.getStageCd(), batch.getEquipType(), stationCd, classCd, LogisConstants.JOB_STATUS_WIPC);
 		return this.queryManager.selectListBySql(sql, params, JobInstance.class, 0, 0);
 	}
 

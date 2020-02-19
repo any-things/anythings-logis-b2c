@@ -109,7 +109,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 * @param batch
 	 * @return
 	 */
-	private IDpsJobStatusService getJobStatusService(JobBatch batch) {
+	protected IDpsJobStatusService getJobStatusService(JobBatch batch) {
 		if(this.dpsJobStatusService == null) {
 			this.dpsJobStatusService = (IDpsJobStatusService)this.serviceDispatcher.getJobStatusService(batch);
 		}
@@ -408,7 +408,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 		// 1. 주문 - 박스 ID 매핑 쿼리 추출
 		this.getJobStatusService(batch);
 		String updateJobSql = this.batchQueryStore.getRackDpsBatchMapBoxIdAndSeqQuery();
-		Map<String,Object> params = ValueUtil.newMap("domainId,batchId,equipType,orderNo,userId,boxId,colorCd,inputAt,boxPackId", 
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipType,orderNo,userId,boxId,colorCd,inputAt,boxPackId", 
 				                    batch.getDomainId(), batch.getId(), batch.getEquipType(), orderNo, 
 				                    User.currentUser().getId(), bucket.getBucketCd(), indColor, DateUtil.currentTimeStr(), boxPackId);
 		
