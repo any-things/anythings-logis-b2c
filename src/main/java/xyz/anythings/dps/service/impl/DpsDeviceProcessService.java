@@ -117,6 +117,32 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 	}
 	
 	/**
+	 * 주문 상세 정보 조회 
+	 *  
+	 * @param event
+	 */
+	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/order_items', 'dps')")
+	@Order(Ordered.LOWEST_PRECEDENCE)
+	public void searchOrderItems(DeviceProcessRestEvent event) {
+		
+		// 1. 파라미터
+		Map<String, Object> params = event.getRequestParams();
+		String equipType = params.get("equipType").toString();
+		String equipCd = params.get("equipCd").toString();
+		String orderNo = params.get("orderNo").toString();
+		
+		// 2. 배치 조회
+		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
+		JobBatch batch = equipBatchSet.getBatch();
+		
+		List<JobInstance> jobList = this.dpsJobStatusService.searchInputJobList(batch, ValueUtil.newMap("orderNo", orderNo));
+
+		// 4. 이벤트 처리 결과 셋팅 
+		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, jobList));
+		event.setExecuted(true);
+	}
+	
+	/**
 	 * DPS 박스 투입 (BOX or Tray)
 	 * 
 	 * @param event
