@@ -269,6 +269,7 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 	@EventListener(condition = "#exeEvent.getClassifyAction() == 'cancel' and #exeEvent.isExecuted() == false and #exeEvent.getJobType() == 'DPS'")
 	@Order(Ordered.LOWEST_PRECEDENCE)
 	public void cancelPick(IClassifyRunEvent exeEvent) {
+		// TODO
 		exeEvent.setExecuted(true);
 	}
 
@@ -282,6 +283,7 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 	@EventListener(condition = "#exeEvent.getClassifyAction() == 'modify' and #exeEvent.isExecuted() == false and #exeEvent.getJobType() == 'DPS'")
 	@Order(Ordered.LOWEST_PRECEDENCE)
 	public int splitPick(IClassifyRunEvent exeEvent) {
+		// TODO 
 		exeEvent.setExecuted(true);
 		return 0;
 	}

@@ -88,16 +88,11 @@ public class DpsJobStatusService extends AbstractJobStatusService implements IDp
 	@Override
 	public List<JobInstance> searchInputJobList(JobBatch batch, JobInput input, String stationCd) {
 		
-//		String detailListQry = this.batchQueryStore.getRackDpsBatchBoxInputTabDetailQuery();
-//		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipType,equipCd,orderNo,stationCd,stageCd"
-//									, batch.getDomainId(),batch.getId(),batch.getEquipType(),input.getEquipCd()
-//									, input.getOrderNo(),stationCd,batch.getStageCd());
-//		return AnyEntityUtil.searchItems(batch.getDomainId(), false, JobInstance.class, detailListQry, params);
-		 
-		// 1. 배치 조건을 검색 조건에 추가
-		Map<String, Object> condition = ValueUtil.newMap("domainId,batchId,stageCd,equipType,stationCd,orderNo,boxId,statuses", batch.getDomainId(), batch.getId(), batch.getStageCd(), batch.getEquipType(), stationCd, input.getOrderNo(), input.getBoxId(), LogisConstants.JOB_STATUS_IPC);
-		// 2. 작업 리스트 조회 
-		return this.queryManager.selectList(JobInstance.class, condition);		
+		String inputJobsSql = this.batchQueryStore.getRackDpsBatchBoxInputTabDetailQuery();
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipType,equipCd,orderNo,stationCd,stageCd"
+									, batch.getDomainId(),batch.getId(), batch.getEquipType(), input.getEquipCd()
+									, input.getOrderNo(), stationCd, batch.getStageCd());
+		return AnyEntityUtil.searchItems(batch.getDomainId(), false, JobInstance.class, inputJobsSql, params);
 	}
 	
 	@Override

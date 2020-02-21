@@ -295,8 +295,8 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	@Override
 	public boolean checkStationJobsEnd(JobBatch batch, String stationCd, JobInstance job) {
 		if(this.isMultiSkuOrder(job.getOrderType())) {
-			String sql = "select id from job_instances where domain_id = :domainId and cell_cd in (select cell_cd from cells where domain_id = :domainId and station_cd = :stationCd) and order_no = :orderNo and box_id = :boxId and status in (:statuses)";
-			Map<String, Object> params = ValueUtil.newMap("domainId,batchId,orderNo,boxId,status", batch.getDomainId(), batch.getId(), job.getOrderNo(), job.getBoxId(), LogisConstants.JOB_STATUS_WIP);
+			String sql = "select id from job_instances where domain_id = :domainId and sub_equip_cd in (select cell_cd from cells where domain_id = :domainId and station_cd = :stationCd) and order_no = :orderNo and box_id = :boxId and status in (:statuses)";
+			Map<String, Object> params = ValueUtil.newMap("domainId,batchId,orderNo,boxId,stationCd,statuses", batch.getDomainId(), batch.getId(), job.getOrderNo(), job.getBoxId(), stationCd, LogisConstants.JOB_STATUS_WIP);
 			return this.queryManager.selectSizeBySql(sql, params) == 0;
 		} else {
 			return job.getPickedQty() >= job.getPickQty();
@@ -685,7 +685,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 		this.queryManager.update(job, "pickStartedAt", "pickEndedAt", "pickedQty", "pickingQty", DpsConstants.ENTITY_FIELD_STATUS, DpsConstants.ENTITY_FIELD_UPDATER_ID, DpsConstants.ENTITY_FIELD_UPDATED_AT);
 
 		// 2. 합포의 경우에만 
-		if(this.isMultiSkuOrder(job.getOrderType())) {			
+		if(this.isMultiSkuOrder(job.getOrderType())) {
 			this.serviceDispatcher.getStockService().removeStockForPicking(job.getDomainId(), job.getEquipType(), job.getEquipCd(), job.getSubEquipCd(), job.getComCd(), job.getSkuCd(), -1 * pickQty);
 		}
 	}
@@ -730,9 +730,9 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 				boxStatus = BoxPack.BOX_STATUS_BOXED;
 				// 5-4. 검수 완료 여부 ...
 				passFlag = this.getPassFlag(job, multiSkuOrder, true);
-				// 5-5. 작업의 '박싱 시각'을 업데이트
-				String sql = "update job_instances set boxed_at = :currentTime where domain_id = :domainId and batch_id = :batchId and order_no = :orderNo";
-				this.queryManager.executeBySql(sql, ValueUtil.newMap("domainId,batchId,orderNo,currentTime", job.getDomainId(), job.getBatchId(), job.getOrderNo(), job.getPickEndedAt()));
+				// 5-5. 작업의 '상태' 및 '박싱 시각'을 업데이트
+				String sql = "update job_instances set status = :status, boxed_at = :currentTime where domain_id = :domainId and batch_id = :batchId and order_no = :orderNo";
+				this.queryManager.executeBySql(sql, ValueUtil.newMap("domainId,batchId,orderNo,status,currentTime", job.getDomainId(), job.getBatchId(), job.getOrderNo(), LogisConstants.JOB_STATUS_BOXED, job.getPickEndedAt()));
 			} 			
 		}
 		
@@ -742,9 +742,15 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 		if(this.dpsBoxingService == null) this.getBoxingService();
 		this.dpsBoxingService.updateBoxItemsAfterPick(batch.getDomainId(), job.getBoxPackId(), orderIdList, boxStatus, passFlag);
 		
-		// 6. TODO : BIN 사용 여부 설정에서 조회하여 사용한다면 처리한 셀에 다른 BIN의 상품이 걸려 있는 경우 표시기 점등 처리
+		// 6. 주문 피킹 처리가 완료되었다면 상태 모두 변경 
+		if(ValueUtil.isEqualIgnoreCase(boxStatus, BoxPack.BOX_STATUS_BOXED)) {
+			String sql = "update box_items set status = :status where box_pack_id = :boxPackId";
+			this.queryManager.executeBySql(sql, ValueUtil.newMap("boxPackId,status", boxPack.getId(), BoxPack.BOX_STATUS_BOXED));
+		}
 		
-		// 7. 모바일 새로고침 명령 전달
+		// 7. TODO : BIN 사용 여부 설정에서 조회하여 사용한다면 처리한 셀에 다른 BIN의 상품이 걸려 있는 경우 표시기 점등 처리
+		
+		// 8. 모바일 새로고침 명령 전달
 		if(multiSkuOrder) {
 			this.serviceDispatcher.getDeviceService().sendMessageToDevice(batch.getDomainId(), DeviceCommand.EQUIP_TABLET, batch.getStageCd(), cell.getEquipType(), cell.getEquipCd(), cell.getStationCd(), null, batch.getJobType(), DeviceCommand.COMMAND_REFRESH, "confirm-pick", null);
 		}
