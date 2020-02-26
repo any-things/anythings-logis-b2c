@@ -11,6 +11,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import xyz.anythings.dps.config.ModuleProperties;
+import xyz.anythings.dps.query.store.DpsBatchQueryStore;
 import xyz.anythings.dps.query.store.DpsPickQueryStore;
 import xyz.elidom.orm.IQueryManager;
 import xyz.elidom.sys.config.ModuleConfigSet;
@@ -49,6 +50,9 @@ public class AnythingsLogisDpsInitializer {
 	@Autowired
 	private DpsPickQueryStore dpsPickQueryStore;
 	
+	@Autowired
+	private DpsBatchQueryStore dpsBatchQueryStore;
+	
 	@EventListener({ ContextRefreshedEvent.class })
 	public void refresh(ContextRefreshedEvent event) {
 		this.logger.info("Anythings Logistics DPS module refreshing...");
@@ -80,6 +84,7 @@ public class AnythingsLogisDpsInitializer {
 	private void initQueryStores() {
 		String dbType = this.queryManager.getDbType();
 		this.dpsPickQueryStore.initQueryStore(dbType);
+		this.dpsBatchQueryStore.initQueryStore(dbType);
 	}
 
 }

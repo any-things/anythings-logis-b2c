@@ -20,9 +20,11 @@ import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.base.service.impl.AbstractLogisService;
 import xyz.anythings.dps.DpsCodeConstants;
 import xyz.anythings.dps.DpsConstants;
+import xyz.anythings.dps.model.DpsBatchInputableBox;
 import xyz.anythings.dps.model.DpsBatchSummary;
-import xyz.anythings.dps.model.DpsSinglePackSummary;
 import xyz.anythings.dps.model.DpsSinglePackJobInform;
+import xyz.anythings.dps.model.DpsSinglePackSummary;
+import xyz.anythings.dps.query.store.DpsBatchQueryStore;
 import xyz.anythings.dps.service.api.IDpsJobStatusService;
 import xyz.anythings.dps.service.api.IDpsPickingService;
 import xyz.anythings.dps.service.util.DpsBatchJobConfigUtil;
@@ -54,6 +56,9 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 	 */
 	@Autowired
 	private BatchQueryStore batchQueryStore;
+	
+	@Autowired
+	private DpsBatchQueryStore dpsBatchQueryStore;
 	
 	/**
 	 * DPS 배치 작업 진행율 조회 : 진행율 + 투입 순서 리스트
@@ -333,4 +338,46 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		event.setExecuted(true);
 	}
 
+	
+	/**
+	 * DPS 박스 투입 (BOX or Tray)
+	 * 
+	 * @param event
+	 */
+	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/box_requirement', 'dps')")
+	@Order(Ordered.LOWEST_PRECEDENCE)
+	public void getBoxRequirementList(DeviceProcessRestEvent event) {
+		
+		// 1. 파라미터 
+		Map<String, Object> params = event.getRequestParams();
+		String equipCd = params.get("equipCd").toString();
+		String equipType = params.get("equipType").toString();
+		
+		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회 
+		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
+		JobBatch batch = equipBatchSet.getBatch();
+		
+		// 3. 진행 중인 배치가 있을때만 조회 
+		if(!ValueUtil.isEmpty(batch)) {
+			// 3.1. 호기별 배치 분리 여부
+			// 투입 대상 박스 리스트 조회시 별도의 로직 처리 필요 
+			boolean useSeparatedBatch = DpsBatchJobConfigUtil.isSeparatedBatchByRack(batch);
+			
+			String query = this.dpsBatchQueryStore.getBatchInputableBoxByTypeQuery();
+			Map<String,Object> queryParams = ValueUtil.newMap("domainId,batchId,equipType",event.getDomainId(),batch.getId(),equipType);
+			
+			// 3.2. 호기가 분리된 배치의 경우 
+			if(useSeparatedBatch) {
+				queryParams.put("equipCd",equipCd);
+			}
+			
+			List<DpsBatchInputableBox> inputableBoxs = AnyEntityUtil.searchItems(event.getDomainId(), true, DpsBatchInputableBox.class, query, queryParams);
+			event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, inputableBoxs));
+		} else {
+			event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, null));
+		}
+
+		// 5. 이벤트 처리 결과 셋팅 
+		event.setExecuted(true);
+	}
 }
