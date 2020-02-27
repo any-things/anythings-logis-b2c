@@ -59,6 +59,7 @@ public class DpsBoxingService extends AbstractBoxingService implements IDpsBoxin
 		JobInstance job = jobList.get(0);
 		String orderNo = job.getOrderNo();
 		String boxTypeCd = job.getBoxTypeCd();
+		//String boxId = job.getBoxId();
 		String boxPackId = (params != null && params.length > 0) ? ValueUtil.toString(params[0]) : AnyValueUtil.newUuid36();
 		
 		// 2. boxItems 생성 

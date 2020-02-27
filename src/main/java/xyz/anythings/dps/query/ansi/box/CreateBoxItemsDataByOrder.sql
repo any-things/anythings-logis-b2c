@@ -1,0 +1,36 @@
+
+INSERT INTO BOX_ITEMS(ID, BOX_PACK_ID, ORDER_ID, ORDER_NO, ORDER_LINE_NO, ORDER_DETAIL_ID
+                    , COM_CD, SHOP_CD, SKU_CD, SKU_NM, SKU_WT
+                    , PICK_QTY, PACK_TYPE, PICKED_QTY, CANCEL_QTY, PASS_FLAG
+                    , STATUS, DOMAIN_ID, CREATOR_ID, UPDATER_ID, CREATED_AT, UPDATED_AT)
+SELECT OF_GET_GENERATE_UUID() AS ID 
+     , :boxPackId AS BOX_PACK_ID
+     , X.ID AS ORDER_ID
+     , X.ORDER_NO
+     , X.ORDER_LINE_NO
+     , X.ORDER_DETAIL_ID
+     , X.COM_CD
+     , X.SHOP_CD
+     , X.SKU_CD
+     , X.SKU_NM
+     , NVL(Y.SKU_WT, 0) AS SKU_WT
+     , X.ORDER_QTY AS PICK_QTY
+     , X.PACK_TYPE AS PACK_TYPE
+     , 0 AS PACK_QTY, 0 AS CANCEL_QTY, 0 AS PASS_FLAG
+     , 'W' AS STATUS
+     , X.DOMAIN_ID
+     , :userId AS CREATOR_ID
+     , :userId AS UPDATER_ID
+     , SYSDATE AS CREATED_AT
+     , SYSDATE AS UPDATED_AT
+  FROM (
+        SELECT *
+          FROM ORDERS
+         WHERE DOMAIN_ID = :domainId
+           AND BATCH_ID = :batchId
+           AND ORDER_NO = :orderNo
+       ) X
+     , SKU Y
+ WHERE X.DOMAIN_ID = Y.DOMAIN_ID(+)
+   AND X.COM_CD = Y.COM_CD(+)
+   AND X.SKU_CD = Y.SKU_CD(+)
