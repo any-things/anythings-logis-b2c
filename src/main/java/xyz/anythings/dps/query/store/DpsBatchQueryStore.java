@@ -26,7 +26,7 @@ public class DpsBatchQueryStore extends AbstractQueryStore {
 	 * @return
 	 */
 	public String getBatchInputableBoxByTypeQuery() {
-		return this.getQueryByPath("batch/BatchInputableBoxByType");
+		return this.getQueryByPath("batch/InputableBoxListByType");
 	}
 
 	/**
@@ -44,7 +44,7 @@ public class DpsBatchQueryStore extends AbstractQueryStore {
 	 * @return
 	 */
 	public String getBatchInputListQuery() {
-		return this.getQueryByPath("batch/InputList");
+		return this.getQueryByPath("batch/InputSeqList");
 	}
 	
 	/**
@@ -70,8 +70,8 @@ public class DpsBatchQueryStore extends AbstractQueryStore {
 	 * 
 	 * @return
 	 */
-	public String getBatchBoxInputTabsQuery() {
-		return this.getQueryByPath("batch/BatchBoxInputTabs");
+	public String getBatchBoxInputTabListQuery() {
+		return this.getQueryByPath("batch/BoxInputTabList");
 	}
 	
 	/**
@@ -80,7 +80,7 @@ public class DpsBatchQueryStore extends AbstractQueryStore {
 	 * @return
 	 */
 	public String getBatchBoxInputTabDetailQuery() {
-		return this.getQueryByPath("batch/BatchBoxInputTabDetail");
+		return this.getQueryByPath("batch/BoxInputTabDetails");
 	}
 
 }

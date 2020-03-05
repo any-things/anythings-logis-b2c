@@ -14,7 +14,7 @@ import xyz.anythings.dps.model.DpsSinglePackSummary;
 public interface IDpsJobStatusService extends IJobStatusService {
 
 	/**
-	 * 단포 작업을 위한 조회 
+	 * 단포 작업을 위한 서머리 조회 
 	 * 
 	 * @param batch
 	 * @param skuCd
@@ -22,5 +22,5 @@ public interface IDpsJobStatusService extends IJobStatusService {
 	 * @param jobPcs
 	 * @return
 	 */
-	public List<DpsSinglePackSummary> searchSinglePackInfo(JobBatch batch, String skuCd, String boxType, Integer jobPcs);
+	public List<DpsSinglePackSummary> searchSinglePackSummary(JobBatch batch, String skuCd, String boxType, Integer jobPcs);
 }

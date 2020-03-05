@@ -34,8 +34,8 @@ public class DpsPickQueryStore extends AbstractQueryStore {
 	 * 
 	 * @return
 	 */
-	public String getSinglePackInformQuery() {
-		return this.getQueryByPath("pick/PickSinglePackInform");
+	public String getSinglePackSummaryQuery() {
+		return this.getQueryByPath("pick/SearchSinglePackSummary");
 	}
 	
 	/**

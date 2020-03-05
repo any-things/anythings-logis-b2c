@@ -261,7 +261,7 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		this.dpsPickingService.confirmPick(batch, job, resQty);
 				
 		// 6. 상품에 대한 단포 작업 정보 조회 
-		List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackInfo(batch, job.getSkuCd(), job.getBoxTypeCd(), job.getPickQty());
+		List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackSummary(batch, job.getSkuCd(), job.getBoxTypeCd(), job.getPickQty());
 		
 		// 7. 피킹 상태가 아니면 완료  
 		if(!ValueUtil.isEqualIgnoreCase(job.getStatus(), DpsConstants.JOB_STATUS_PICKING)) {
@@ -303,7 +303,7 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		JobInstance job = (JobInstance)this.dpsPickingService.inputSinglePackEmptyBucket(batch, isBox, skuCd, boxId);
 		
 		// 5. 상품에 대한 단포 작업 정보 조회 
-		List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackInfo(batch, skuCd, job.getBoxTypeCd(), job.getPickQty());
+		List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackSummary(batch, skuCd, job.getBoxTypeCd(), job.getPickQty());
 		DpsSinglePackJobInform result = new DpsSinglePackJobInform(singlePackInfo, job);
 		
 		// 6. 이벤트 처리 결과 셋팅 
@@ -331,7 +331,7 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		JobBatch batch = equipBatchSet.getBatch();
 		
 		// 3. 상품에 대한 단포 작업 정보 조회 
-		List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackInfo(batch, skuCd, null, null);
+		List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackSummary(batch, skuCd, null, null);
 		
 		// 4. 이벤트 처리 결과 셋팅 
 		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, singlePackInfo));
