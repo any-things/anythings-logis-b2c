@@ -10,9 +10,9 @@ import xyz.anythings.base.entity.BoxPack;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.entity.WorkCell;
-import xyz.anythings.base.query.store.BoxQueryStore;
 import xyz.anythings.base.service.impl.AbstractBoxingService;
 import xyz.anythings.dps.DpsConstants;
+import xyz.anythings.dps.query.store.DpsBoxQueryStore;
 import xyz.anythings.dps.service.api.IDpsBoxingService;
 import xyz.anythings.dps.service.util.DpsBatchJobConfigUtil;
 import xyz.anythings.sys.util.AnyValueUtil;
@@ -31,7 +31,7 @@ public class DpsBoxingService extends AbstractBoxingService implements IDpsBoxin
 	 * 박스 처리 쿼리 스토어
 	 */
 	@Autowired
-	protected BoxQueryStore boxQueryStore;
+	protected DpsBoxQueryStore boxQueryStore;
 
 	/**
 	 * 1-1. 분류 모듈 정보 : 분류 서비스 모듈의 작업 유형 (DAS, RTN, DPS, QPS) 리턴 

@@ -23,12 +23,13 @@ import xyz.anythings.base.event.IClassifyErrorEvent;
 import xyz.anythings.base.event.IClassifyOutEvent;
 import xyz.anythings.base.event.IClassifyRunEvent;
 import xyz.anythings.base.model.Category;
-import xyz.anythings.base.query.store.BatchQueryStore;
-import xyz.anythings.base.query.store.BoxQueryStore;
 import xyz.anythings.base.service.api.IBoxingService;
 import xyz.anythings.base.service.impl.AbstractClassificationService;
 import xyz.anythings.dps.DpsCodeConstants;
 import xyz.anythings.dps.DpsConstants;
+import xyz.anythings.dps.query.store.DpsBatchQueryStore;
+import xyz.anythings.dps.query.store.DpsBoxQueryStore;
+import xyz.anythings.dps.query.store.DpsPickQueryStore;
 import xyz.anythings.dps.service.api.IDpsBoxingService;
 import xyz.anythings.dps.service.api.IDpsJobStatusService;
 import xyz.anythings.dps.service.api.IDpsPickingService;
@@ -58,13 +59,17 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 * 배치 쿼리 스토어
 	 */
 	@Autowired
-	protected BatchQueryStore batchQueryStore;
+	protected DpsBatchQueryStore batchQueryStore;
+	/**
+	 * 피킹 쿼리 스토어
+	 */
+	@Autowired
+	protected DpsPickQueryStore pickQueryStore;	
 	/**
 	 * 박스 쿼리 스토어
 	 */
 	@Autowired
-	protected BoxQueryStore boxQueryStore;
-	
+	protected DpsBoxQueryStore boxQueryStore;
 	/**
 	 * 박싱 서비스 
 	 */
@@ -385,7 +390,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	protected void doInputEmptyBucket(JobBatch batch, String orderNo, IBucket bucket, String indColor, String boxPackId) {
 		
 		// 1. 주문 번호로 투입 정보 조회  
-		String newInputsQuery = this.batchQueryStore.getRackDpsBatchNewInputDataQuery();
+		String newInputsQuery = this.batchQueryStore.getBatchNewInputDataQuery();
 		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipType,orderNo,orderType", batch.getDomainId(), batch.getId(), batch.getEquipType(), orderNo, DpsCodeConstants.DPS_ORDER_TYPE_MT);
 		List<JobInput> inputList = AnyEntityUtil.searchItems(batch.getDomainId(), false, JobInput.class, newInputsQuery, params);		
 		
@@ -407,7 +412,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 
 		// 1. 주문 - 박스 ID 매핑 쿼리 추출
 		this.getJobStatusService(batch);
-		String updateJobSql = this.batchQueryStore.getRackDpsBatchMapBoxIdAndSeqQuery();
+		String updateJobSql = this.batchQueryStore.getBatchMapBoxIdAndSeqQuery();
 		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipType,orderNo,userId,boxId,colorCd,inputAt,boxPackId", 
 				                    batch.getDomainId(), batch.getId(), batch.getEquipType(), orderNo, 
 				                    User.currentUser().getId(), bucket.getBucketCd(), indColor, DateUtil.currentTimeStr(), boxPackId);
@@ -618,7 +623,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	private String findNextMappingJob(JobBatch batch, String boxTypeCd, String bucketCd, String boxMappingColumn, String orderType) {
 		
 		// 1. 쿼리 
-		String qry =  this.batchQueryStore.getFindNextMappingJobQuery();
+		String qry = this.pickQueryStore.getFindNextMappingJobQuery();
 		
 		// 2. 파라미터
 		Long domainId = batch.getDomainId();

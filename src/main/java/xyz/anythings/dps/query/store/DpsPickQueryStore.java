@@ -18,8 +18,17 @@ public class DpsPickQueryStore extends AbstractQueryStore {
 		this.databaseType = databaseType;
 		this.basePath = "xyz/anythings/dps/query/" + this.databaseType + SysConstants.SLASH;
 		this.defaultBasePath = "xyz/anythings/dps/query/ansi/"; 
-	}	
+	}
 
+	/**
+	 * 다음 맵핑할 작업 정보 조회
+	 * 
+	 * @return
+	 */
+	public String getFindNextMappingJobQuery() {
+		return this.getQueryByPath("pick/FindNextMappingJob");
+	}
+	
 	/**
 	 * 피킹 작업 리스트를 조회
 	 * 

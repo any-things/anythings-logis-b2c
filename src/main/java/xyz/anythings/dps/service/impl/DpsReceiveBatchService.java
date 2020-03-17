@@ -16,10 +16,10 @@ import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.Order;
 import xyz.anythings.base.entity.OrderPreprocess;
 import xyz.anythings.base.event.main.BatchReceiveEvent;
-import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.base.service.util.BatchJobConfigUtil;
 import xyz.anythings.base.util.LogisBaseUtil;
 import xyz.anythings.dps.DpsConstants;
+import xyz.anythings.dps.query.store.DpsBatchQueryStore;
 import xyz.anythings.dps.service.util.DpsStageJobConfigUtil;
 import xyz.anythings.sys.service.AbstractQueryService;
 import xyz.anythings.sys.util.AnyEntityUtil;
@@ -43,7 +43,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 	 * 배치 관련 쿼리 스토어 
 	 */
 	@Autowired
-	private BatchQueryStore batchQueryStore;
+	private DpsBatchQueryStore batchQueryStore;
 
 	/**
 	 * 주문 정보 수신을 위한 수신 서머리 정보 조회
@@ -97,7 +97,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 	private List<BatchReceiptItem> getWmfIfToReceiptItems(BatchReceipt receipt) {
 		Map<String,Object> params = ValueUtil.newMap("domainId,comCd,areaCd,stageCd,jobDate",
 				receipt.getDomainId(), receipt.getComCd(), receipt.getAreaCd(), receipt.getStageCd(), receipt.getJobDate());
-		return AnyEntityUtil.searchItems(receipt.getDomainId(), false, BatchReceiptItem.class, this.batchQueryStore.getWmsIfToReceiptDataQuery(), params);
+		return AnyEntityUtil.searchItems(receipt.getDomainId(), false, BatchReceiptItem.class, this.batchQueryStore.getOrderSummaryToReceive(), params);
 	}
 	
 	/**

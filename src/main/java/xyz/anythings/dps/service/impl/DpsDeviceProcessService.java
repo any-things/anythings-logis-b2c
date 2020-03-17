@@ -16,7 +16,6 @@ import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.event.rest.DeviceProcessRestEvent;
 import xyz.anythings.base.model.BatchProgressRate;
 import xyz.anythings.base.model.EquipBatchSet;
-import xyz.anythings.base.query.store.BatchQueryStore;
 import xyz.anythings.base.service.impl.AbstractLogisService;
 import xyz.anythings.dps.DpsCodeConstants;
 import xyz.anythings.dps.DpsConstants;
@@ -54,9 +53,6 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 	/**
 	 * 배치 쿼리 스토어
 	 */
-	@Autowired
-	private BatchQueryStore batchQueryStore;
-	
 	@Autowired
 	private DpsBatchQueryStore dpsBatchQueryStore;
 	
@@ -115,7 +111,7 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		}
 		
 		// 4. 투입 가능 박스 수량 조회 
-		Integer inputableBox = AnyEntityUtil.findItem(domainId, false, Integer.class, this.batchQueryStore.getRackDpsBatchInputableBoxQuery(), params);
+		Integer inputableBox = AnyEntityUtil.findItem(domainId, false, Integer.class, this.dpsBatchQueryStore.getBatchInputableBoxQuery(), params);
 		
 		// 5. 결과 리턴
 		return new DpsBatchSummary(rate, inputItems, inputableBox);

@@ -21,6 +21,15 @@ public class DpsBatchQueryStore extends AbstractQueryStore {
 	}
 	
 	/**
+	 * 상위 시스템으로 부터 수신해야 할 주문 서머리 정보를 조회
+	 * 
+	 * @return
+	 */
+	public String getOrderSummaryToReceive() {
+		return this.getQueryByPath("batch/OrderSummaryToReceive");
+	}
+	
+	/**
 	 * 투입 가능 박스 리스트 조회 
 	 * 
 	 * @return
