@@ -1,7 +1,7 @@
 
 INSERT INTO BOX_PACKS (ID, BATCH_ID, WCS_BATCH_NO, WMS_BATCH_NO, JOB_DATE, JOB_SEQ, JOB_TYPE, ORDER_DATE
                     , ORDER_NO, COM_CD, SHOP_CD, SHOP_NM, AREA_CD, STAGE_CD, EQUIP_TYPE, EQUIP_CD, EQUIP_NM
-                    , BOX_TYPE_CD, BOX_ID, SKU_QTY, PICK_QTY, PICKED_QTY
+                    , ORDER_TYPE, BOX_TYPE_CD, BOX_ID, SKU_QTY, PICK_QTY, PICKED_QTY
                     , BOX_WT, BOX_WT_MIN, BOX_WT_MAX, PACK_TYPE, CLASS_CD, BOX_CLASS_CD, PASS_FLAG
                     , STATUS, DOMAIN_ID, CREATOR_ID, UPDATER_ID, CREATED_AT, UPDATED_AT)
 SELECT :boxPackId AS ID 
@@ -14,8 +14,8 @@ SELECT :boxPackId AS ID
      , (SELECT DISTINCT ORDER_DATE FROM ORDERS 
          WHERE DOMAIN_ID = :domainId
            AND BATCH_ID = :batchId
-           AND ORDER_NO = :orderNo ) AS ORDER_DATE
-     , :orderNo AS ORER_NO
+           AND ORDER_NO = :orderNo) AS ORDER_DATE
+     , :orderNo AS ORDER_NO
      , X.COM_CD
      , K.SHOP_CD
      , K.SHOP_NM
@@ -24,6 +24,7 @@ SELECT :boxPackId AS ID
      , X.EQUIP_TYPE
      , X.EQUIP_CD
      , X.EQUIP_NM
+     , K.ORDER_TYPE
      , K.BOX_TYPE_CD
      , K.BOX_ID
      , Y.SKU_QTY
@@ -71,7 +72,7 @@ SELECT :boxPackId AS ID
                 SELECT 0, 0, 0 FROM DUAL
                )
        ) Z
-      , (SELECT DISTINCT SHOP_CD, SHOP_NM, BOX_TYPE_CD, BOX_ID, CLASS_CD, BOX_CLASS_CD
+      , (SELECT DISTINCT SHOP_CD, SHOP_NM, ORDER_TYPE, BOX_TYPE_CD, BOX_ID, CLASS_CD, BOX_CLASS_CD
            FROM JOB_INSTANCES
          WHERE DOMAIN_ID = :domainId
            AND BATCH_ID = :batchId

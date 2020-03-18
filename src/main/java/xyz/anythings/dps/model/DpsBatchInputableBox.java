@@ -1,11 +1,16 @@
 package xyz.anythings.dps.model;
 
 /**
- * B2C 배치 투입 가능 박스 타입 리스트 모델 
+ * B2C 배치 투입 가능 박스 타입 리스트 모델
+ * 
  * @author yang
- *
  */
-public class DpsBatchInputableBox{
+public class DpsBatchInputableBox {
+	
+	/**
+	 * 랙 호기 
+	 */
+	private String rackCd;
 	
 	/**
 	 * 박스 타입 
@@ -26,6 +31,14 @@ public class DpsBatchInputableBox{
 	 * 차이 값 
 	 */
 	private Integer remainQty;
+	
+	public String getRackCd() {
+		return this.rackCd;
+	}
+	
+	public void setRackCd(String rackCd) {
+		this.rackCd = rackCd;
+	}
 
 	public String getBoxTypeCd() {
 		return boxTypeCd;
@@ -58,4 +71,5 @@ public class DpsBatchInputableBox{
 	public void setRemainQty(Integer remainQty) {
 		this.remainQty = remainQty;
 	}
+
 }

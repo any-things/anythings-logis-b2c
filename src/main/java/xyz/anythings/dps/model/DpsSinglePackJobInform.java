@@ -28,13 +28,17 @@ public class DpsSinglePackJobInform {
 	public List<DpsSinglePackSummary> getSummary() {
 		return summary;
 	}
+	
 	public void setSummary(List<DpsSinglePackSummary> summary) {
 		this.summary = summary;
 	}
+	
 	public JobInstance getJobInstance() {
 		return jobInstance;
 	}
+	
 	public void setJobInstance(JobInstance jobInstance) {
 		this.jobInstance = jobInstance;
 	}
+
 }

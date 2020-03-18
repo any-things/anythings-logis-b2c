@@ -132,7 +132,7 @@ public class DpsJobStatusService extends AbstractJobStatusService implements IDp
 	@Override
 	public List<DpsSinglePackSummary> searchSinglePackSummary(JobBatch batch, String skuCd, String boxType, Integer jobPcs) {
 		
-		String singlePackSummaryQuery = this.dpsPickQueryStore.getSearchPickingJobListQuery();
+		String singlePackSummaryQuery = this.dpsPickQueryStore.getSinglePackSummaryQuery();
 		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,skuCd", batch.getDomainId(), batch.getId(), skuCd);
 		
 		if(ValueUtil.isNotEmpty(jobPcs)) {

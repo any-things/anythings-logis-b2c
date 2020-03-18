@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import xyz.anythings.dps.config.ModuleProperties;
 import xyz.anythings.dps.query.store.DpsBatchQueryStore;
+import xyz.anythings.dps.query.store.DpsBoxQueryStore;
 import xyz.anythings.dps.query.store.DpsPickQueryStore;
 import xyz.elidom.orm.IQueryManager;
 import xyz.elidom.sys.config.ModuleConfigSet;
@@ -46,12 +47,22 @@ public class AnythingsLogisDpsInitializer {
 	
 	@Autowired
 	private IQueryManager queryManager;
-	
-	@Autowired
-	private DpsPickQueryStore dpsPickQueryStore;
-	
+
+	/**
+	 * DPS 배치용 쿼리 스토어
+	 */	
 	@Autowired
 	private DpsBatchQueryStore dpsBatchQueryStore;
+	/**
+	 * DPS 피킹용 쿼리 스토어
+	 */
+	@Autowired
+	private DpsPickQueryStore dpsPickQueryStore;
+	/**
+	 * DPS 박스 처리용 쿼리 스토어
+	 */	
+	@Autowired
+	private DpsBoxQueryStore dpsBoxQueryStore;
 	
 	@EventListener({ ContextRefreshedEvent.class })
 	public void refresh(ContextRefreshedEvent event) {
@@ -85,6 +96,7 @@ public class AnythingsLogisDpsInitializer {
 		String dbType = this.queryManager.getDbType();
 		this.dpsPickQueryStore.initQueryStore(dbType);
 		this.dpsBatchQueryStore.initQueryStore(dbType);
+		this.dpsBoxQueryStore.initQueryStore(dbType);
 	}
 
 }

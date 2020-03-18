@@ -10,6 +10,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import xyz.anythings.base.LogisConstants;
+import xyz.anythings.base.entity.BoxPack;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInput;
 import xyz.anythings.base.entity.JobInstance;
@@ -255,18 +256,20 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		
 		// 5. 확정 처리 
 		this.dpsPickingService.confirmPick(batch, job, resQty);
-				
-		// 6. 상품에 대한 단포 작업 정보 조회 
-		List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackSummary(batch, job.getSkuCd(), job.getBoxTypeCd(), job.getPickQty());
 		
-		// 7. 피킹 상태가 아니면 완료  
-		if(!ValueUtil.isEqualIgnoreCase(job.getStatus(), DpsConstants.JOB_STATUS_PICKING)) {
-			job = null;
+		// 6. 작업 완료가 되었다면 단포 작업 현황 조회
+		if(job.getPickedQty() >= job.getPickQty()) {
+			// 상품에 대한 단포 작업 정보 조회 
+			List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackSummary(batch, job.getSkuCd(), job.getBoxTypeCd(), job.getPickQty());
+			// 처리 결과 설정
+			DpsSinglePackJobInform result = new DpsSinglePackJobInform(singlePackInfo, null);
+			event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, result));
+			
+		} else {
+			// 처리 결과 설정 
+			event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, job));
 		}
-		
-		// 8. 이벤트 처리 결과 셋팅
-		DpsSinglePackJobInform result = new DpsSinglePackJobInform(singlePackInfo, job);
-		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, result));
+
 		event.setExecuted(true);
 	}
 	
@@ -299,11 +302,11 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		JobInstance job = (JobInstance)this.dpsPickingService.inputSinglePackEmptyBucket(batch, isBox, skuCd, boxId);
 		
 		// 5. 상품에 대한 단포 작업 정보 조회 
-		List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackSummary(batch, skuCd, job.getBoxTypeCd(), job.getPickQty());
-		DpsSinglePackJobInform result = new DpsSinglePackJobInform(singlePackInfo, job);
+		//List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackSummary(batch, skuCd, job.getBoxTypeCd(), job.getPickQty());
+		//DpsSinglePackJobInform result = new DpsSinglePackJobInform(singlePackInfo, job);
 		
 		// 6. 이벤트 처리 결과 셋팅 
-		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, result));
+		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, job));
 		event.setExecuted(true);
 	}
 	
@@ -376,4 +379,41 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		// 5. 이벤트 처리 결과 셋팅 
 		event.setExecuted(true);
 	}
+	
+	/**
+	 * DPS 송장 출력 
+	 * 
+	 * @param event
+	 */
+	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/print_invoice', 'dps')")
+	@Order(Ordered.LOWEST_PRECEDENCE)
+	public void printInvoiceLabel(DeviceProcessRestEvent event) {
+		
+		// 1. 파라미터 
+		Map<String, Object> params = event.getRequestParams();
+		String equipCd = params.get("equipCd").toString();
+		String equipType = params.get("equipType").toString();
+		String printerId = params.get("printerId").toString();
+		String boxId = params.get("boxId").toString();
+		
+		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회 
+		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
+		JobBatch batch = equipBatchSet.getBatch();
+		
+		// 3. 박스 조회
+		BoxPack boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "batchId,boxId", batch.getId(), boxId);
+		if(boxPack == null) {
+			boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "boxId", boxId);
+		}
+		
+		// 4. TODO 프린트 이벤트를 생성하여 발송 
+		//PrintEvent printEvent = new PrintEvent();
+		
+		// 5. 
+		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, null));
+
+		// 6. 이벤트 처리 결과 셋팅 
+		event.setExecuted(true);
+	}
+
 }
