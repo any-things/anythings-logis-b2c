@@ -18,6 +18,7 @@ import xyz.anythings.base.event.rest.DeviceProcessRestEvent;
 import xyz.anythings.base.model.BatchProgressRate;
 import xyz.anythings.base.model.EquipBatchSet;
 import xyz.anythings.base.service.impl.AbstractLogisService;
+import xyz.anythings.base.service.util.BatchJobConfigUtil;
 import xyz.anythings.dps.DpsCodeConstants;
 import xyz.anythings.dps.DpsConstants;
 import xyz.anythings.dps.model.DpsBatchInputableBox;
@@ -29,9 +30,12 @@ import xyz.anythings.dps.service.api.IDpsJobStatusService;
 import xyz.anythings.dps.service.api.IDpsPickingService;
 import xyz.anythings.dps.service.util.DpsBatchJobConfigUtil;
 import xyz.anythings.dps.service.util.DpsServiceUtil;
+import xyz.anythings.sys.event.EventPublisher;
+import xyz.anythings.sys.event.model.PrintEvent;
 import xyz.anythings.sys.model.BaseResponse;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.elidom.dbist.dml.Page;
+import xyz.elidom.util.BeanUtil;
 import xyz.elidom.util.ValueUtil;
 
 /**
@@ -191,8 +195,7 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		Map<String, Object> params = event.getRequestParams();
 		String equipType = params.get("equipType").toString();
 		String equipCd = params.get("equipCd").toString();
-		// TODO equipZone --> stationCd로 변경
-		String stationCd = params.get("equipZone").toString();
+		String stationCd = params.get("stationCd").toString();
 		String boxId = params.get("bucketCd").toString();
 				
 		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
@@ -406,13 +409,13 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 			boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "boxId", boxId);
 		}
 		
-		// 4. TODO 프린트 이벤트를 생성하여 발송 
-		//PrintEvent printEvent = new PrintEvent();
+		// 4. 프린트 이벤트를 생성하여 발송 
+		String labelTemplate = BatchJobConfigUtil.getInvoiceLabelTemplate(batch);
+		PrintEvent printEvent = new PrintEvent(event.getDomainId(), printerId, labelTemplate, ValueUtil.newMap("box", boxPack));
+		BeanUtil.get(EventPublisher.class).publishEvent(printEvent);
 		
-		// 5. 
+		// 5. 이벤트 처리 결과 셋팅  
 		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, null));
-
-		// 6. 이벤트 처리 결과 셋팅 
 		event.setExecuted(true);
 	}
 
