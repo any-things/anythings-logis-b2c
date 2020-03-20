@@ -167,7 +167,7 @@ BEGIN
           INTO V_STOCK_LOAD_QTY
           FROM (
                 SELECT X.DOMAIN_ID, X.BATCH_ID, Y.EQUIP_TYPE, Y.EQUIP_CD, X.RACK_NM AS EQUIP_NM
-                     , Y.CELL_CD, Y.IND_CD, Z.ID AS STOCK_ID, Z.BIN_INDEX, Z.COM_CD, Z.SKU_CD, Z.LOAD_QTY
+                     , Y.CELL_CD, Y.IND_CD, Z.ID AS STOCK_ID, Z.COM_CD, Z.SKU_CD, Z.LOAD_QTY
                   FROM (
                         SELECT *
                           FROM RACKS
@@ -248,11 +248,11 @@ BEGIN
                              , X.CLASS_CD, X.ORDER_TYPE, X.BOX_TYPE_CD
                              , X.COM_CD, X.SKU_CD, X.SKU_NM
                              , Y.EQUIP_TYPE, Y.EQUIP_CD, Y.EQUIP_NM, Y.CELL_CD, Y.IND_CD
-                             , Y.STOCK_ID, Y.BIN_INDEX, X.ORDER_QTY, NVL(Y.LOAD_QTY,0) AS LOAD_QTY
+                             , Y.STOCK_ID, X.ORDER_QTY, NVL(Y.LOAD_QTY,0) AS LOAD_QTY
                           FROM T_CHECK_ORDER X 
                              , (
                                 SELECT X.DOMAIN_ID, X.BATCH_ID, Y.EQUIP_TYPE, Y.EQUIP_CD, X.RACK_NM AS EQUIP_NM
-                                     , Y.CELL_CD, Y.IND_CD, Z.ID AS STOCK_ID, Z.BIN_INDEX, Z.COM_CD, Z.SKU_CD, Z.LOAD_QTY
+                                     , Y.CELL_CD, Y.IND_CD, Z.ID AS STOCK_ID, Z.COM_CD, Z.SKU_CD, Z.LOAD_QTY
                                   FROM (
                                         SELECT *
                                           FROM RACKS
@@ -301,7 +301,7 @@ BEGIN
                           FROM (
                                 SELECT X.*
                                      , SUM(LOAD_QTY) OVER (PARTITION BY COM_CD, SKU_CD 
-                                                               ORDER BY LOAD_QTY DESC, CELL_CD, BIN_INDEX ) AS LOAD_SUM_QTY
+                                                               ORDER BY LOAD_QTY DESC, CELL_CD ) AS LOAD_SUM_QTY
                                   FROM T_STOCKS X
                                ) X
                     )
