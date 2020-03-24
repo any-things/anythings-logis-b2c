@@ -21,7 +21,7 @@ jar {
    }
 
 	manifest {
-		attributes 'Implementation-Title': 'AnyThings Logis B2C',
+		attributes 'Implementation-Title': 'Operato Logis DPS',
 				   'Implementation-Version': version
 	}
 }

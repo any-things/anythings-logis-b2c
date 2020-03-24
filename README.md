@@ -1,2 +1,2 @@
-# anythings-logis-b2c
-anythings 물류 B2C 처리 모듈 
+# operato-logis-dps
+Operato 물류 분류 모듈 - DPS 
