@@ -34,7 +34,9 @@ import xyz.anythings.base.event.IClassifyOutEvent;
 import xyz.anythings.base.event.IClassifyRunEvent;
 import xyz.anythings.base.model.Category;
 import xyz.anythings.base.service.api.IBoxingService;
+import xyz.anythings.base.service.api.IIndicationService;
 import xyz.anythings.base.service.impl.AbstractClassificationService;
+import xyz.anythings.gw.entity.Gateway;
 import xyz.anythings.gw.service.mq.model.device.DeviceCommand;
 import xyz.anythings.sys.model.BaseResponse;
 import xyz.anythings.sys.util.AnyEntityUtil;
@@ -333,6 +335,16 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 */
 	@Override
 	public void batchStartAction(JobBatch batch) {
+		// 설정에서 작업배치 시에 게이트웨이 리부팅 할 지 여부 조회
+		if(DpsBatchJobConfigUtil.isGwRebootWhenInstruction(batch)) {
+			IIndicationService indSvc = this.serviceDispatcher.getIndicationService(batch);
+			List<Gateway> gwList = indSvc.searchGateways(batch);
+			
+			// 게이트웨이 리부팅 처리
+			for(Gateway gw : gwList) {
+				indSvc.rebootGateway(batch, gw);
+			}
+		}		
 	}
 	
 	/**

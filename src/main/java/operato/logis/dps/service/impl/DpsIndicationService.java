@@ -19,8 +19,10 @@ import xyz.anythings.gw.GwConstants;
 import xyz.anythings.gw.entity.Gateway;
 import xyz.anythings.gw.entity.IndConfigSet;
 import xyz.anythings.gw.service.IndicatorDispatcher;
+import xyz.anythings.gw.service.api.IIndHandlerService;
 import xyz.anythings.gw.service.api.IIndRequestService;
 import xyz.anythings.gw.service.model.IIndOnInfo;
+import xyz.anythings.gw.service.model.IndCommonReq;
 import xyz.anythings.gw.service.util.BatchIndConfigUtil;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.elidom.sys.util.ValueUtil;
@@ -79,6 +81,12 @@ public class DpsIndicationService extends AbstractLogisService implements IIndic
 		return this.serviceDispatcher.getJobStatusService(batch).searchPickingJobList(batch, condition);
 	}
 
+	@Override
+	public void rebootGateway(JobBatch batch, Gateway gateway) {
+		IIndHandlerService indHandler = this.indicatorDispatcher.getIndicatorHandlerServiceByBatch(batch.getId());
+		indHandler.handleGatewayBootReq(gateway);
+	}
+	
 	@Override
 	public List<JobInstance> indicatorsOn(JobBatch batch, boolean relight, List<JobInstance> jobList) {
 		IIndRequestService indReqSvc = this.getIndicatorRequestService(batch.getId());
@@ -257,16 +265,15 @@ public class DpsIndicationService extends AbstractLogisService implements IIndic
 	 * 
 	 * @param job
 	 */
-	@SuppressWarnings("rawtypes")
 	public void setIndInfoToJob(JobInstance job) {
 		String sql = this.indQueryStore.getSearchIndicatorsQuery();
-		Map<String, Object> params = ValueUtil.newMap("domainId,stageCd,activeFlag,rackCd,indQueryFlag", job.getDomainId(), job.getStageCd(), true, job.getEquipCd(), true);
-		List<Map> indList = this.queryManager.selectListBySql(sql, params, Map.class, 0, 0);
-		Map indicator = ValueUtil.isNotEmpty(indList) ? indList.get(0) : null;
+		Map<String, Object> params = ValueUtil.newMap("domainId,stageCd,activeFlag,rackCd,cellCd,indQueryFlag", job.getDomainId(), job.getStageCd(), true, job.getEquipCd(), job.getSubEquipCd(), true);
+		List<IndCommonReq> indList = this.queryManager.selectListBySql(sql, params, IndCommonReq.class, 0, 0);
+		IndCommonReq indicator = ValueUtil.isNotEmpty(indList) ? indList.get(0) : null;
 		
 		if(indicator != null) {
-			job.setIndCd(ValueUtil.toString(indicator.get("ind_cd")));
-			job.setGwPath(ValueUtil.toString(indicator.get("gw_path")));
+			job.setIndCd(indicator.getIndCd());
+			job.setGwPath(indicator.getGwPath());
 		}		
 	}
 
