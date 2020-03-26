@@ -587,17 +587,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 */
 	private boolean checkUniqueBoxId(JobBatch batch, String boxId) {
 		
-		// 1. 박스 아이디 유니크 범위 설정 
-		String uniqueScope = DpsBatchJobConfigUtil.getBoxIdUniqueScope(batch, DpsConstants.BOX_ID_UNIQUE_SCOPE_GLOBAL);
-		
-		// 2. 파라미터 셋팅 
-		Map<String, Object> params = ValueUtil.newMap("domainId,boxId,batchId,uniqueScope", batch.getDomainId(), boxId, batch.getId(), uniqueScope);
-		
-		// 3. 중복 박스 ID가 존재하는지 쿼리 
-		String qry = this.boxQueryStore.getBoxIdUniqueCheckQuery();
-		
-		// 4. 존재하지 않으면 사용 가능
-		return this.queryManager.selectBySql(qry, params, Integer.class) == 0;
+		return this.serviceDispatcher.getBoxingService(batch).isUsedBoxId(batch, boxId, false);
 	}
 	
 	/**
@@ -708,7 +698,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	}
 
 	/**
-	 * 소분류 작업 처리 후처리 액션
+	 * 소분류 작업 처리 후 처리 액션
 	 * 
 	 * @param batch
 	 * @param job
@@ -764,10 +754,8 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 			String sql = "update box_items set status = :status where box_pack_id = :boxPackId";
 			this.queryManager.executeBySql(sql, ValueUtil.newMap("boxPackId,status", boxPack.getId(), BoxPack.BOX_STATUS_BOXED));
 		}
-		
-		// 7. TODO : BIN 사용 여부 설정에서 조회하여 사용한다면 처리한 셀에 다른 BIN의 상품이 걸려 있는 경우 표시기 점등 처리
-		
-		// 8. 모바일 새로고침 명령 전달
+				
+		// 7. 모바일 새로고침 명령 전달
 		if(multiSkuOrder) {
 			this.serviceDispatcher.getDeviceService().sendMessageToDevice(batch.getDomainId(), DeviceCommand.EQUIP_TABLET, batch.getStageCd(), cell.getEquipType(), cell.getEquipCd(), cell.getStationCd(), null, batch.getJobType(), DeviceCommand.COMMAND_REFRESH, "confirm-pick", null);
 		}

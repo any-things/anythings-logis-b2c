@@ -16,6 +16,7 @@ import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.entity.WorkCell;
 import xyz.anythings.base.service.impl.AbstractBoxingService;
 import xyz.anythings.sys.util.AnyValueUtil;
+import xyz.elidom.exception.server.ElidomRuntimeException;
 import xyz.elidom.sys.entity.User;
 import xyz.elidom.util.ValueUtil;
 
@@ -43,6 +44,28 @@ public class DpsBoxingService extends AbstractBoxingService implements IDpsBoxin
 		return DpsConstants.JOB_TYPE_DPS;
 	}
 	
+	@Override
+	public boolean isUsedBoxId(JobBatch batch, String boxId, boolean exceptionWhenBoxIdUsed) {
+		// 1. 박스 아이디 유니크 범위 설정 
+		String uniqueScope = DpsBatchJobConfigUtil.getBoxIdUniqueScope(batch, DpsConstants.BOX_ID_UNIQUE_SCOPE_GLOBAL);
+		
+		// 2. 파라미터 셋팅 
+		Map<String, Object> params = ValueUtil.newMap("domainId,boxId,batchId,uniqueScope", batch.getDomainId(), boxId, batch.getId(), uniqueScope);
+		
+		// 3. 중복 박스 ID가 존재하는지 쿼리 
+		String qry = this.boxQueryStore.getBoxIdUniqueCheckQuery();
+		
+		// 4. 존재하지 않으면 사용 가능
+		boolean usedBoxId = this.queryManager.selectBySql(qry, params, Integer.class) > 0;
+		
+		// 5. 사용한 박스이고 exceptionWhenBoxIdUsed가 true이면 예외 발생
+		if(usedBoxId && exceptionWhenBoxIdUsed) {
+			throw new ElidomRuntimeException("박스 ID [" + boxId + "]는 이미 사용한 박스입니다.");
+		}
+		
+		return usedBoxId;
+	}
+	
 	/**
 	 * 박싱 처리
 	 * 
@@ -59,7 +82,6 @@ public class DpsBoxingService extends AbstractBoxingService implements IDpsBoxin
 		JobInstance job = jobList.get(0);
 		String orderNo = job.getOrderNo();
 		String boxTypeCd = job.getBoxTypeCd();
-		//String boxId = job.getBoxId();
 		String boxPackId = (params != null && params.length > 0) ? ValueUtil.toString(params[0]) : AnyValueUtil.newUuid36();
 		
 		// 2. boxItems 생성 

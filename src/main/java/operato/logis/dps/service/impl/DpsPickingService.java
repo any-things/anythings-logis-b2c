@@ -134,9 +134,7 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 		for(JobInstance job : jobList) {
 			job.setBoxId(bucketCd);
 		}
-		
-		//this.queryManager.updateBatch(jobList, "boxId", "updaterId", "updatedAt");
-		
+				
 		// 6. 박스 마스터 & 내품 내역 생성
 		if(this.dpsBoxingService == null) this.getBoxingService();
 		BoxPack box = this.dpsBoxingService.fullBoxing(batch, null, jobList);
