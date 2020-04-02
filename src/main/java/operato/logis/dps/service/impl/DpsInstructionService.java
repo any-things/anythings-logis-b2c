@@ -12,6 +12,7 @@ import xyz.anythings.base.event.EventConstants;
 import xyz.anythings.base.service.api.IInstructionService;
 import xyz.anythings.base.service.impl.AbstractInstructionService;
 import xyz.anythings.sys.event.model.EventResultSet;
+import xyz.anythings.sys.event.model.SysEvent;
 import xyz.anythings.sys.util.AnyOrmUtil;
 import xyz.elidom.sys.util.ThrowUtil;
 import xyz.elidom.util.ValueUtil;
@@ -69,7 +70,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	@Override
 	public int instructTotalpicking(JobBatch batch, List<String> equipIdList, Object... params) {
 		// 1. 토털 피킹 전 처리 이벤트 
-		EventResultSet befResult = this.publishTotalPickingEvent(EventConstants.EVENT_STEP_BEFORE, batch, equipIdList, params);
+		EventResultSet befResult = this.publishTotalPickingEvent(SysEvent.EVENT_STEP_BEFORE, batch, equipIdList, params);
 		
 		// 2. 다음 처리 취소일 경우 결과 리턴 
 		if(befResult.isAfterEventCancel()) {
@@ -77,7 +78,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		}
 		
 		// 3. 토털 피킹 후 처리 이벤트
-		EventResultSet aftResult = this.publishTotalPickingEvent(EventConstants.EVENT_STEP_AFTER, batch, equipIdList, params);
+		EventResultSet aftResult = this.publishTotalPickingEvent(SysEvent.EVENT_STEP_AFTER, batch, equipIdList, params);
 		
 		// 4. 후처리 이벤트 실행 후 리턴 결과가 있으면 해당 결과 리턴 
 		if(aftResult.isExecuted()) {
@@ -121,7 +122,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	@Override
 	public int cancelInstructionBatch(JobBatch batch) {
 		// 1. 작업 지시 취소 전 처리 이벤트 
-		EventResultSet befResult = this.publishInstructionCancelEvent(EventConstants.EVENT_STEP_BEFORE, batch, null);
+		EventResultSet befResult = this.publishInstructionCancelEvent(SysEvent.EVENT_STEP_BEFORE, batch, null);
 		
 		// 2. 다음 처리 취소일 경우 결과 리턴 
 		if(befResult.isAfterEventCancel()) {
@@ -129,7 +130,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		}
 		
 		// 3. 작업 지시 취소 후 처리 이벤트
-		EventResultSet aftResult = this.publishInstructionCancelEvent(EventConstants.EVENT_STEP_AFTER, batch, null);
+		EventResultSet aftResult = this.publishInstructionCancelEvent(SysEvent.EVENT_STEP_AFTER, batch, null);
 		
 		// 4. 후 처리 이벤트 실행 후 리턴 결과가 있으면 해당 결과 리턴 
 		if(aftResult.isExecuted()) {
@@ -195,7 +196,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	 */
 	private void doClassifyOrders(JobBatch batch, List<?> equipList, Object... params) {
 		// 1. 전처리 이벤트   
-		EventResultSet befResult = this.publishClassificationEvent(EventConstants.EVENT_STEP_BEFORE, batch, equipList, params);
+		EventResultSet befResult = this.publishClassificationEvent(SysEvent.EVENT_STEP_BEFORE, batch, equipList, params);
 		
 		// 2. 다음 처리 취소 일 경우 결과 리턴 
 		if(!befResult.isAfterEventCancel()) {
@@ -204,7 +205,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 			this.processClassifyOrders(batch, equipList, params);
 			
 			// 4. 후처리 이벤트 
-			this.publishClassificationEvent(EventConstants.EVENT_STEP_AFTER, batch, equipList, params);			
+			this.publishClassificationEvent(SysEvent.EVENT_STEP_AFTER, batch, equipList, params);			
 		}
 	}
 	
@@ -239,7 +240,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	 */
 	private void doRecommendCells(JobBatch batch, List<?> equipList, Object ... params) {
 		// 1. 전 처리 이벤트
-		EventResultSet befResult = this.publishRecommendCellsEvent(EventConstants.EVENT_STEP_BEFORE, batch, equipList, params);
+		EventResultSet befResult = this.publishRecommendCellsEvent(SysEvent.EVENT_STEP_BEFORE, batch, equipList, params);
 		
 		// 2. 다음 처리 취소 일 경우 결과 리턴 
 		if(!befResult.isAfterEventCancel()) {
@@ -248,7 +249,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 			this.processRecommendCells(batch, equipList, params);
 			
 			// 4. 후 처리 이벤트 
-			this.publishRecommendCellsEvent(EventConstants.EVENT_STEP_AFTER, batch, equipList, params);			
+			this.publishRecommendCellsEvent(SysEvent.EVENT_STEP_AFTER, batch, equipList, params);			
 		}		
 	}
 	
@@ -281,7 +282,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	 */
 	private int doInstructBatch(JobBatch batch, List<?> equipList, Object ... params) {
 		// 1. 전 처리 이벤트
-		EventResultSet befResult = this.publishInstructionEvent(EventConstants.EVENT_STEP_BEFORE, batch, equipList, params);
+		EventResultSet befResult = this.publishInstructionEvent(SysEvent.EVENT_STEP_BEFORE, batch, equipList, params);
 		
 		// 2. 다음 처리 취소 일 경우 결과 리턴 
 		if(befResult.isAfterEventCancel()) {
@@ -292,7 +293,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		int resultCnt = this.processInstruction(batch, params);
 		
 		// 4. 후 처리 이벤트 
-		EventResultSet aftResult = this.publishInstructionEvent(EventConstants.EVENT_STEP_AFTER, batch, equipList, params);
+		EventResultSet aftResult = this.publishInstructionEvent(SysEvent.EVENT_STEP_AFTER, batch, equipList, params);
 		
 		// 5. 후 처리 이벤트가 실행 되고 리턴 결과가 있으면 해당 결과 리턴 
 		if(aftResult.isExecuted()) {
@@ -357,7 +358,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	 */
 	private int doMergeBatch(JobBatch mainBatch, JobBatch newBatch, List<?> equipList, Object... params) {
 		// 1. 전처리 이벤트   
-		EventResultSet befResult = this.publishMergingEvent(EventConstants.EVENT_STEP_BEFORE, mainBatch, newBatch, equipList, params);
+		EventResultSet befResult = this.publishMergingEvent(SysEvent.EVENT_STEP_BEFORE, mainBatch, newBatch, equipList, params);
 		
 		// 2. 다음 처리 취소 일 경우 결과 리턴 
 		if(befResult.isAfterEventCancel()) {
@@ -368,7 +369,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		int resultCnt = this.processMerging(mainBatch, newBatch, params);
 		
 		// 4. 후처리 이벤트 
-		EventResultSet aftResult = this.publishMergingEvent(EventConstants.EVENT_STEP_AFTER, mainBatch, newBatch, equipList, params);
+		EventResultSet aftResult = this.publishMergingEvent(SysEvent.EVENT_STEP_AFTER, mainBatch, newBatch, equipList, params);
 		
 		// 5. 후처리 이벤트가 실행 되고 리턴 결과가 있으면 해당 결과 리턴 
 		if(aftResult.isExecuted()) {
@@ -429,7 +430,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	 * @return
 	 */
 	private EventResultSet publishRequestBoxEvent(JobBatch batch, List<?> equipList, Object... params) {
-		return this.publishInstructEvent(EventConstants.EVENT_INSTRUCT_TYPE_BOX_REQ, EventConstants.EVENT_STEP_ALONE, batch, equipList, params);
+		return this.publishInstructEvent(EventConstants.EVENT_INSTRUCT_TYPE_BOX_REQ, SysEvent.EVENT_STEP_ALONE, batch, equipList, params);
 	}
 	
 	/**
