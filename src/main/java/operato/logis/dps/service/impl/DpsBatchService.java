@@ -11,13 +11,14 @@ import xyz.anythings.base.LogisConstants;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.entity.Order;
+import xyz.anythings.base.event.main.BatchCloseEvent;
 import xyz.anythings.base.model.BatchProgressRate;
 import xyz.anythings.base.service.api.IBatchService;
 import xyz.anythings.base.service.impl.AbstractLogisService;
+import xyz.anythings.sys.event.model.SysEvent;
 import xyz.anythings.sys.util.AnyOrmUtil;
 import xyz.elidom.dbist.dml.Filter;
 import xyz.elidom.dbist.dml.Query;
-import xyz.elidom.exception.server.ElidomValidationException;
 import xyz.elidom.orm.OrmConstants;
 import xyz.elidom.sys.util.MessageUtil;
 import xyz.elidom.sys.util.ThrowUtil;
@@ -39,6 +40,15 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 		
 	@Override
 	public void isPossibleCloseBatch(JobBatch batch, boolean closeForcibly) {
+		// 1. 배치 마감 전 처리 이벤트 전송
+		BatchCloseEvent event = new BatchCloseEvent(batch, SysEvent.EVENT_STEP_BEFORE);
+		event = (BatchCloseEvent)this.eventPublisher.publishEvent(event);
+		
+		// 2. 이벤트 취소라면 ...
+		if(event.isAfterEventCancel()) {
+			return;
+		}
+		
 		// 1. 작업 배치 상태 체크
 		if(ValueUtil.isNotEqual(batch.getStatus(), JobBatch.STATUS_RUNNING)) {
 			// 진행 중인 작업배치가 아닙니다
@@ -67,8 +77,8 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 			condition.addFilter("status", OrmConstants.IN, LogisConstants.JOB_STATUS_WIPC);		 
 			if(this.queryManager.selectSize(JobInstance.class, condition) > 0) {
 				// {0} 등 {1}개의 호기에서 작업이 끝나지 않았습니다.
-				String msg = MessageUtil.getMessage("MPS_NOT_CLOSED_IN_REGIONS", "{0} 등 {1}개의 호기에서 작업이 끝나지 않았습니다.", ValueUtil.toList(batch.getEquipCd(), "1"));
-				throw new ElidomValidationException(msg);
+				String msg = MessageUtil.getMessage("ASSORTING_NOT_FINISHED_IN_RACKS", "{0} 등 {1}개의 호기에서 작업이 끝나지 않았습니다.", ValueUtil.toList(batch.getEquipCd(), "1"));
+				throw ThrowUtil.newValidationErrorWithNoLog(msg);
 			}
 		}
 	}
@@ -78,16 +88,25 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 		// 1. 작업 마감 가능 여부 체크 
 		this.isPossibleCloseBatch(batch, forcibly);
 
-		// 2. 해당 배치에 대한 고정식이 아닌 호기들에 소속된 로케이션을 모두 찾아서 리셋
+		// 2. 배치 마감 후 처리 이벤트 전송
+		BatchCloseEvent event = new BatchCloseEvent(batch, SysEvent.EVENT_STEP_AFTER);
+		event = (BatchCloseEvent)this.eventPublisher.publishEvent(event);
+		
+		// 3. 이벤트 취소라면 ...
+		if(event.isAfterEventCancel()) {
+			return;
+		}
+		
+		// 4. 해당 배치에 대한 고정식이 아닌 호기들에 소속된 로케이션을 모두 찾아서 리셋
 		this.resetRacksAndWorkCells(batch);
 
-		// 3. OREDER_PREPROCESS 삭제
+		// 5. OREDER_PREPROCESS 삭제
 		this.deletePreprocess(batch);
 
-		// 4. JobBatch 상태 변경
+		// 6. JobBatch 상태 변경
 		this.updateJobBatchFinished(batch, new Date());
 		
-		// 5. 분류 서비스 배치 마감 API 호출 
+		// 7. 분류 서비스 배치 마감 API 호출 
 		this.serviceDispatcher.getAssortService(batch).batchCloseAction(batch);
 	}
 
