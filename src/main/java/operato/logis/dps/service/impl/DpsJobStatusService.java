@@ -42,7 +42,7 @@ public class DpsJobStatusService extends AbstractJobStatusService implements IDp
 	@Override
 	public BatchProgressRate getBatchProgressSummary(JobBatch batch) {
 		
-		String sql = this.batchQueryStore.getRackBatchProgressRateQuery();
+		String sql = this.dpsBatchQueryStore.getBatchProgressRateQuery();
 		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipType", batch.getDomainId(), batch.getId(), batch.getEquipType());
 		
 		// 배치에 호기가 지정되어 있으면 지정 된 호기에 대한 진행율 

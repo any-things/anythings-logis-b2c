@@ -30,6 +30,15 @@ public class DpsBatchQueryStore extends AbstractQueryStore {
 	}
 	
 	/**
+	 * 작업 배치의 작업 진행율 조회
+	 *
+	 * @return
+	 */
+	public String getBatchProgressRateQuery() {
+		return this.getQueryByPath("batch/BatchProgressRate");
+	}
+	
+	/**
 	 * 투입 가능 박스 리스트 조회 
 	 * 
 	 * @return
