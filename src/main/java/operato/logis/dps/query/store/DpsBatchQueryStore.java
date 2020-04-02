@@ -92,4 +92,12 @@ public class DpsBatchQueryStore extends AbstractQueryStore {
 		return this.getQueryByPath("batch/BoxInputTabDetails");
 	}
 
+	/**
+	 * 작업 마감을 위한 작업 데이터 요약 정보 조회
+	 *
+	 * @return
+	 */
+	public String getDpsBatchResultSummaryQuery() {
+		return this.getQueryByPath("batch/BatchResultSummary");
+	}
 }
