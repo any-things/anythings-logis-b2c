@@ -186,7 +186,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 			item.updateStatusImmediately(DpsConstants.COMMON_STATUS_RUNNING, null);
 			
 			// 5. JobBatch 생성 
-			JobBatch batch = JobBatch.createJobBatch(item.getBatchId(), jobSeq, receipt, item);
+			JobBatch batch = JobBatch.createJobBatch(item.getBatchId(), ValueUtil.toString(jobSeq), receipt, item);
 			
 			// 6. 데이터 복사  
 			this.cloneData(item.getBatchId(), jobSeq, "wms_if_orders", sourceFields, targetFields, fieldNames, item.getComCd(), item.getAreaCd(), item.getStageCd(), item.getWmsBatchNo(), DpsConstants.N_CAP_STRING);
