@@ -41,6 +41,9 @@ FROM
     LEFT OUTER JOIN GATEWAYS ROUTER ON IND.DOMAIN_ID = ROUTER.DOMAIN_ID AND IND.GW_CD = ROUTER.GW_CD
 WHERE
     JOB.DOMAIN_ID = :domainId
+    #if($id)
+    AND JOB.ID = :id
+    #end
     #if($batchId)
     AND JOB.BATCH_ID = :batchId
     #end

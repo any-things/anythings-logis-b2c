@@ -121,6 +121,14 @@ public class DpsJobStatusService extends AbstractJobStatusService implements IDp
 	}
 
 	@Override
+	public JobInstance findPickingJob(Long domainId, String jobInstanceId) {
+		String sql = this.dpsPickQueryStore.getSearchPickingJobListQuery();
+		Map<String, Object> params = ValueUtil.newMap("domainId,id", domainId, jobInstanceId);
+		List<JobInstance> jobList = this.queryManager.selectListBySql(sql, params, JobInstance.class, 1, 1);
+		return ValueUtil.isEmpty(jobList) ? null : jobList.get(0);
+	}
+	
+	@Override
 	public List<JobInstance> searchPickingJobList(JobBatch batch, Map<String, Object> condition) {
 
 		// 표시기 점등을 위해서 다른 테이블의 데이터도 필요해서 쿼리로 조회
