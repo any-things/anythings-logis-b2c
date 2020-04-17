@@ -89,11 +89,25 @@ public class DpsIndicationService extends AbstractLogisService implements IIndic
 	
 	@Override
 	public List<JobInstance> indicatorsOn(JobBatch batch, boolean relight, List<JobInstance> jobList) {
-		IIndRequestService indReqSvc = this.getIndicatorRequestService(batch.getId());
-		Map<String, List<IIndOnInfo>> indOnForPickList = RuntimeIndServiceUtil.buildIndOnList(!relight, batch, jobList, true);
-		indReqSvc.requestIndListOn(batch.getDomainId(), batch.getStageCd(), batch.getJobType(), GwConstants.IND_ACTION_TYPE_PICK, indOnForPickList);
+		if(ValueUtil.isNotEmpty(jobList)) {
+			IIndRequestService indReqSvc = this.getIndicatorRequestService(batch.getId());
+			Map<String, List<IIndOnInfo>> indOnForPickList = RuntimeIndServiceUtil.buildIndOnList(!relight, batch, jobList, true);
+			indReqSvc.requestIndListOn(batch.getDomainId(), batch.getStageCd(), batch.getJobType(), GwConstants.IND_ACTION_TYPE_PICK, indOnForPickList);
+		}
+		
 		return jobList;
 	}
+	
+	@Override
+	public List<JobInstance> indicatorsOn(JobBatch batch, boolean relight, String indOnAction, List<JobInstance> jobList) {
+		if(ValueUtil.isNotEmpty(jobList)) {
+			IIndRequestService indReqSvc = this.getIndicatorRequestService(batch.getId());
+			Map<String, List<IIndOnInfo>> indOnForPickList = RuntimeIndServiceUtil.buildIndOnList(!relight, batch, jobList, true);
+			indReqSvc.requestIndListOn(batch.getDomainId(), batch.getStageCd(), batch.getJobType(), indOnAction, indOnForPickList);
+		}
+		
+		return jobList;
+	}	
 
 	@Override
 	public void indicatorOnForPick(JobInstance job, Integer firstQty, Integer secondQty, Integer thirdQty) {
@@ -105,6 +119,17 @@ public class DpsIndicationService extends AbstractLogisService implements IIndic
 		
 		indReqSvc.requestIndOnForPick(job.getDomainId(), job.getStageCd(), job.getJobType(), job.getGwPath(), job.getIndCd(), job.getId(), job.getColorCd(), firstQty, secondQty);
 	}
+	
+	@Override
+	public void indicatorOnForInspect(JobInstance job) {
+		IIndRequestService indReqSvc = this.getIndicatorRequestService(job.getBatchId());
+		
+		if(ValueUtil.isEmpty(job.getGwPath())) {
+			this.setIndInfoToJob(job);
+		}
+		
+		indReqSvc.requestIndOnForInspect(job.getDomainId(), job.getStageCd(), job.getJobType(), job.getGwPath(), job.getIndCd(), job.getId(), job.getColorCd(), null, job.getPickedQty());
+	}	
 
 	@Override
 	public void indicatorOnForFullbox(JobInstance job) {		
@@ -258,6 +283,11 @@ public class DpsIndicationService extends AbstractLogisService implements IIndic
 	@Override
 	public String nextIndicatorColor(JobInstance job, String prevColor) {
 		return ValueUtil.isEmpty(prevColor) ? BatchIndConfigUtil.getDpsJobColor(job.getBatchId()) : prevColor;
+	}
+	
+	@Override
+	public String prevIndicatorColor(JobInstance job) {
+		return BatchIndConfigUtil.getDpsJobColor(job.getBatchId());
 	}
 	
 	/**
