@@ -169,7 +169,6 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		String[] sourceFields = {"WMS_BATCH_NO", "WCS_BATCH_NO", "JOB_DATE", "JOB_SEQ", "JOB_TYPE", "ORDER_DATE", "ORDER_NO", "ORDER_LINE_NO", "ORDER_DETAIL_ID", "CUST_ORDER_NO", "CUST_ORDER_LINE_NO", "COM_CD", "AREA_CD", "STAGE_CD", "EQUIP_TYPE", "EQUIP_CD", "EQUIP_NM", "SUB_EQUIP_CD", "SHOP_CD", "SHOP_NM", "SKU_CD", "SKU_BARCD", "SKU_NM", "BOX_TYPE_CD", "BOX_IN_QTY", "ORDER_QTY", "PICKED_QTY", "BOXED_QTY", "CANCEL_QTY", "BOX_ID", "INVOICE_ID", "ORDER_TYPE", "CLASS_CD", "PACK_TYPE", "VEHICLE_NO", "LOT_NO", "FROM_ZONE_CD", "FROM_CELL_CD", "TO_ZONE_CD", "TO_CELL_CD", mappingColumn};
 		String[] targetFields = {"WMS_BATCH_NO", "WCS_BATCH_NO", "JOB_DATE", "JOB_SEQ", "JOB_TYPE", "ORDER_DATE", "ORDER_NO", "ORDER_LINE_NO", "ORDER_DETAIL_ID", "CUST_ORDER_NO", "CUST_ORDER_LINE_NO", "COM_CD", "AREA_CD", "STAGE_CD", "EQUIP_TYPE", "EQUIP_CD", "EQUIP_NM", "SUB_EQUIP_CD", "SHOP_CD", "SHOP_NM", "SKU_CD", "SKU_BARCD", "SKU_NM", "BOX_TYPE_CD", "BOX_IN_QTY", "ORDER_QTY", "PICKED_QTY", "BOXED_QTY", "CANCEL_QTY", "BOX_ID", "INVOICE_ID", "ORDER_TYPE", "CLASS_CD", "PACK_TYPE", "VEHICLE_NO", "LOT_NO", "FROM_ZONE_CD", "FROM_CELL_CD", "TO_ZONE_CD", "TO_CELL_CD", "CLASS_CD"};
 		String fieldNames = "COM_CD,AREA_CD,STAGE_CD,WMS_BATCH_NO,IF_FLAG";
-		int jobSeq = JobBatch.getMaxJobSeq(receipt.getDomainId(), receipt.getComCd(), receipt.getAreaCd(), receipt.getAreaCd(), receipt.getJobDate());		
 		boolean exceptionOccurred = false;
 		
 		try {
@@ -179,17 +178,14 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 				return receipt;
 			}
 						
-			// 3. 작업 차수  
-			++jobSeq;
-			
 			// 4. BatchReceiptItem 상태 업데이트  - 진행 중 
 			item.updateStatusImmediately(DpsConstants.COMMON_STATUS_RUNNING, null);
 			
 			// 5. JobBatch 생성 
-			JobBatch batch = JobBatch.createJobBatch(item.getBatchId(), ValueUtil.toString(jobSeq), receipt, item);
+			JobBatch batch = JobBatch.createJobBatch(item.getBatchId(), item.getJobSeq(), receipt, item);
 			
 			// 6. 데이터 복사  
-			this.cloneData(item.getBatchId(), jobSeq, "wms_if_orders", sourceFields, targetFields, fieldNames, item.getComCd(), item.getAreaCd(), item.getStageCd(), item.getWmsBatchNo(), DpsConstants.N_CAP_STRING);
+			this.cloneData(item.getBatchId(), item.getJobSeq(), "wms_if_orders", sourceFields, targetFields, fieldNames, item.getComCd(), item.getAreaCd(), item.getStageCd(), item.getWmsBatchNo(), DpsConstants.N_CAP_STRING);
 			
 			// 7. JobBatch 상태 변경  
 			batch.updateStatusImmediately(DpsConstants.isB2CJobType(batch.getJobType())? JobBatch.STATUS_READY : JobBatch.STATUS_WAIT);
@@ -224,7 +220,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 	 * @return
 	 */
 	@Transactional(propagation=Propagation.REQUIRES_NEW) 
-	private void cloneData(String batchId, int jobSeq
+	private void cloneData(String batchId, String jobSeq
 								, String sourceTable
 								, String[] sourceFields, String[] targetFields
 								, String fieldNames, Object ... fieldValues) throws Exception {
@@ -313,7 +309,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		// 3. 취소 상태 , seq = 0 셋팅 
 		for(Order order : orderList) {
 			order.setStatus(Order.STATUS_CANCEL);
-			order.setJobSeq(0);
+			order.setJobSeq("0");
 		}
 		
 		// 4. 배치 update
