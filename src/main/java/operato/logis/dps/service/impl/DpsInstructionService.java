@@ -139,7 +139,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 			}
 		}
 		
-		return 0;		
+		return 0;
 	}
 	
 	/**
@@ -147,9 +147,9 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	 * 
 	 * @param batch
 	 */
-	private void checkJobAndIndConfigSet(JobBatch batch) {		
+	private void checkJobAndIndConfigSet(JobBatch batch) {
 		// 1. 작업 관련 설정이 없는 경우 기본 작업 설정을 찾아서 세팅
-		if(ValueUtil.isEmpty(batch.getJobConfigSetId())) {			
+		if(ValueUtil.isEmpty(batch.getJobConfigSetId())) {
 			throw ThrowUtil.newJobConfigNotSet();
 		}
 				
@@ -205,7 +205,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 			this.processClassifyOrders(batch, equipList, params);
 			
 			// 4. 후처리 이벤트 
-			this.publishClassificationEvent(SysEvent.EVENT_STEP_AFTER, batch, equipList, params);			
+			this.publishClassificationEvent(SysEvent.EVENT_STEP_AFTER, batch, equipList, params);
 		}
 	}
 	
@@ -249,7 +249,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 			this.processRecommendCells(batch, equipList, params);
 			
 			// 4. 후 처리 이벤트 
-			this.publishRecommendCellsEvent(SysEvent.EVENT_STEP_AFTER, batch, equipList, params);			
+			this.publishRecommendCellsEvent(SysEvent.EVENT_STEP_AFTER, batch, equipList, params);
 		}		
 	}
 	
@@ -269,7 +269,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 			Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID", batch.getDomainId(), batch.getId());
 			// 2. 프로시져 콜 
 			this.queryManager.callReturnProcedure("OP_DPS_BATCH_RECOMM_CELL", inputParams, Map.class);
-		}		
+		}
 	}
 	
 	/**
