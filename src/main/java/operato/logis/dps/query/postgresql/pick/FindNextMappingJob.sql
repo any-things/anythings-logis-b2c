@@ -1,6 +1,6 @@
 #if($orderType == 'OT') -- 단수 / 단포 
 SELECT 
-	A.ID
+	OT.ID
 FROM (
 	WITH T_ORDER AS (
 		SELECT *
@@ -25,7 +25,7 @@ FROM (
 	),
 	T_READY_JOB AS (
 		SELECT 
-			2 AS ORDER_SEQ, ID, PICK_QTY
+			2 AS ORDER_SEQ, A.ID, A.PICK_QTY
 		FROM (
 			SELECT 
 				ID, PICK_QTY
@@ -35,12 +35,11 @@ FROM (
 				INPUT_SEQ = 0
 				AND STATUS = 'W'
 				ORDER BY PICK_QTY
-		)
-		WHERE
-			ROWNUM = 1
+		) A
+		LIMIT 1
 	)
 	SELECT 
-		*
+		B.*
 	FROM (
 		SELECT 
 			*
@@ -54,19 +53,19 @@ FROM (
 
 			SELECT
 				ORDER_SEQ, ID, PICK_QTY FROM T_READY_JOB
-		)
+		) B
 		ORDER BY
-			ORDER_SEQ, PICK_QTY
+			B.ORDER_SEQ, B.PICK_QTY
 	)
-	WHERE ROWNUM = 1
-) A
+	LIMIT 1
+) OT
 
 #else -- 합포 및 기타 등등 
 SELECT
-	ORDER_NO
+	MT.ORDER_NO
 FROM (
 	SELECT
-		ORDER_NO
+		A.ORDER_NO
 	FROM (
 		SELECT 
 			ORDER_NO, 
@@ -87,9 +86,9 @@ FROM (
 			#end
 		GROUP BY
 			ORDER_NO
-		)
-	ORDER BY SKU_CNT ASC , PICK_CNT ASC
-)
-WHERE
-	ROWNUM = 1
+	) A
+	ORDER BY 
+		A.SKU_CNT ASC, A.PICK_CNT ASC
+) MT
+	LIMIT 1
 #end
