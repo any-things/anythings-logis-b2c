@@ -74,7 +74,7 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 
 		// 4. batchId별 작업 실행 데이터 중에 완료되지 않은 것이 있는지 체크
 		if(!closeForcibly) {
-			condition.addFilter("status", OrmConstants.IN, LogisConstants.JOB_STATUS_WIPC);		 
+			condition.addFilter("status", OrmConstants.IN, LogisConstants.JOB_STATUS_WIPC);
 			if(this.queryManager.selectSize(JobInstance.class, condition) > 0) {
 				// {0} 등 {1}개의 호기에서 작업이 끝나지 않았습니다.
 				String msg = MessageUtil.getMessage("ASSORTING_NOT_FINISHED_IN_RACKS", "{0} 등 {1}개의 호기에서 작업이 끝나지 않았습니다.", ValueUtil.toList(batch.getEquipCd(), "1"));
@@ -156,7 +156,7 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 	 * @return
 	 */
 	protected void deletePreprocess(JobBatch batch) {
-		this.queryManager.executeBySql("DELETE ORDER_PREPROCESSES WHERE BATCH_ID= :batchId", ValueUtil.newMap("batchId", batch.getId()));
+		this.queryManager.executeBySql("DELETE FROM ORDER_PREPROCESSES WHERE BATCH_ID= :batchId", ValueUtil.newMap("batchId", batch.getId()));
 	}
 	
 	/**
