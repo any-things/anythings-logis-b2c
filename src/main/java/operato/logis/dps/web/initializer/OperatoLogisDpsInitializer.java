@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import operato.logis.dps.config.ModuleProperties;
 import operato.logis.dps.query.store.DpsBatchQueryStore;
 import operato.logis.dps.query.store.DpsBoxQueryStore;
+import operato.logis.dps.query.store.DpsInspectionQueryStore;
 import operato.logis.dps.query.store.DpsPickQueryStore;
 import xyz.elidom.orm.IQueryManager;
 import xyz.elidom.sys.config.ModuleConfigSet;
@@ -63,6 +64,11 @@ public class OperatoLogisDpsInitializer {
 	 */	
 	@Autowired
 	private DpsBoxQueryStore dpsBoxQueryStore;
+	/**
+	 * DPS 출고 검수 처리용 쿼리 스토어
+	 */	
+	@Autowired
+	private DpsInspectionQueryStore dpsInspectionQueryStore;
 	
 	@EventListener({ ContextRefreshedEvent.class })
 	public void refresh(ContextRefreshedEvent event) {
@@ -97,6 +103,7 @@ public class OperatoLogisDpsInitializer {
 		this.dpsPickQueryStore.initQueryStore(dbType);
 		this.dpsBatchQueryStore.initQueryStore(dbType);
 		this.dpsBoxQueryStore.initQueryStore(dbType);
+		this.dpsInspectionQueryStore.initQueryStore(dbType);
 	}
 
 }
