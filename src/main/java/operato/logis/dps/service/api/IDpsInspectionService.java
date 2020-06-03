@@ -21,9 +21,10 @@ public interface IDpsInspectionService {
 	 * @param batchId
 	 * @param inputType - 주문 번호, 송장 번호, 박스 ID, 버킷 ID
 	 * @param inputId - ID
+	 * @param exceptionWhenEmpty
 	 * @return
 	 */
-	public DpsInspection findInspectionByInput(JobBatch batch, String inputType, String inputId);
+	public DpsInspection findInspectionByInput(JobBatch batch, String inputType, String inputId, boolean exceptionWhenEmpty);
 	
 	/**
 	 * 트레이 코드로 검수 항목 조회
@@ -31,9 +32,10 @@ public interface IDpsInspectionService {
 	 * @param domainId
 	 * @param batchId
 	 * @param trayCd
+	 * @param exceptionWhenEmpty
 	 * @return
 	 */
-	public DpsInspection findInspectionByTray(JobBatch batch, String trayCd);
+	public DpsInspection findInspectionByTray(JobBatch batch, String trayCd, boolean exceptionWhenEmpty);
 	
 	/**
 	 * 박스 ID로 검수 항목 조회
@@ -41,9 +43,10 @@ public interface IDpsInspectionService {
 	 * @param domainId
 	 * @param batchId
 	 * @param boxId
+	 * @param exceptionWhenEmpty
 	 * @return
 	 */
-	public DpsInspection findInspectionByBox(JobBatch batch, String boxId);
+	public DpsInspection findInspectionByBox(JobBatch batch, String boxId, boolean exceptionWhenEmpty);
 	
 	/**
 	 * 송장 번호로 검수 항목 조회
@@ -51,9 +54,21 @@ public interface IDpsInspectionService {
 	 * @param domainId
 	 * @param batchId
 	 * @param invoiceId
+	 * @param exceptionWhenEmpty
 	 * @return
 	 */
-	public DpsInspection findInspectionByInvoice(JobBatch batch, String invoiceId);
+	public DpsInspection findInspectionByInvoice(JobBatch batch, String invoiceId, boolean exceptionWhenEmpty);
+	
+	/**
+	 * 주문 번호로 검수 항목 조회
+	 * 
+	 * @param domainId
+	 * @param batchId
+	 * @param orderNo
+	 * @param exceptionWhenEmpty
+	 * @return
+	 */
+	public DpsInspection findInspectionByOrder(JobBatch batch, String orderNo, boolean exceptionWhenEmpty);
 	
 	/**
 	 * 박스 정보로 검수 항목 조회
@@ -76,11 +91,12 @@ public interface IDpsInspectionService {
 	/**
 	 * 박스 실적 정보로 검수 완료
 	 * 
+	 * @param batch
 	 * @param box
 	 * @param boxWeight 박스 무게
 	 * @param printerId
 	 */
-	public void finishInspection(BoxPack box, Float boxWeight, String printerId);
+	public void finishInspection(JobBatch batch, BoxPack box, Float boxWeight, String printerId);
 	
 	/**
 	 * 박스 분할
@@ -101,6 +117,16 @@ public interface IDpsInspectionService {
 	 * @return 출력 매수
 	 */
 	public int printInvoiceLabel(JobBatch batch, BoxPack box, String printerId);
+	
+	/**
+	 * 박스 송장 라벨 발행
+	 * 
+	 * @param batch
+	 * @param inspection
+	 * @param printerId
+	 * @return 출력 매수
+	 */
+	public int printInvoiceLabel(JobBatch batch, DpsInspection inspection, String printerId);
 	
 	/**
 	 * 거래명세서 출력 

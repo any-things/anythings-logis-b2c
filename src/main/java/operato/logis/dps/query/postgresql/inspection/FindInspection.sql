@@ -22,6 +22,8 @@ WHERE
 	#if($boxId)
 	AND BOX_ID = :boxId
 	#end
+	#if($status)
 	AND STATUS = :status
+	#end
 GROUP BY
 	BATCH_ID, ORDER_NO, INVOICE_ID, BOX_ID, STATUS

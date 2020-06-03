@@ -31,6 +31,10 @@ public class DpsInspection {
 	 */
 	private String boxType;
 	/**
+	 * 트레이 박스 코드 
+	 */
+	private String trayCd;
+	/**
 	 * 박스 ID 
 	 */
 	private String boxId;
@@ -68,22 +72,6 @@ public class DpsInspection {
 	private List<DpsInspItem> items;
 	
 	public DpsInspection() {
-	}
-	
-	public DpsInspection(String batchId, String orderNo, String invoiceId, String boxType, String boxId, Integer skuQty, Integer orderQty, String status) {
-		this(batchId, orderNo, invoiceId, boxType, boxId, skuQty, orderQty, status, null);
-	}
-	
-	public DpsInspection(String batchId, String orderNo, String invoiceId, String boxType, String boxId, Integer skuQty, Integer orderQty, String status, List<DpsInspItem> items) {
-		this.batchId = batchId;
-		this.orderNo = orderNo;
-		this.invoiceId = invoiceId;
-		this.boxType = boxType;
-		this.boxId = boxId;
-		this.skuQty = skuQty;
-		this.orderQty = orderQty;
-		this.status = status;
-		this.items = items;
 	}
 
 	public String getBatchId() {
@@ -124,6 +112,14 @@ public class DpsInspection {
 
 	public void setBoxType(String boxType) {
 		this.boxType = boxType;
+	}
+
+	public String getTrayCd() {
+		return trayCd;
+	}
+
+	public void setTrayCd(String trayCd) {
+		this.trayCd = trayCd;
 	}
 
 	public String getBoxId() {

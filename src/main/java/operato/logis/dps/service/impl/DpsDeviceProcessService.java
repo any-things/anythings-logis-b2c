@@ -428,9 +428,9 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		DpsInspection inspection = null;
 		
 		if(ValueUtil.isEqualIgnoreCase(boxType, LogisCodeConstants.BOX_TYPE_TRAY)) {
-			inspection = this.dpsInspectionService.findInspectionByTray(batch, boxId);
+			inspection = this.dpsInspectionService.findInspectionByTray(batch, boxId, true);
 		} else {
-			inspection = this.dpsInspectionService.findInspectionByBox(batch, boxId);
+			inspection = this.dpsInspectionService.findInspectionByBox(batch, boxId, true);
 		}
 
 		// 3. 이벤트 처리 결과 셋팅  
@@ -458,7 +458,7 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		JobBatch batch = equipBatchSet.getBatch();
 		
 		// 3. 검수 정보 조회
-		DpsInspection inspection = this.dpsInspectionService.findInspectionByInvoice(batch, invoiceId);
+		DpsInspection inspection = this.dpsInspectionService.findInspectionByInvoice(batch, invoiceId, true);
 		
 		// 4. 이벤트 처리 결과 셋팅  
 		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, inspection));
@@ -485,7 +485,7 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		JobBatch batch = equipBatchSet.getBatch();
 		
 		// 3. 검수 정보 조회
-		DpsInspection inspection = this.dpsInspectionService.findInspectionByInvoice(batch, orderNo);
+		DpsInspection inspection = this.dpsInspectionService.findInspectionByOrder(batch, orderNo, true);
 
 		// 4. 이벤트 처리 결과 셋팅  
 		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, inspection));

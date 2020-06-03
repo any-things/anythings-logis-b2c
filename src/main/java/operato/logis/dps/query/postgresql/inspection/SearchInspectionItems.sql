@@ -20,6 +20,8 @@ WHERE
 	#if($boxId)
 	AND J.BOX_ID = :boxId
 	#end
+	#if($status)
 	AND J.STATUS = :status
+	#end
 GROUP BY
 	J.SKU_CD, J.SKU_NM, S.SKU_BARCD
