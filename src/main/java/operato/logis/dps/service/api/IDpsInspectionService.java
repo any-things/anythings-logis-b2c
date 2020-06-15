@@ -24,7 +24,7 @@ public interface IDpsInspectionService {
 	 * @param exceptionWhenEmpty
 	 * @return
 	 */
-	public DpsInspection findInspectionByInput(JobBatch batch, String inputType, String inputId, boolean exceptionWhenEmpty);
+	public DpsInspection findInspectionByInput(JobBatch batch, String inputType, String inputId, boolean reprintMode, boolean exceptionWhenEmpty);
 	
 	/**
 	 * 트레이 코드로 검수 항목 조회
@@ -32,10 +32,11 @@ public interface IDpsInspectionService {
 	 * @param domainId
 	 * @param batchId
 	 * @param trayCd
+	 * @param reprintMode
 	 * @param exceptionWhenEmpty
 	 * @return
 	 */
-	public DpsInspection findInspectionByTray(JobBatch batch, String trayCd, boolean exceptionWhenEmpty);
+	public DpsInspection findInspectionByTray(JobBatch batch, String trayCd, boolean reprintMode, boolean exceptionWhenEmpty);
 	
 	/**
 	 * 박스 ID로 검수 항목 조회
@@ -43,10 +44,11 @@ public interface IDpsInspectionService {
 	 * @param domainId
 	 * @param batchId
 	 * @param boxId
+	 * @param reprintMode
 	 * @param exceptionWhenEmpty
 	 * @return
 	 */
-	public DpsInspection findInspectionByBox(JobBatch batch, String boxId, boolean exceptionWhenEmpty);
+	public DpsInspection findInspectionByBox(JobBatch batch, String boxId, boolean reprintMode, boolean exceptionWhenEmpty);
 	
 	/**
 	 * 송장 번호로 검수 항목 조회
@@ -54,10 +56,11 @@ public interface IDpsInspectionService {
 	 * @param domainId
 	 * @param batchId
 	 * @param invoiceId
+	 * @param reprintMode
 	 * @param exceptionWhenEmpty
 	 * @return
 	 */
-	public DpsInspection findInspectionByInvoice(JobBatch batch, String invoiceId, boolean exceptionWhenEmpty);
+	public DpsInspection findInspectionByInvoice(JobBatch batch, String invoiceId, boolean reprintMode, boolean exceptionWhenEmpty);
 	
 	/**
 	 * 주문 번호로 검수 항목 조회
@@ -65,18 +68,31 @@ public interface IDpsInspectionService {
 	 * @param domainId
 	 * @param batchId
 	 * @param orderNo
+	 * @param reprintMode
 	 * @param exceptionWhenEmpty
 	 * @return
 	 */
-	public DpsInspection findInspectionByOrder(JobBatch batch, String orderNo, boolean exceptionWhenEmpty);
+	public DpsInspection findInspectionByOrder(JobBatch batch, String orderNo, boolean reprintMode, boolean exceptionWhenEmpty);
+	
+	/**
+	 * 송장 분할인 경우 주문 번호로 재출력을 위해 검수 리스트 조회
+	 * 
+	 * @param batch
+	 * @param orderNo
+	 * @param reprintMode
+	 * @param exceptionWhenEmpty
+	 * @return
+	 */
+	public List<DpsInspection> searchInspectionList(JobBatch batch, String orderNo, boolean reprintMode, boolean exceptionWhenEmpty);
 	
 	/**
 	 * 박스 정보로 검수 항목 조회
 	 * 
 	 * @param box
+	 * @param reprintMode
 	 * @return
 	 */
-	public DpsInspection findInspectionByBoxPack(BoxPack box);
+	public DpsInspection findInspectionByBoxPack(BoxPack box, boolean reprintMode);
 
 	/**
 	 * 송장 ID로 검수 완료
@@ -101,13 +117,14 @@ public interface IDpsInspectionService {
 	/**
 	 * 박스 분할
 	 * 
+	 * @param batch
 	 * @param sourceBox
 	 * @param inspectionItems
 	 * @param printerId
 	 * @return 분할된 박스
 	 */
-	public BoxPack splitBox(BoxPack sourceBox, List<DpsInspItem> inspectionItems, String printerId);
-	
+	public BoxPack splitBox(JobBatch batch, BoxPack sourceBox, List<DpsInspItem> inspectionItems, String printerId);
+		
 	/**
 	 * 박스 송장 라벨 발행
 	 * 

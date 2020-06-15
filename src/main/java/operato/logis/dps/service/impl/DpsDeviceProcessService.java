@@ -419,6 +419,7 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		String equipType = params.get("equipType").toString();
 		String boxType = params.get("boxType").toString();
 		String boxId = params.get("boxId").toString();
+		boolean reprintMode = params.containsKey("reprintMode") ? true : false;
 		
 		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회 
 		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
@@ -428,9 +429,9 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		DpsInspection inspection = null;
 		
 		if(ValueUtil.isEqualIgnoreCase(boxType, LogisCodeConstants.BOX_TYPE_TRAY)) {
-			inspection = this.dpsInspectionService.findInspectionByTray(batch, boxId, true);
+			inspection = this.dpsInspectionService.findInspectionByTray(batch, boxId, reprintMode, false);
 		} else {
-			inspection = this.dpsInspectionService.findInspectionByBox(batch, boxId, true);
+			inspection = this.dpsInspectionService.findInspectionByBox(batch, boxId, reprintMode, false);
 		}
 
 		// 3. 이벤트 처리 결과 셋팅  
@@ -452,13 +453,14 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		String equipCd = params.get("equipCd").toString();
 		String equipType = params.get("equipType").toString();
 		String invoiceId = params.get("invoiceId").toString();
+		boolean reprintMode = params.containsKey("reprintMode") ? true : false;
 		
 		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회 
 		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
 		JobBatch batch = equipBatchSet.getBatch();
 		
 		// 3. 검수 정보 조회
-		DpsInspection inspection = this.dpsInspectionService.findInspectionByInvoice(batch, invoiceId, true);
+		DpsInspection inspection = this.dpsInspectionService.findInspectionByInvoice(batch, invoiceId, reprintMode, false);
 		
 		// 4. 이벤트 처리 결과 셋팅  
 		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, inspection));
@@ -479,13 +481,14 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		String equipCd = params.get("equipCd").toString();
 		String equipType = params.get("equipType").toString();
 		String orderNo = params.get("orderNo").toString();
+		boolean reprintMode = params.containsKey("reprintMode") ? true : false;
 		
 		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회 
 		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
 		JobBatch batch = equipBatchSet.getBatch();
 		
 		// 3. 검수 정보 조회
-		DpsInspection inspection = this.dpsInspectionService.findInspectionByOrder(batch, orderNo, true);
+		DpsInspection inspection = this.dpsInspectionService.findInspectionByOrder(batch, orderNo, reprintMode, false);
 
 		// 4. 이벤트 처리 결과 셋팅  
 		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, inspection));
@@ -525,7 +528,7 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		}
 		
 		// 5. 송장 분할
-		BoxPack splitBox = this.dpsInspectionService.splitBox(sourceBox, dpsInspItems, printerId);
+		BoxPack splitBox = this.dpsInspectionService.splitBox(batch, sourceBox, dpsInspItems, printerId);
 
 		// 6. 이벤트 처리 결과 셋팅
 		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, splitBox));

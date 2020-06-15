@@ -67,9 +67,13 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 		
 		DpsInspection inspection = this.queryManager.selectBySql(sql, params, DpsInspection.class);
 		
-		if(inspection == null && exceptionWhenEmpty) {
-			Object data = (params == null) ? null : (params.containsKey("boxId") ? params.get("boxId") : (params.containsKey("orderNo") ? params.get("orderNo") : (params.containsKey("invoiceId") ? params.get("invoiceId") : null)));
-			throw ThrowUtil.newNotFoundRecord("terms.label.inspection", ValueUtil.toString(data));
+		if(inspection == null) {
+			if(exceptionWhenEmpty) {
+				Object data = (params == null) ? null : (params.containsKey("boxId") ? params.get("boxId") : (params.containsKey("orderNo") ? params.get("orderNo") : (params.containsKey("invoiceId") ? params.get("invoiceId") : null)));
+				throw ThrowUtil.newNotFoundRecord("terms.label.inspection", ValueUtil.toString(data));
+			} else {
+				return null;
+			}
 		} else {
 			return inspection;
 		}
@@ -99,7 +103,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	}
 	
 	@Override
-	public DpsInspection findInspectionByInput(JobBatch batch, String inputType, String inputId, boolean exceptionWhenEmpty) {
+	public DpsInspection findInspectionByInput(JobBatch batch, String inputType, String inputId, boolean reprintMode, boolean exceptionWhenEmpty) {
 		
 		String sql = this.dpsInspectionQueryStore.getFindInspectionQuery();
 		Map<String, Object> params = ValueUtil.newMap("domainId,batchId", batch.getDomainId(), batch.getId());
@@ -113,6 +117,8 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 		} else if(ValueUtil.isEqualIgnoreCase(inputType, "invoiceId")) {
 			params.put("invoiceId", inputId);
 		}
+		
+		params.put("status", reprintMode ? BoxPack.BOX_STATUS_EXAMED : BoxPack.BOX_STATUS_BOXED);
 
 		DpsInspection inspection = this.findInspection(sql, params, exceptionWhenEmpty);
 		if(inspection != null && (ValueUtil.isEqualIgnoreCase(inputType, "box") || ValueUtil.isEqualIgnoreCase(inputType, "tray"))) {
@@ -123,10 +129,11 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	}
 
 	@Override
-	public DpsInspection findInspectionByTray(JobBatch batch, String trayCd, boolean exceptionWhenEmpty) {
+	public DpsInspection findInspectionByTray(JobBatch batch, String trayCd, boolean reprintMode, boolean exceptionWhenEmpty) {
 		
 		String sql = this.dpsInspectionQueryStore.getFindInspectionQuery();
 		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,boxId", batch.getDomainId(), batch.getId(), trayCd);
+		params.put("status", reprintMode ? BoxPack.BOX_STATUS_EXAMED : BoxPack.BOX_STATUS_BOXED);
 		DpsInspection inspection = this.findInspection(sql, params, exceptionWhenEmpty);
 
 		if(inspection != null) {
@@ -137,10 +144,11 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	}
 
 	@Override
-	public DpsInspection findInspectionByBox(JobBatch batch, String boxId, boolean exceptionWhenEmpty) {
+	public DpsInspection findInspectionByBox(JobBatch batch, String boxId, boolean reprintMode, boolean exceptionWhenEmpty) {
 		
 		String sql = this.dpsInspectionQueryStore.getFindInspectionQuery();
 		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,boxId", batch.getDomainId(), batch.getId(), boxId);
+		params.put("status", reprintMode ? BoxPack.BOX_STATUS_EXAMED : BoxPack.BOX_STATUS_BOXED);
 		DpsInspection inspection = this.findInspection(sql, params, exceptionWhenEmpty);
 
 		if(inspection != null) {
@@ -151,28 +159,50 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	}
 
 	@Override
-	public DpsInspection findInspectionByInvoice(JobBatch batch, String invoiceId, boolean exceptionWhenEmpty) {
+	public DpsInspection findInspectionByInvoice(JobBatch batch, String invoiceId, boolean reprintMode, boolean exceptionWhenEmpty) {
 		
 		String sql = this.dpsInspectionQueryStore.getFindInspectionQuery();
 		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,invoiceId", batch.getDomainId(), batch.getId(), invoiceId);
+		params.put("status", reprintMode ? BoxPack.BOX_STATUS_EXAMED : BoxPack.BOX_STATUS_BOXED);
 		DpsInspection inspection = this.findInspection(sql, params, exceptionWhenEmpty);
 		return this.searchInpsectionItems(inspection, params);
 	}
 	
 	@Override
-	public DpsInspection findInspectionByOrder(JobBatch batch, String orderNo, boolean exceptionWhenEmpty) {
+	public DpsInspection findInspectionByOrder(JobBatch batch, String orderNo, boolean reprintMode, boolean exceptionWhenEmpty) {
 		
 		String sql = this.dpsInspectionQueryStore.getFindInspectionQuery();
 		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,orderNo", batch.getDomainId(), batch.getId(), orderNo);
+		params.put("status", reprintMode ? BoxPack.BOX_STATUS_EXAMED : BoxPack.BOX_STATUS_BOXED);
 		DpsInspection inspection = this.findInspection(sql, params, exceptionWhenEmpty);
 		return this.searchInpsectionItems(inspection, params);
 	}
+	
+	@Override
+	public List<DpsInspection> searchInspectionList(JobBatch batch, String orderNo, boolean reprintMode, boolean exceptionWhenEmpty) {
+		String sql = this.dpsInspectionQueryStore.getFindInspectionQuery();
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,orderNo", batch.getDomainId(), batch.getId(), orderNo);
+		params.put("status", reprintMode ? BoxPack.BOX_STATUS_EXAMED : BoxPack.BOX_STATUS_BOXED);
+		return this.queryManager.selectListBySql(sql, params, DpsInspection.class, 0, 0);
+	}
 
 	@Override
-	public DpsInspection findInspectionByBoxPack(BoxPack box) {
+	public DpsInspection findInspectionByBoxPack(BoxPack box, boolean reprintMode) {
 		
 		String sql = this.dpsInspectionQueryStore.getFindInspectionQuery();
-		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,invoiceId", box.getDomainId(), box.getBatchId(), box.getInvoiceId());
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId", box.getDomainId(), box.getBatchId());
+		params.put("status", reprintMode ? BoxPack.BOX_STATUS_EXAMED : BoxPack.BOX_STATUS_BOXED);
+		
+		if(ValueUtil.isNotEmpty(box.getInvoiceId())) {
+			params.put("invoiceId", box.getInvoiceId());
+			
+		} else if(ValueUtil.isNotEmpty(box.getOrderNo())) {
+			params.put("orderNo", box.getOrderNo());
+			
+		} else if(ValueUtil.isNotEmpty(box.getBoxId())) {
+			params.put("boxId", box.getBoxId());
+		} 
+		
 		DpsInspection inspection = this.findInspection(sql, params, true);
 		return this.searchInpsectionItems(inspection, params);
 	}
@@ -224,7 +254,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	}
 
 	@Override
-	public BoxPack splitBox(BoxPack sourceBox, List<DpsInspItem> inspectionItems, String printerId) {
+	public BoxPack splitBox(JobBatch batch, BoxPack sourceBox, List<DpsInspItem> inspectionItems, String printerId) {
 		// TODO Auto-generated method stub
 		return null;
 	}
