@@ -208,7 +208,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	}
 
 	@Override
-	public void finishInspection(JobBatch batch, String invoiceId, Float boxWeight, String printerId) {
+	public void finishInspection(JobBatch batch, String invoiceId, Float boxWeight, String printerId, Object ... params) {
 		
 		// 박스 조회
 		BoxPack box = this.findBoxByInvoiceId(batch.getDomainId(), batch.getId(), invoiceId, true);
@@ -217,7 +217,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	}
 
 	@Override
-	public void finishInspection(JobBatch batch, BoxPack box, Float boxWeight, String printerId) {
+	public void finishInspection(JobBatch batch, BoxPack box, Float boxWeight, String printerId, Object ... params) {
 		
 		// 1. 박스 검수 완료 처리
 		if(boxWeight != null) {
@@ -234,13 +234,13 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 		this.queryManager.update(box, "boxWt", "status", "inspectionId", "inspStartedAt", "inspEndedAt", "updaterId", "updatedAt");
 		
 		// 2. 박스 내품 검수 항목 완료 처리
-		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,boxPackId,status,updaterId,now", box.getDomainId(), box.getBatchId(), box.getId(), BoxPack.BOX_STATUS_EXAMED, box.getInspectorId(), new Date());
+		Map<String, Object> boxItemParams = ValueUtil.newMap("domainId,batchId,boxPackId,status,updaterId,now", box.getDomainId(), box.getBatchId(), box.getId(), BoxPack.BOX_STATUS_EXAMED, box.getInspectorId(), new Date());
 		String sql = "update box_items set status = :status, updater_id = :updaterId, updated_at = :now where domain_id = :domainId and batch_id = :batchId and box_pack_id = :boxPackId";
-		this.queryManager.executeBySql(sql, params);
+		this.queryManager.executeBySql(sql, boxItemParams);
 		
 		// 3. 작업 정보 검수 완료 처리
 		sql = "update job_instances set status = :status, pass_flag = true, updater_id = :updaterId, updated_at = :now where domain_id = :domainId and batch_id = :batchId and box_pack_id = :boxPackId";
-		this.queryManager.executeBySql(sql, params);
+		this.queryManager.executeBySql(sql, boxItemParams);
 		
 		// 4. 박스 유형이 트레이라면 트레이 상태 변경
 		TrayBox condition = new TrayBox();
@@ -254,7 +254,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	}
 
 	@Override
-	public BoxPack splitBox(JobBatch batch, BoxPack sourceBox, List<DpsInspItem> inspectionItems, String printerId) {
+	public BoxPack splitBox(JobBatch batch, BoxPack sourceBox, List<DpsInspItem> inspectionItems, String printerId, Object ... params) {
 		// TODO Auto-generated method stub
 		return null;
 	}

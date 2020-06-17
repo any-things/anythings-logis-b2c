@@ -101,8 +101,9 @@ public interface IDpsInspectionService {
 	 * @param invoiceId
 	 * @param boxWeight 박스 무게
 	 * @param printerId
+	 * @param params 기타 파라미터 ...
 	 */
-	public void finishInspection(JobBatch batch, String invoiceId, Float boxWeight, String printerId);
+	public void finishInspection(JobBatch batch, String invoiceId, Float boxWeight, String printerId, Object ... params);
 	
 	/**
 	 * 박스 실적 정보로 검수 완료
@@ -112,7 +113,7 @@ public interface IDpsInspectionService {
 	 * @param boxWeight 박스 무게
 	 * @param printerId
 	 */
-	public void finishInspection(JobBatch batch, BoxPack box, Float boxWeight, String printerId);
+	public void finishInspection(JobBatch batch, BoxPack box, Float boxWeight, String printerId, Object ... params);
 	
 	/**
 	 * 박스 분할
@@ -121,9 +122,10 @@ public interface IDpsInspectionService {
 	 * @param sourceBox
 	 * @param inspectionItems
 	 * @param printerId
+	 * @param params
 	 * @return 분할된 박스
 	 */
-	public BoxPack splitBox(JobBatch batch, BoxPack sourceBox, List<DpsInspItem> inspectionItems, String printerId);
+	public BoxPack splitBox(JobBatch batch, BoxPack sourceBox, List<DpsInspItem> inspectionItems, String printerId, Object ... params);
 		
 	/**
 	 * 박스 송장 라벨 발행
