@@ -69,6 +69,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 	 * @return
 	 */
 	private BatchReceipt createReadyToReceiveData(BatchReceipt receipt, Object ... params) {
+		
 		// 1. 대기 상태 이거나 진행 중인 수신이 있는지 확인 
 //		BatchReceipt runBatchReceipt = this.checkRunningOrderReceipt(receipt);
 //		if(runBatchReceipt != null) return runBatchReceipt;
@@ -81,10 +82,10 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 			item.setBatchId(LogisBaseUtil.newReceiptJobBatchId(receipt.getDomainId()));
 			item.setBatchReceiptId(receipt.getId());
 			this.queryManager.insert(item);
+			receipt.addItem(item);
 		}
 		
-		// 4. 수신 아이템 설정 및 리턴
-		receipt.setItems(receiptItems);
+		// 4. 배치 수신 결과 리턴
 		return receipt;
 	}
 	
