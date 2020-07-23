@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import operato.logis.dps.DpsConstants;
 import operato.logis.dps.query.store.DpsBatchQueryStore;
 import operato.logis.dps.service.util.DpsStageJobConfigUtil;
+import xyz.anythings.base.LogisConstants;
 import xyz.anythings.base.entity.BatchReceipt;
 import xyz.anythings.base.entity.BatchReceiptItem;
 import xyz.anythings.base.entity.JobBatch;
@@ -29,6 +30,7 @@ import xyz.elidom.dbist.dml.Query;
 import xyz.elidom.dbist.util.StringJoiner;
 import xyz.elidom.exception.server.ElidomRuntimeException;
 import xyz.elidom.sys.entity.Domain;
+import xyz.elidom.util.BeanUtil;
 import xyz.elidom.util.ValueUtil;
 
 /**
@@ -160,6 +162,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 	 * @return
 	 */
 	private BatchReceipt startToReceiveData(BatchReceipt receipt, BatchReceiptItem item, Object ... params) {
+		
 		// 1. 수신 시작 : 상태 업데이트 - 진행중 
 		receipt.updateStatusImmediately(DpsConstants.COMMON_STATUS_RUNNING);
 		
@@ -170,7 +173,9 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		String[] sourceFields = {"WMS_BATCH_NO", "WCS_BATCH_NO", "JOB_DATE", "JOB_SEQ", "JOB_TYPE", "ORDER_DATE", "ORDER_NO", "ORDER_LINE_NO", "ORDER_DETAIL_ID", "CUST_ORDER_NO", "CUST_ORDER_LINE_NO", "COM_CD", "AREA_CD", "STAGE_CD", "EQUIP_TYPE", "EQUIP_CD", "EQUIP_NM", "SUB_EQUIP_CD", "SHOP_CD", "SHOP_NM", "SKU_CD", "SKU_BARCD", "SKU_NM", "BOX_TYPE_CD", "BOX_IN_QTY", "ORDER_QTY", "PICKED_QTY", "BOXED_QTY", "CANCEL_QTY", "BOX_ID", "INVOICE_ID", "ORDER_TYPE", "CLASS_CD", "PACK_TYPE", "VEHICLE_NO", "LOT_NO", "FROM_ZONE_CD", "FROM_CELL_CD", "TO_ZONE_CD", "TO_CELL_CD", mappingColumn};
 		String[] targetFields = {"WMS_BATCH_NO", "WCS_BATCH_NO", "JOB_DATE", "JOB_SEQ", "JOB_TYPE", "ORDER_DATE", "ORDER_NO", "ORDER_LINE_NO", "ORDER_DETAIL_ID", "CUST_ORDER_NO", "CUST_ORDER_LINE_NO", "COM_CD", "AREA_CD", "STAGE_CD", "EQUIP_TYPE", "EQUIP_CD", "EQUIP_NM", "SUB_EQUIP_CD", "SHOP_CD", "SHOP_NM", "SKU_CD", "SKU_BARCD", "SKU_NM", "BOX_TYPE_CD", "BOX_IN_QTY", "ORDER_QTY", "PICKED_QTY", "BOXED_QTY", "CANCEL_QTY", "BOX_ID", "INVOICE_ID", "ORDER_TYPE", "CLASS_CD", "PACK_TYPE", "VEHICLE_NO", "LOT_NO", "FROM_ZONE_CD", "FROM_CELL_CD", "TO_ZONE_CD", "TO_CELL_CD", "CLASS_CD"};
 		String fieldNames = "COM_CD,AREA_CD,STAGE_CD,WMS_BATCH_NO,IF_FLAG";
-		boolean exceptionOccurred = false;
+
+		// 별도 트랜잭션 처리를 위해 컴포넌트 자신의 레퍼런스 준비
+		DpsReceiveBatchService selfSvc = BeanUtil.get(DpsReceiveBatchService.class);
 		
 		try {
 			// 2. skip 이면 pass
@@ -186,7 +191,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 			JobBatch batch = JobBatch.createJobBatch(item.getBatchId(), item.getJobSeq(), receipt, item);
 			
 			// 6. 데이터 복사  
-			this.cloneData(item.getBatchId(), item.getJobSeq(), "wms_if_orders", sourceFields, targetFields, fieldNames, item.getComCd(), item.getAreaCd(), item.getStageCd(), item.getWmsBatchNo(), DpsConstants.N_CAP_STRING);
+			selfSvc.cloneData(item.getBatchId(), item.getJobSeq(), "wms_if_orders", sourceFields, targetFields, fieldNames, item.getComCd(), item.getAreaCd(), item.getStageCd(), item.getWmsBatchNo(), DpsConstants.N_CAP_STRING);
 			
 			// 7. JobBatch 상태 변경  
 			batch.updateStatusImmediately(DpsConstants.isB2CJobType(batch.getJobType())? JobBatch.STATUS_READY : JobBatch.STATUS_WAIT);
@@ -194,16 +199,9 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 			// 8. batchReceiptItem 상태 업데이트 
 			item.updateStatusImmediately(DpsConstants.COMMON_STATUS_FINISHED, null);
 			
-		} catch(Exception e) {
-			exceptionOccurred = true;
-			String errMsg = e.getCause().getMessage();
-			errMsg = errMsg.length() > 400 ? errMsg.substring(0,400) : errMsg;
-			item.updateStatusImmediately(DpsConstants.COMMON_STATUS_ERROR, errMsg);
-		}
-		
-		// 9. 에러 발생인 경우 수신 상태 에러로 업데이트
-		if(exceptionOccurred) {
-			receipt.updateStatusImmediately(DpsConstants.COMMON_STATUS_ERROR);
+		} catch(Throwable th) {
+			// 9. 에러 처리 
+			selfSvc.handleReceiveError(th, receipt, item);
 		}
 		
 		return receipt;
@@ -221,7 +219,7 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 	 * @return
 	 */
 	@Transactional(propagation=Propagation.REQUIRES_NEW) 
-	private void cloneData(String batchId, String jobSeq
+	public void cloneData(String batchId, String jobSeq
 								, String sourceTable
 								, String[] sourceFields, String[] targetFields
 								, String fieldNames, Object ... fieldValues) throws Exception {
@@ -266,6 +264,21 @@ public class DpsReceiveBatchService extends AbstractQueryService {
 		
 		// 4. 데이터 insert 
 		AnyOrmUtil.insertBatch(targetList, 100);
+	}
+	
+	/**
+	 * 주문 수신시 에러 핸들링
+	 * 
+	 * @param th
+	 * @param receipt
+	 * @param item
+	 */
+	@Transactional(propagation = Propagation.REQUIRES_NEW) 
+	public void handleReceiveError(Throwable th, BatchReceipt receipt, BatchReceiptItem item) {
+		String errMsg = th.getCause() != null ? th.getCause().getMessage() : th.getMessage();
+		errMsg = errMsg.length() > 400 ? errMsg.substring(0,400) : errMsg;
+		item.updateStatusImmediately(LogisConstants.COMMON_STATUS_ERROR, errMsg);
+		receipt.updateStatusImmediately(LogisConstants.COMMON_STATUS_ERROR);
 	}
 	
 	/**
