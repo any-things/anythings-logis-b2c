@@ -26,6 +26,11 @@ import xyz.elidom.util.ValueUtil;
 public class DpsInstructionService extends AbstractInstructionService implements IInstructionService {
 
 	@Override
+	public void targetClassing(JobBatch batch, Object... params) {
+		this.doUpdateClassificationCodes(batch, params);
+	}
+	
+	@Override
 	public Map<String, Object> searchInstructionData(JobBatch batch, Object... params) {
 		// DPS에서는 구현이 필요없음
 		return null;
