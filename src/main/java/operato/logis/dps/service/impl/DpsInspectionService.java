@@ -262,7 +262,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	@Override
 	public int printInvoiceLabel(JobBatch batch, BoxPack box, String printerId) {
 		String labelTemplate = BatchJobConfigUtil.getInvoiceLabelTemplate(batch);
-		PrintEvent printEvent = new PrintEvent(batch.getDomainId(), printerId, labelTemplate, ValueUtil.newMap("box", box));
+		PrintEvent printEvent = new PrintEvent(batch.getDomainId(), batch.getJobType(), printerId, labelTemplate, ValueUtil.newMap("box", box));
 		this.eventPublisher.publishEvent(printEvent);
 		return 1;
 	}
@@ -270,7 +270,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	@Override
 	public int printInvoiceLabel(JobBatch batch, DpsInspection inspection, String printerId) {
 		String labelTemplate = BatchJobConfigUtil.getInvoiceLabelTemplate(batch);
-		PrintEvent printEvent = new PrintEvent(batch.getDomainId(), printerId, labelTemplate, ValueUtil.newMap("box", inspection));
+		PrintEvent printEvent = new PrintEvent(batch.getDomainId(), batch.getJobType(), printerId, labelTemplate, ValueUtil.newMap("box", inspection));
 		this.eventPublisher.publishEvent(printEvent);
 		return 1;
 	}
