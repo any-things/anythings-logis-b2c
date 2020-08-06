@@ -1,8 +1,8 @@
 
 WITH T_OT_JOBS AS (
     SELECT X.*
-         , DECODE(STATUS, 'W', 1, 0) AS W_STATUS_CNT 
-         , DECODE(STATUS, 'P', 1, 0) AS P_STATUS_CNT
+         , CASE WHEN STATUS = 'W' THEN 1 ELSE 0 END AS W_STATUS_CNT 
+         , CASE WHEN STATUS = 'P' THEN 1 ELSE 0 END AS P_STATUS_CNT
          , 1 AS TOT_CNT
       FROM JOB_INSTANCES X
      WHERE X.DOMAIN_ID = :domainId
@@ -11,20 +11,21 @@ WITH T_OT_JOBS AS (
        AND X.SKU_CD = :skuCd
 ),
 T_TOT_BOX_SUMMARY AS (
-    SELECT TOT_CNT
-         , TOT_CNT - W_CNT AS COMP_CNT
+    SELECT A.TOT_CNT
+         , A.TOT_CNT - A.W_CNT AS COMP_CNT
       FROM (
             SELECT SUM(TOT_CNT) AS TOT_CNT
                  , SUM(W_STATUS_CNT) + SUM(P_STATUS_CNT) AS W_CNT
               FROM T_OT_JOBS
-           )
+           ) A
 ),
 T_SKU_ORDER_INFOM AS (
-    SELECT PICK_QTY, BOX_TYPE_CD
-         , TOT_ORDER_CNT
-         , TOT_ORDER_CNT - W_CNT AS COMP_ORDER_CNT
+    SELECT B.PICK_QTY
+    	 , B.BOX_TYPE_CD
+         , B.TOT_ORDER_CNT
+         , B.TOT_ORDER_CNT - B.W_CNT AS COMP_ORDER_CNT
 		#if($jobBoxType)
-         , CASE WHEN PICK_QTY = :jobPcs AND BOX_TYPE_CD = :jobBoxType THEN 1
+         , CASE WHEN B.PICK_QTY = :jobPcs AND B.BOX_TYPE_CD = :jobBoxType THEN 1
                 ELSE 0
             END AS SELECTED_JOB
         #else
@@ -38,8 +39,8 @@ T_SKU_ORDER_INFOM AS (
               FROM T_OT_JOBS
              WHERE SKU_CD = :skuCd
              GROUP BY PICK_QTY, BOX_TYPE_CD
-           )
-     ORDER BY PICK_QTY, BOX_TYPE_CD 
+           ) B
+     ORDER BY B.PICK_QTY, B.BOX_TYPE_CD 
 )
 SELECT X.*, Y.*
   FROM T_TOT_BOX_SUMMARY X
