@@ -132,7 +132,7 @@ public class DpsIndicationService extends AbstractLogisService implements IIndic
 	}	
 
 	@Override
-	public void indicatorOnForFullbox(JobInstance job) {		
+	public void indicatorOnForFullbox(JobInstance job) {
 		// DPS에서는 구현할 필요 없음
 	}
 
@@ -168,6 +168,17 @@ public class DpsIndicationService extends AbstractLogisService implements IIndic
 				List<String> indCdList = IndicatorQueryUtil.searchIndCdList(domainId, gw.getGwNm(), equipType, equipCd, stationCd);
 				indReqSvc.requestIndListOff(domainId, stageCd, gw.getGwNm(), indCdList, false);
 			}
+		}
+	}
+	
+	@Override
+	public void indicatorListOff(JobBatch batch, String stationCd) {
+		Long domainId = batch.getDomainId();
+		IIndRequestService indReqSvc = this.indicatorDispatcher.getIndicatorRequestServiceByStage(domainId, batch.getStageCd());
+		List<IndCommonReq> indCdList = IndicatorQueryUtil.searchPickingIndList(domainId, batch.getId(), stationCd);
+		
+		if(ValueUtil.isNotEmpty(indCdList)) {
+			indReqSvc.requestIndListOff(domainId, batch.getStageCd(), indCdList, true);
 		}
 	}
 
@@ -253,7 +264,7 @@ public class DpsIndicationService extends AbstractLogisService implements IIndic
 	public void indicatorsOnByInput(JobBatch batch, JobInput input, List<JobInstance> jobList) {
 		IIndRequestService indReqSvc = this.getIndicatorRequestService(batch);
 		Map<String, List<IIndOnInfo>> indOnForPickList = RuntimeIndServiceUtil.buildIndOnList(true, batch, jobList, true);
-		indReqSvc.requestIndListOn(batch.getDomainId(), batch.getStageCd(), batch.getJobType(), GwConstants.IND_ACTION_TYPE_PICK, indOnForPickList);		
+		indReqSvc.requestIndListOn(batch.getDomainId(), batch.getStageCd(), batch.getJobType(), GwConstants.IND_ACTION_TYPE_PICK, indOnForPickList);
 	}
 
 	@Override
@@ -304,7 +315,7 @@ public class DpsIndicationService extends AbstractLogisService implements IIndic
 		if(indicator != null) {
 			job.setIndCd(indicator.getIndCd());
 			job.setGwPath(indicator.getGwPath());
-		}		
+		}
 	}
 
 }
