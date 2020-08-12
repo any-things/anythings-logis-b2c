@@ -68,6 +68,22 @@ public class DpsJobStatusService extends AbstractJobStatusService implements IDp
 		
 		return this.queryManager.selectPageBySql(sql, params, JobInput.class, page, limit);
 	}
+	
+	/**
+	 * 작업 스테이션 범위의 투입 리스트 
+	 */
+	@Override
+	public Page<JobInput> paginateInputList(JobBatch batch, String equipCd, String stationCd, String status, int page, int limit) {
+		
+		Map<String, Object> params = ValueUtil.newMap("domainId,equipType,batchId,stationCd", batch.getDomainId(), batch.getEquipType(), batch.getId(), stationCd);
+		String sql = this.dpsBatchQueryStore.getBatchInputListQuery();
+		
+		if(ValueUtil.isNotEmpty(equipCd)) {
+			params.put("equipCd", equipCd);
+		}
+		
+		return this.queryManager.selectPageBySql(sql, params, JobInput.class, page, limit);
+	}
 
 	/**
 	 * 태블릿 작업 화면 탭 리스트 

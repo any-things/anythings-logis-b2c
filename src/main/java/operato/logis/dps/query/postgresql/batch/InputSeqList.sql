@@ -47,6 +47,9 @@ SELECT
 			#if($equipCd)
 			AND EQUIP_CD = :equipCd
 			#end
+			#if($stationCd)
+			AND SUB_EQUIP_CD IN (SELECT CELL_CD FROM CELLS WHERE DOMAIN_ID = :domainId AND STATION_CD = :stationCd)
+			#end
 			AND STATUS  not in ('BW','W')
 			AND ORDER_TYPE = 'MT'
 		GROUP BY
