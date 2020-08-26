@@ -172,14 +172,15 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 		BatchProgressRate finalResult = this.queryManager.selectBySql(query, params, BatchProgressRate.class);
 		
 		// 작업 배치에 최종 결과 업데이트
-		batch.setResultOrderQty(finalResult.getActualOrder());
 		batch.setResultPcs(finalResult.getActualPcs());
-		batch.setUph(finalResult.getUph()); 
-		batch.setProgressRate(finalResult.getRatePcs());
+		batch.setResultOrderQty(finalResult.getActualOrder());
+		batch.setResultBoxQty(finalResult.getActualSku());
+		batch.setUph(finalResult.getUph());
+		batch.setProgressRate(finalResult.getRateOrder());
+		batch.setEquipRuntime(finalResult.getRateSku());
 		batch.setStatus(JobBatch.STATUS_END);
 		batch.setFinishedAt(finishedAt);
-		
-		this.queryManager.update(batch, "resultOrderQty", "resultPcs", "progressRate", "uph", "status", "finishedAt");
+		this.queryManager.update(batch, "resultOrderQty", "resultBoxQty", "resultPcs", "progressRate", "uph", "equipRuntime", "status", "finishedAt");
 	}
 
 }

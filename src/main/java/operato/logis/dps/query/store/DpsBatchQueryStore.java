@@ -17,7 +17,7 @@ public class DpsBatchQueryStore extends AbstractQueryStore {
 	public void initQueryStore(String databaseType) {
 		this.databaseType = databaseType;
 		this.basePath = "operato/logis/dps/query/" + this.databaseType + SysConstants.SLASH;
-		this.defaultBasePath = "operato/logis/dps/query/ansi/"; 		
+		this.defaultBasePath = "operato/logis/dps/query/ansi/"; 
 	}
 	
 	/**
