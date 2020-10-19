@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import operato.logis.dps.model.DpsInspItem;
 import operato.logis.dps.model.DpsInspection;
@@ -27,6 +28,7 @@ import xyz.elidom.util.DateUtil;
  * 
  * @author shortstop
  */
+@Component("dpsInspectionService")
 public class DpsInspectionService extends AbstractInstructionService implements IDpsInspectionService {
 
 	/**
