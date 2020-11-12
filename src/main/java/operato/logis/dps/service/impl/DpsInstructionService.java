@@ -11,13 +11,17 @@ import operato.logis.dps.DpsCodeConstants;
 import operato.logis.dps.query.store.DpsBatchQueryStore;
 import operato.logis.dps.service.util.DpsBatchJobConfigUtil;
 import xyz.anythings.base.entity.JobBatch;
+import xyz.anythings.base.entity.JobConfigSet;
 import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.entity.Order;
 import xyz.anythings.base.entity.Rack;
 import xyz.anythings.base.event.EventConstants;
 import xyz.anythings.base.service.api.IInstructionService;
 import xyz.anythings.base.service.impl.AbstractInstructionService;
+import xyz.anythings.base.service.impl.JobConfigProfileService;
 import xyz.anythings.base.util.LogisBaseUtil;
+import xyz.anythings.gw.entity.IndConfigSet;
+import xyz.anythings.gw.service.IndConfigProfileService;
 import xyz.anythings.sys.event.model.EventResultSet;
 import xyz.anythings.sys.event.model.SysEvent;
 import xyz.anythings.sys.util.AnyOrmUtil;
@@ -76,6 +80,16 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	 */
 	private static final String DIY_POST_CANCEL_INSTRUCT_BATCH = "diy-dps-post-cancel-instruct-batch";
 	
+	/**
+	 * 작업 설정 프로파일 서비스
+	 */
+	@Autowired
+	private JobConfigProfileService jobConfigProfileSvc;
+	/**
+	 * 표시기 설정 프로파일 서비스
+	 */
+	@Autowired
+	private IndConfigProfileService indConfigSetService;
 	/**
 	 * 배치 쿼리 스토어
 	 */
@@ -161,11 +175,11 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	
 	@Override
 	public int instructBatch(JobBatch batch, List<String> equipIdList, Object... params) {
-		// 1. 배치 정보에 설정값이 없는지 체크
-		this.checkJobAndIndConfigSet(batch);
-		
-		// 2. 작업 배치 정보로 설비 리스트 조회
+		// 1. 작업 배치 정보로 설비 리스트 조회
 		List<Rack> rackList = this.searchEquipListByBatch(batch, equipIdList);
+		
+		// 2. 배치 정보에 설정값이 없는지 체크하여 없으면 설정
+		this.checkJobAndIndConfigSet(batch);
 		
 		// 3. 랙에 배치 할당
 		for(Rack rack : rackList) {
@@ -178,7 +192,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		// 4. 소분류 코드, 방면 분류 코드 값을 설정에 따라서 주문 정보에 추가한다.
 		this.doUpdateClassificationCodes(batch, params);
 
-		// 5. 대상 분류 
+		// 5. 대상 분류
 		this.doClassifyOrders(batch, rackList, params);
 		
 		// 6. 추천 로케이션 정보 생성
@@ -341,16 +355,31 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	 * 배치에 설정값이 설정되어 있는지 체크하고 기본 설정값으로 설정한다.
 	 * 
 	 * @param batch
+	 * @param rackList
 	 */
 	private void checkJobAndIndConfigSet(JobBatch batch) {
 		// 1. 작업 관련 설정이 없는 경우 기본 작업 설정을 찾아서 세팅
 		if(ValueUtil.isEmpty(batch.getJobConfigSetId())) {
-			throw ThrowUtil.newJobConfigNotSet();
+			JobConfigSet jobConfigSet = this.jobConfigProfileSvc.getStageConfigSet(batch.getDomainId(), batch.getStageCd());
+			
+			if(jobConfigSet == null) {
+				throw ThrowUtil.newJobConfigNotSet();
+			} else {
+				batch.setJobConfigSetId(jobConfigSet.getId());
+				batch.setJobConfigSet(jobConfigSet);
+			}
 		}
 		
 		// 2. 표시기 관련 설정이 없는 경우 표시기 설정을 찾아서 세팅
 		if(ValueUtil.isEmpty(batch.getIndConfigSetId())) {
-			throw ThrowUtil.newIndConfigNotSet();
+			IndConfigSet indConfigSet = this.indConfigSetService.getStageConfigSet(batch.getDomainId(), batch.getStageCd());
+			
+			if(indConfigSet == null) {
+				throw ThrowUtil.newIndConfigNotSet();
+			} else {
+				batch.setIndConfigSetId(indConfigSet.getId());
+				batch.setIndConfigSet(indConfigSet);
+			}
 		}
 	}
 	
@@ -430,11 +459,13 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		
 		// 4. 단포 대상 분류
 		if(useSinglePack) {
+			queryParams.put("orderType", DpsCodeConstants.DPS_ORDER_TYPE_OT);
 			sql = this.dpsBatchQueryStore.getDpsClassifySingleOrders();
 			classifyCount = this.queryManager.executeBySql(sql, queryParams);
 		}
 		
 		// 5. 합포 대상 분류
+		queryParams.put("orderType", DpsCodeConstants.DPS_ORDER_TYPE_OT);
 		sql = this.dpsBatchQueryStore.getDpsClassifySingleOrders();
 		classifyCount += this.queryManager.executeBySql(sql, queryParams);
 		
@@ -560,7 +591,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		// 6. 작업 배치 업데이트
 		batch.setStatus(JobBatch.STATUS_RUNNING);
 		batch.setInstructedAt(new Date());
-		this.queryManager.update(batch, "equipGroupCd", "equipCd", "equipNm", "status", "instructedAt", "updatedAt");
+		this.queryManager.update(batch, "equipGroupCd", "equipCd", "equipNm", "status", "jobConfigSetId", "indConfigSetId", "instructedAt", "updatedAt");
 		
 		// 7. 작업 지시 후 처리를 위한 커스텀 서비스 호출
 		this.customService.doCustomService(domainId, DIY_POST_INSTRUCT_BATCH, svcParams);
@@ -604,7 +635,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 				
 				// 5. 배치 정보 생성 혹은 업데이트
 				if(isFirst) {
-					this.queryManager.update(currentBatch, "equipCd", "equipNm", "batchOrderQty", "batchPcs", "updatedAt");
+					this.queryManager.update(currentBatch, "jobConfigSetId", "indConfigSetId", "equipCd", "equipNm", "batchOrderQty", "batchPcs", "updatedAt");
 					isFirst = false;
 					
 				} else {

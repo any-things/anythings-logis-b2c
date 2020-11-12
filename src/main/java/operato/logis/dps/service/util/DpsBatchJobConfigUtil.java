@@ -39,7 +39,7 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 	 * @return
 	 */
 	public static String getInputBoxType(JobBatch batch) {
-		// dps.input.box.type						
+		// dps.input.box.type
 		return getConfigValue(batch, DpsConfigConstants.DPS_INPUT_BOX_TYPE, true);
 	}
 	

@@ -51,7 +51,7 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 			return;
 		}
 		
-		// 1. 작업 배치 상태 체크
+		// 3. 작업 배치 상태 체크
 		if(ValueUtil.isNotEqual(batch.getStatus(), JobBatch.STATUS_RUNNING)) {
 			// 진행 중인 작업배치가 아닙니다
 			throw ThrowUtil.newStatusIsNotIng("terms.label.job_batch");
@@ -60,21 +60,21 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 		Query condition = AnyOrmUtil.newConditionForExecution(batch.getDomainId());
 		condition.addFilter(new Filter("batchId", batch.getId()));
 
-		// 2. batchId별 수신 주문이 존재하는지 체크
+		// 4. batchId별 수신 주문이 존재하는지 체크
 		int count = this.queryManager.selectSize(Order.class, condition);
 		if(count == 0) {
 			// 해당 배치의 주문정보가 없습니다 --> 주문을 찾을 수 없습니다.
 			throw ThrowUtil.newNotFoundRecord("terms.label.order");
 		}
 
-		// 3. batchId별 작업 실행 데이터 체크
+		// 5. batchId별 작업 실행 데이터 체크
 		count = this.queryManager.selectSize(JobInstance.class, condition);
 		if(count == 0) {
 			// 해당 배치의 작업실행 정보가 없습니다 --> 작업을 찾을 수 없습니다.
 			throw ThrowUtil.newNotFoundRecord("terms.label.job");
 		}
 
-		// 4. batchId별 작업 실행 데이터 중에 완료되지 않은 것이 있는지 체크
+		// 6. batchId별 작업 실행 데이터 중에 완료되지 않은 것이 있는지 체크
 		if(!closeForcibly) {
 			condition.addFilter("status", OrmConstants.IN, LogisConstants.JOB_STATUS_WIPC);
 			if(this.queryManager.selectSize(JobInstance.class, condition) > 0) {
@@ -112,25 +112,60 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 		this.updateJobBatchFinished(batch, new Date());
 		
 		// 8. 분류 서비스 배치 마감 API 호출
-		//this.serviceDispatcher.getAssortService(batch).batchCloseAction(batch);
+		this.serviceDispatcher.getClassificationService(batch).batchCloseAction(batch);
 	}
 
 	@Override
 	public void isPossibleCloseBatchGroup(Long domainId, String batchGroupId, boolean closeForcibly) {
-		// TODO Auto-generated method stub
+		// 1. 작업 배치 상태 체크
+		String sql = "select id from job_batches where domain_id = :domainId and batch_group_id = :batchGroupId and status = :runStatus";
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchGroupId,runStatus", domainId, batchGroupId, JobBatch.STATUS_RUNNING);
+		int runCount = this.queryManager.selectSizeBySql(sql, params);
 		
+		if(runCount == 0) {
+			// 진행 중인 작업배치가 아닙니다
+			throw ThrowUtil.newStatusIsNotIng("terms.label.job_batch");
+		}
+
+		// 2. batchId별 작업 실행 데이터 중에 완료되지 않은 것이 있는지 체크
+		if(!closeForcibly) {
+			// batchId별 작업 실행 데이터 체크
+			sql = "select distinct equip_nm from job_instances where domain_id = :domainId and batch_id in (select id from job_batches where domain_id = :domainId and batch_group_id = :batchGroupId) and status in (:statuses) order by equip_cd asc";
+			params.put("statuses", LogisConstants.JOB_STATUS_WIPC);
+			List<String> equipCdList = this.queryManager.selectListBySql(sql, params, String.class, 0, 0);
+			
+			// batchId별 작업 실행 데이터 체크
+			if(!equipCdList.isEmpty()) {
+				// {0} 등 {1}개의 호기에서 작업이 끝나지 않았습니다.
+				String msg = MessageUtil.getMessage("ASSORTING_NOT_FINISHED_IN_RACKS", "{0} 등 {1}개의 호기에서 작업이 끝나지 않았습니다.", ValueUtil.toList(equipCdList.get(0), ValueUtil.toString(equipCdList.size())));
+				throw ThrowUtil.newValidationErrorWithNoLog(msg);
+			}
+		}
 	}
 
 	@Override
 	public int closeBatchGroup(Long domainId, String batchGroupId, boolean forcibly) {
-		// TODO Auto-generated method stub
+		String sql = "select id from job_batches where domain_id = :domainId and batch_group_id = :batchGroupId and status = :runStatus";
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchGroupId,runStatus", domainId, batchGroupId, JobBatch.STATUS_RUNNING);
+		List<JobBatch> batchList = this.queryManager.selectListBySql(sql, params, JobBatch.class, 0, 0);
+		
+		for(JobBatch batch : batchList) {
+			this.closeBatch(batch, forcibly);
+		}
+		
 		return 0;
 	}
 
 	@Override
 	public void isPossibleCancelBatch(JobBatch batch) {
-		// TODO Auto-generated method stub
+		// 작업 지시 취소 조건 체크
+		Query condition = AnyOrmUtil.newConditionForExecution(batch.getDomainId());
+		condition.addFilter("batchId", batch.getId());
+		condition.addFilter(new Filter("pickedQty", OrmConstants.GREATER_THAN, 0));
 		
+		if(this.queryManager.selectSize(JobInstance.class, condition) > 0) {
+			throw ThrowUtil.newValidationErrorWithNoLog(true, "MPS_NOT_ALLOWED_CANCEL_AFTER_START_JOB"); // 분류 작업시작 이후여서 취소가 불가능합니다
+		}
 	}
 
 	/**
@@ -161,7 +196,7 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 	 * @return
 	 */
 	protected void deletePreprocess(JobBatch batch) {
-		this.queryManager.executeBySql("DELETE FROM ORDER_PREPROCESSES WHERE BATCH_ID= :batchId", ValueUtil.newMap("batchId", batch.getId()));
+		this.queryManager.executeBySql("DELETE FROM ORDER_PREPROCESSES WHERE BATCH_ID = :batchId", ValueUtil.newMap("batchId", batch.getId()));
 	}
 	
 	/**
