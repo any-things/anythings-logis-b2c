@@ -7,8 +7,7 @@ import xyz.anythings.base.LogisCodeConstants;
  * 
  * @author yang
  */
-public class DpsCodeConstants extends LogisCodeConstants {		
-	
+public class DpsCodeConstants extends LogisCodeConstants {
 	
 	/**
 	 * DPS 가공 ( 박스투입 맵핑 ) 기준 주문 
@@ -19,7 +18,6 @@ public class DpsCodeConstants extends LogisCodeConstants {
 	 */
 	public static final String DPS_PREPROCESS_COL_SHOP = "SHOP";
 	
-	
 	/**
 	 * DPS 대상 분류 : 합포 
 	 */
@@ -29,12 +27,9 @@ public class DpsCodeConstants extends LogisCodeConstants {
 	 */
 	public static final String DPS_ORDER_TYPE_OT = "OT";
 	
-	
 	/**
 	 * DPS 랙 타입 : 단포 
 	 */
 	public static final String DPS_RACK_TYPE_OT = "O";
-	
-	
 	
 }

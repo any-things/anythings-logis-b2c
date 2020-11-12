@@ -1,19 +1,29 @@
 package operato.logis.dps.service.impl;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import operato.logis.dps.DpsCodeConstants;
+import operato.logis.dps.query.store.DpsBatchQueryStore;
 import operato.logis.dps.service.util.DpsBatchJobConfigUtil;
 import xyz.anythings.base.entity.JobBatch;
+import xyz.anythings.base.entity.JobInstance;
+import xyz.anythings.base.entity.Order;
 import xyz.anythings.base.entity.Rack;
 import xyz.anythings.base.event.EventConstants;
 import xyz.anythings.base.service.api.IInstructionService;
 import xyz.anythings.base.service.impl.AbstractInstructionService;
+import xyz.anythings.base.util.LogisBaseUtil;
 import xyz.anythings.sys.event.model.EventResultSet;
 import xyz.anythings.sys.event.model.SysEvent;
 import xyz.anythings.sys.util.AnyOrmUtil;
+import xyz.elidom.dbist.dml.Filter;
+import xyz.elidom.dbist.dml.Query;
+import xyz.elidom.orm.OrmConstants;
 import xyz.elidom.sys.util.ThrowUtil;
 import xyz.elidom.util.ValueUtil;
 
@@ -24,6 +34,53 @@ import xyz.elidom.util.ValueUtil;
  */
 @Component("dpsInstructionService")
 public class DpsInstructionService extends AbstractInstructionService implements IInstructionService {
+	
+	/**
+	 * 커스텀 서비스 - 대상 분류
+	 */
+	private static final String DIY_CLASSIFY_ORDERS = "diy-dps-classify-orders";
+	/**
+	 * 커스텀 서비스 - 추천 로케이션
+	 */
+	private static final String DIY_RECOMMEND_CELLS = "diy-dps-recommend-cells";
+	/**
+	 * 커스텀 서비스 - 토털 피킹
+	 */
+	private static final String DIY_TOTAL_PICKING = "diy-dps-totalpicking";
+	/**
+	 * 커스텀 서비스 - 박스 요청
+	 */
+	private static final String DIY_REQUEST_BOX = "diy-dps-request-box";
+	/**
+	 * 커스텀 서비스 - 작업 지시 전 처리
+	 */
+	private static final String DIY_PRE_INSTRUCT_BATCH = "diy-dps-pre-instruct-batch";
+	/**
+	 * 커스텀 서비스 - 작업 지시 후 처리
+	 */
+	private static final String DIY_POST_INSTRUCT_BATCH = "diy-dps-post-instruct-batch";
+	/**
+	 * 커스텀 서비스 - 배치 병합 전 처리
+	 */
+	private static final String DIY_PRE_MERGE_BATCH = "diy-dps-pre-merge-batch";
+	/**
+	 * 커스텀 서비스 - 배치 병합 후 처리
+	 */
+	private static final String DIY_POST_MERGE_BATCH = "diy-dps-post-merge-batch";
+	/**
+	 * 커스텀 서비스 - 작업 지시 취소 전 처리
+	 */
+	private static final String DIY_PRE_CANCEL_INSTRUCT_BATCH = "diy-dps-pre-cancel-instruct-batch";
+	/**
+	 * 커스텀 서비스 - 작업 지시 취소 후 처리
+	 */
+	private static final String DIY_POST_CANCEL_INSTRUCT_BATCH = "diy-dps-post-cancel-instruct-batch";
+	
+	/**
+	 * 배치 쿼리 스토어
+	 */
+	@Autowired
+	private DpsBatchQueryStore dpsBatchQueryStore;
 
 	@Override
 	public void targetClassing(JobBatch batch, Object... params) {
@@ -34,39 +91,104 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	public Map<String, Object> searchInstructionData(JobBatch batch, Object... params) {
 		// DPS에서는 구현이 필요없음
 		return null;
-	}	
+	}
 	
-	@SuppressWarnings("unchecked")
+	/**
+	 * 배치 데이터에 대해 설비 정보 여부 를 찾아 대상 설비 리스트를 리턴
+	 * 
+	 * @param jobBatch
+	 * @param equipIdList
+	 * @return
+	 */
+	@Override
+	protected List<Rack> searchEquipListByBatch(JobBatch batch, List<String> equipIdList) {
+		List<Rack> rackList = null;
+		
+		// 1. 상위 시스템에서 주문에 호기를 이미 설정해서 내린 경우
+		if(this.isSplitableBatch(batch)) {
+			rackList = this.searchRackByOrders(batch);
+			
+		// 2. 사용자가 작업 지시 시점에 배치 실행을 위한 호기를 선택한 경우 
+		} else {
+			rackList = this.searchEquipListByEquipIds(batch.getDomainId(), Rack.class, equipIdList);
+		}
+		
+		if(ValueUtil.isEmpty(rackList)) {
+			throw ThrowUtil.newValidationErrorWithNoLog("배치를 실행할 설비를 선택하세요.");
+		}
+		
+		// 3. 배치 : 호기 = 1 : 1인 경우
+		if(rackList.size() == 1) {
+			Rack rack = rackList.get(0);
+			String sql = "update orders set equip_group_cd = :equipGroupCd, equip_cd = :equipCd, equip_nm = :equipNm where domain_id = :domainId and batch_id = :batchId and equip_cd is null";
+			Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipGroupCd,equipCd,equipNm", batch.getDomainId(), batch.getId(), rack.getEquipGroupCd(), rack.getRackCd(), rack.getRackNm());
+			this.queryManager.executeBySql(sql, params);
+			
+			// 배치에 설비 설정
+			batch.setEquipGroupCd(rack.getEquipGroupCd());
+			batch.setEquipCd(rack.getRackCd());
+			batch.setEquipNm(rack.getRackNm());
+		}
+		
+		// 4. 랙 리스트 리턴
+		return rackList;
+	}
+	
+	/**
+	 * 배치를 호기별로 분할할 지 여부 판단
+	 * 
+	 * @param batch
+	 * @return
+	 */
+	private boolean isSplitableBatch(JobBatch batch) {
+		String sql = "select distinct equip_cd from orders where domain_id = :domainId and batch_id = :batchId and equip_cd is not null";
+		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId", batch.getDomainId(), batch.getId());
+		int count = this.queryManager.selectSizeBySql(sql, queryParams);
+		return count > 1;
+	}
+	
+	/**
+	 * 배치 주문으로 부터 랙 조회
+	 * 
+	 * @param batch
+	 * @return
+	 */
+	private List<Rack> searchRackByOrders(JobBatch batch) {
+		String sql = "select * from racks where domain_id = :domainId and rack_cd in (select distinct equip_cd from orders where domain_id = :domainId and batch_id = :batchId) order by equip_cd";
+		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId", batch.getDomainId(), batch.getId());
+		return this.queryManager.selectListBySql(sql, queryParams, Rack.class, 0, 0);
+	}
+	
 	@Override
 	public int instructBatch(JobBatch batch, List<String> equipIdList, Object... params) {
 		// 1. 배치 정보에 설정값이 없는지 체크
 		this.checkJobAndIndConfigSet(batch);
 		
 		// 2. 작업 배치 정보로 설비 리스트 조회
-		List<?> equipList = this.searchEquipListByBatch(batch, equipIdList);
+		List<Rack> rackList = this.searchEquipListByBatch(batch, equipIdList);
 		
-		// 3. 랙에 배치 할당 
-		List<Rack> rackList = (List<Rack>)equipList;
+		// 3. 랙에 배치 할당
 		for(Rack rack : rackList) {
 			rack.setBatchId(batch.getId());
+			rack.setStatus(JobBatch.STATUS_RUNNING);
 		}
 		
-		AnyOrmUtil.updateBatch(rackList, 100, "batchId", "updaterId", "updatedAt");
+		AnyOrmUtil.updateBatch(rackList, 100, "batchId", "status", "updatedAt");
 		
 		// 4. 소분류 코드, 방면 분류 코드 값을 설정에 따라서 주문 정보에 추가한다.
 		this.doUpdateClassificationCodes(batch, params);
 
 		// 5. 대상 분류 
-		this.doClassifyOrders(batch, equipList, params);
+		this.doClassifyOrders(batch, rackList, params);
 		
 		// 6. 추천 로케이션 정보 생성
-		this.doRecommendCells(batch, equipList, params);
+		this.doRecommendCells(batch, rackList, params);
 		
 		// 7. 작업 지시 처리
-		int retCnt = this.doInstructBatch(batch, equipList, params);
+		int retCnt = this.doInstructBatch(batch, rackList, params);
 		
 		// 8. 작업 지시 후 박스 요청 
-		this.doRequestBox(batch, equipList, params);
+		this.doRequestBox(batch, rackList, params);
 		
 		// 9. 건수 리턴
 		return retCnt;
@@ -74,53 +196,58 @@ public class DpsInstructionService extends AbstractInstructionService implements
 
 	@Override
 	public int instructTotalpicking(JobBatch batch, List<String> equipIdList, Object... params) {
-		// 1. 토털 피킹 전 처리 이벤트 
+		// 1. 토털 피킹 전 처리 이벤트
 		EventResultSet befResult = this.publishTotalPickingEvent(SysEvent.EVENT_STEP_BEFORE, batch, equipIdList, params);
 		
-		// 2. 다음 처리 취소일 경우 결과 리턴 
+		// 2. 다음 처리 취소일 경우 결과 리턴
 		if(befResult.isAfterEventCancel()) {
 			return ValueUtil.toInteger(befResult.getResult());
 		}
 		
-		// 3. 토털 피킹 후 처리 이벤트
+		// 3. 커스텀 서비스 호출
+		Object retVal = this.customService.doCustomService(batch.getDomainId(), DIY_TOTAL_PICKING, ValueUtil.newMap("batch,equipList", batch, equipIdList));
+		
+		// 4. 토털 피킹 후 처리 이벤트
 		EventResultSet aftResult = this.publishTotalPickingEvent(SysEvent.EVENT_STEP_AFTER, batch, equipIdList, params);
 		
-		// 4. 후처리 이벤트 실행 후 리턴 결과가 있으면 해당 결과 리턴 
+		// 5. 후처리 이벤트 실행 후 리턴 결과가 있으면 해당 결과 리턴
 		if(aftResult.isExecuted()) {
-			if(aftResult.getResult() != null ) { 
-				return ValueUtil.toInteger(aftResult.getResult());
+			if(retVal == null && aftResult.getResult() != null) {
+				retVal = aftResult.getResult();
 			}
 		}
 		
-		return 0;
+		// 6. 결과 건수 리턴
+		return this.returnValueToInt(retVal);
 	}
 
 	@Override
 	public int mergeBatch(JobBatch mainBatch, JobBatch newBatch, Object... params) {
 		// 1. 작업 배치 정보로 설비 리스트 조회
-		List<?> equipList = this.searchEquipListByBatch(mainBatch, null);
+		String sql = "select * from racks where domain_id = :domainId and batch_id = :batchId";
+		List<Rack> rackList = this.queryManager.selectListBySql(sql, ValueUtil.newMap("domainId,batchId", mainBatch.getDomainId(), mainBatch.getId()), Rack.class, 0, 0);
 		
-		// 2. 병합의 경우에는 메인 배치의 설정 셋을 가져온다 .
+		// 2. 병합의 경우에는 메인 배치의 설정 셋을 가져온다.
 		newBatch.setJobConfigSetId(mainBatch.getJobConfigSetId());
 		newBatch.setIndConfigSetId(mainBatch.getIndConfigSetId());
 		this.queryManager.update(newBatch , "jobConfigSetId","indConfigSetId");
 		
-		// 2. 소분류 코드, 방면 분류 코드 값을 설정에 따라서 주문 정보에 추가한다.
+		// 3. 소분류 코드, 방면 분류 코드 값을 설정에 따라서 주문 정보에 추가한다.
 		this.doUpdateClassificationCodes(newBatch, params);
 
-		// 3. 대상 분류 
-		this.doClassifyOrders(newBatch, equipList, params);
+		// 4. 대상 분류 
+		this.doClassifyOrders(newBatch, rackList, params);
 		
-		// 4. 추천 로케이션 정보 생성
-		this.doRecommendCells(newBatch, equipList, params);
+		// 5. 추천 로케이션 정보 생성
+		this.doRecommendCells(newBatch, rackList, params);
 		
-		// 5. 작업 병합 처리
-		int retCnt = this.doMergeBatch(mainBatch, newBatch, equipList, params);
+		// 6. 작업 병합 처리
+		int retCnt = this.doMergeBatch(mainBatch, newBatch, rackList, params);
 		
-		// 6. 작업 병합 후 박스 요청 
-		this.doRequestBox(mainBatch, equipList, params);
+		// 7. 작업 병합 후 박스 요청
+		this.doRequestBox(mainBatch, rackList, params);
 		
-		// 7. 병합 건수 리턴
+		// 8. 병합 건수 리턴
 		return retCnt;
 	}
 
@@ -134,17 +261,80 @@ public class DpsInstructionService extends AbstractInstructionService implements
 			return ValueUtil.toInteger(befResult.getResult());
 		}
 		
-		// 3. 작업 지시 취소 후 처리 이벤트
+		// 3. 커스텀 서비스 작업 지시 취소 전 처리 호출
+		Map<String, Object> svcParams = ValueUtil.newMap("batch", batch);
+		this.customService.doCustomService(batch.getDomainId(), DIY_PRE_CANCEL_INSTRUCT_BATCH, svcParams);
+		
+		// 4. 작업 지시 취소 조건 체크
+		Query condition = AnyOrmUtil.newConditionForExecution(batch.getDomainId());
+		condition.addFilter("batchId", batch.getId());
+		condition.addFilter(new Filter("pickedQty", OrmConstants.GREATER_THAN, 0));
+		if(this.queryManager.selectSize(JobInstance.class, condition) > 0) {
+			throw ThrowUtil.newValidationErrorWithNoLog(true, "MPS_NOT_ALLOWED_CANCEL_AFTER_START_JOB"); // 분류 작업시작 이후여서 취소가 불가능합니다
+		}
+		
+		// 4.1 단포 작업 활성화 여부
+		boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(batch);
+		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId,fromStatus,toStatus,orderType", batch.getDomainId(), batch.getId(), Order.STATUS_ASSIGN, "T", DpsCodeConstants.DPS_ORDER_TYPE_OT);
+		
+		// 4.2 단포 주문 상태 업데이트 및 작업 생성
+		if(useSinglePack) {
+			// 4.2.1 주문 상태 원복
+			String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
+			this.queryManager.executeBySql(sql, queryParams);
+		}
+		
+		// 4.3 작업 삭제
+		String sql = "delete from job_instances where domain_id = :domainId and batch_id = :batchId";
+		this.queryManager.executeBySql(sql, queryParams);
+		
+		// 4.4 합포 주문 업데이트
+		queryParams.put("fromStatus", Order.STATUS_WAIT);
+		queryParams.put("orderType", DpsCodeConstants.DPS_ORDER_TYPE_MT);
+		sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
+		this.queryManager.executeBySql(sql, queryParams);
+		
+		// 4.5 랙 배치 ID 업데이트
+		queryParams.put("equipCd", batch.getEquipCd());
+		sql = "update racks set batch_id = null, status = null where domain_id = :domainId and rack_cd = :equipCd";
+		this.queryManager.executeBySql(sql, queryParams);
+		
+		// 4.6 작업 배치 업데이트
+		sql = "select id from job_batches where domain_id = :domainId and batch_group_id = :batchGroupId and status != 'MERGED'";
+		int sameGroupBatchCount = this.queryManager.selectSizeBySql(sql, ValueUtil.newMap("domainId,batchGroupId", batch.getDomainId(), batch.getBatchGroupId()));
+		
+		// 4.7 병합된 배치를 제외한 동일 그룹의 배치가 자신 밖에 없다면 호기 선택 모드이다. 이 때는 작업 지시 취소 이후 다른 호기를 선택할 수 있으므로 호기 정보를 없애야 한다.
+		if(sameGroupBatchCount <= 1) {
+			// 작업 배치의 호기 정보 리셋
+			batch.setEquipGroupCd(null);
+			batch.setEquipCd(null);
+			batch.setEquipNm(null);
+			
+			// 주문의 호기 정보 리셋
+			sql = "update orders set equip_cd = null, equip_nm = null where domain_id = :domainId and batch_id = :batchId";
+			this.queryManager.executeBySql(sql, queryParams);
+		}
+		
+		// 4.8 작업 배치 정보 업데이트
+		batch.setStatus(JobBatch.STATUS_READY);
+		batch.setInstructedAt(null);
+		this.queryManager.update(batch, "equipGroupCd", "equipCd", "equipNm", "status", "instructedAt", "updatedAt");
+		
+		// 5. 커스텀 서비스 작업 지시 취소 후 처리 호출
+		Object retVal = this.customService.doCustomService(batch.getDomainId(), DIY_POST_CANCEL_INSTRUCT_BATCH, svcParams);
+		
+		// 6. 작업 지시 취소 후 처리 이벤트
 		EventResultSet aftResult = this.publishInstructionCancelEvent(SysEvent.EVENT_STEP_AFTER, batch, null);
 		
-		// 4. 후 처리 이벤트 실행 후 리턴 결과가 있으면 해당 결과 리턴 
+		// 7. 후 처리 이벤트 실행 후 리턴 결과가 있으면 해당 결과 리턴
 		if(aftResult.isExecuted()) {
-			if(aftResult.getResult() != null ) { 
-				return ValueUtil.toInteger(aftResult.getResult());
+			if(retVal == null && aftResult.getResult() != null) {
+				retVal = aftResult.getResult();
 			}
 		}
 		
-		return 0;
+		// 8. 결과 리턴
+		return this.returnValueToInt(retVal);
 	}
 	
 	/**
@@ -157,13 +347,13 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		if(ValueUtil.isEmpty(batch.getJobConfigSetId())) {
 			throw ThrowUtil.newJobConfigNotSet();
 		}
-				
+		
 		// 2. 표시기 관련 설정이 없는 경우 표시기 설정을 찾아서 세팅
 		if(ValueUtil.isEmpty(batch.getIndConfigSetId())) {
 			throw ThrowUtil.newIndConfigNotSet();
-		}		
+		}
 	}
-		
+	
 	/**
 	 * 작업 배치 소속 주문 데이터의 소분류, 방면 분류 코드를 업데이트 ...
 	 * 
@@ -196,84 +386,99 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	 * 작업 대상 분류
 	 * 
 	 * @param batch
-	 * @param equipList
+	 * @param rackList
 	 * @param params
 	 */
-	private void doClassifyOrders(JobBatch batch, List<?> equipList, Object... params) {
-		// 1. 전처리 이벤트   
-		EventResultSet befResult = this.publishClassificationEvent(SysEvent.EVENT_STEP_BEFORE, batch, equipList, params);
+	private void doClassifyOrders(JobBatch batch, List<Rack> rackList, Object... params) {
+		// 1. 전처리 이벤트
+		EventResultSet befResult = this.publishClassificationEvent(SysEvent.EVENT_STEP_BEFORE, batch, rackList, params);
 		
-		// 2. 다음 처리 취소 일 경우 결과 리턴 
+		// 2. 다음 처리 취소 일 경우 결과 리턴
 		if(!befResult.isAfterEventCancel()) {
 			
-			// 3. 대상 분류 프로세싱 
-			this.processClassifyOrders(batch, equipList, params);
+			// 3. 대상 분류 프로세싱
+			this.processClassifyOrders(batch, rackList, params);
 			
-			// 4. 후처리 이벤트 
-			this.publishClassificationEvent(SysEvent.EVENT_STEP_AFTER, batch, equipList, params);
+			// 4. 후처리 이벤트
+			this.publishClassificationEvent(SysEvent.EVENT_STEP_AFTER, batch, rackList, params);
 		}
 	}
 	
 	/**
-	 * 대상 분류 프로세싱 
+	 * 대상 분류 프로세싱 - 커스텀 서비스 (diy-dps-classify-orders) 연동
 	 * 
 	 * @param batch
-	 * @param equipList
+	 * @param rackList
 	 * @param params
 	 * @return
 	 */
-	private int processClassifyOrders(JobBatch batch, List<?> equipList, Object... params) {
-		// 1. 단포 작업 활성화 여부 
+	private int processClassifyOrders(JobBatch batch, List<Rack> rackList, Object... params) {
+		// 1. 상위 시스템 대상 분류 여부 확인
+		String sql = "SELECT ID FROM ORDERS WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId AND ORDER_TYPE IS NOT NULL";
+		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId", batch.getDomainId(), batch.getId());
+		int classifyCount = this.queryManager.selectSizeBySql(sql, queryParams);
+		
+		// 2. 상위 시스템에서 대상 분류 한 작업 이면 건수만 리턴
+		if(classifyCount > 0) {
+			queryParams.put("currentTime", new Date());
+			sql = "UPDATE ORDERS SET STATUS = 'T', UPDATED_AT = :currentTime WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId";
+			return this.queryManager.executeBySql(sql, queryParams);
+		}
+		
+		// 3. 단포 작업 활성화 여부 체크
 		boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(batch);
-		// 2. 파라미터 생성
-		Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_SINGLE_PACK", batch.getDomainId(), batch.getId(),useSinglePack);
-		// 3. 프로시져 콜 
-		Map<?, ?> result = this.queryManager.callReturnProcedure("OP_DPS_BATCH_SET_ORDER_TYPE", inputParams, Map.class);
-		// 4. 처리 건수 취합
-		int resultCnt = ValueUtil.toInteger(result.get("P_OUT_MT_COUNT"));
-		resultCnt += ValueUtil.toInteger(result.get("P_OUT_OT_COUNT"));
-		// 5. 처리 건수 리턴 
-		return resultCnt;
+		
+		// 4. 단포 대상 분류
+		if(useSinglePack) {
+			sql = this.dpsBatchQueryStore.getDpsClassifySingleOrders();
+			classifyCount = this.queryManager.executeBySql(sql, queryParams);
+		}
+		
+		// 5. 합포 대상 분류
+		sql = this.dpsBatchQueryStore.getDpsClassifySingleOrders();
+		classifyCount += this.queryManager.executeBySql(sql, queryParams);
+		
+		// 6. 커스텀 서비스 호출
+		this.customService.doCustomService(batch.getDomainId(), DIY_CLASSIFY_ORDERS, ValueUtil.newMap("batch,equipList", batch, rackList));
+		return classifyCount;
 	}
 	
 	/**
 	 * 추천 로케이션 처리
 	 * 
 	 * @param batch
-	 * @param equipList
+	 * @param rackList
 	 * @param params
 	 */
-	private void doRecommendCells(JobBatch batch, List<?> equipList, Object ... params) {
+	private void doRecommendCells(JobBatch batch, List<Rack> rackList, Object ... params) {
 		// 1. 전 처리 이벤트
-		EventResultSet befResult = this.publishRecommendCellsEvent(SysEvent.EVENT_STEP_BEFORE, batch, equipList, params);
+		EventResultSet befResult = this.publishRecommendCellsEvent(SysEvent.EVENT_STEP_BEFORE, batch, rackList, params);
 		
 		// 2. 다음 처리 취소 일 경우 결과 리턴 
 		if(!befResult.isAfterEventCancel()) {
 			
 			// 3. 작업 지시 실행
-			this.processRecommendCells(batch, equipList, params);
+			this.processRecommendCells(batch, rackList, params);
 			
 			// 4. 후 처리 이벤트 
-			this.publishRecommendCellsEvent(SysEvent.EVENT_STEP_AFTER, batch, equipList, params);
-		}		
+			this.publishRecommendCellsEvent(SysEvent.EVENT_STEP_AFTER, batch, rackList, params);
+		}
 	}
 	
 	/**
-	 * 추천 로케이션 실행
+	 * 추천 로케이션 실행 - 커스텀 서비스 (diy-dps-recommend-cells) 연동
 	 * 
 	 * @param batch
-	 * @param equipList
+	 * @param rackList
 	 * @param params
 	 */
-	private void processRecommendCells(JobBatch batch, List<?> equipList, Object ... params) {
-		// 재고 적치 추천 셀 사용 유무 
+	private void processRecommendCells(JobBatch batch, List<Rack> rackList, Object ... params) {
+		// 재고 적치 추천 셀 사용 유무
 		boolean useRecommendCell = DpsBatchJobConfigUtil.isRecommendCellEnabled(batch);
 		
 		if(useRecommendCell) {
-			// 1. 파라미터 생성
-			Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID", batch.getDomainId(), batch.getId());
-			// 2. 프로시져 콜 
-			this.queryManager.callReturnProcedure("OP_DPS_BATCH_RECOMM_CELL", inputParams, Map.class);
+			// 커스텀 서비스 호출
+			this.customService.doCustomService(batch.getDomainId(), DIY_RECOMMEND_CELLS, ValueUtil.newMap("batch,equipList", batch, rackList));
 		}
 	}
 	
@@ -281,13 +486,13 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	 * 작업 지시 처리
 	 * 
 	 * @param batch
-	 * @param equipList
+	 * @param rackList
 	 * @param params
 	 * @return
 	 */
-	private int doInstructBatch(JobBatch batch, List<?> equipList, Object ... params) {
+	private int doInstructBatch(JobBatch batch, List<Rack> rackList, Object ... params) {
 		// 1. 전 처리 이벤트
-		EventResultSet befResult = this.publishInstructionEvent(SysEvent.EVENT_STEP_BEFORE, batch, equipList, params);
+		EventResultSet befResult = this.publishInstructionEvent(SysEvent.EVENT_STEP_BEFORE, batch, rackList, params);
 		
 		// 2. 다음 처리 취소 일 경우 결과 리턴 
 		if(befResult.isAfterEventCancel()) {
@@ -298,38 +503,127 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		int resultCnt = this.processInstruction(batch, params);
 		
 		// 4. 후 처리 이벤트 
-		EventResultSet aftResult = this.publishInstructionEvent(SysEvent.EVENT_STEP_AFTER, batch, equipList, params);
+		EventResultSet aftResult = this.publishInstructionEvent(SysEvent.EVENT_STEP_AFTER, batch, rackList, params);
 		
-		// 5. 후 처리 이벤트가 실행 되고 리턴 결과가 있으면 해당 결과 리턴 
+		// 5. 후 처리 이벤트가 실행 되고 리턴 결과가 있으면 해당 결과 리턴
 		if(aftResult.isExecuted()) {
-			if(aftResult.getResult() != null ) { 
-				resultCnt += ValueUtil.toInteger(aftResult.getResult());
+			if(resultCnt == 0 && aftResult.getResult() != null) {
+				resultCnt = ValueUtil.toInteger(aftResult.getResult());
 			}
 		}
 
+		// 6. 결과 리턴
 		return resultCnt;
 	}
 	
 	/**
-	 * 작업 지시 실행 
-	 *  
+	 * 작업 지시 실행 - 커스텀 서비스 (diy-dps-pre-instruct-batch, diy-dps-post-instruct-batch) 연동
+	 * 
 	 * @param batch
 	 * @param params
 	 * @return
 	 */
 	private int processInstruction(JobBatch batch, Object ... params) {
-		// 1. 단포 작업 활성화 여부 
-		boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(batch);
-		// 2. 호기별 배치 분리 여부
-		boolean useSeparatedBatch = DpsBatchJobConfigUtil.isSeparatedBatchByRack(batch);
+		// 1. 작업 지시 전 처리를 위한 커스텀 서비스 호출
+		Long domainId = batch.getDomainId();
+		Map<String, Object> svcParams = ValueUtil.newMap("batch,diyParams", batch, params);
+		this.customService.doCustomService(domainId, DIY_PRE_INSTRUCT_BATCH, svcParams);
 
-		// 3. 파라미터 생성
-		Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_SINGLE_PACK,P_IN_SEPARATED_BATCH"
-				, batch.getDomainId(), batch.getId(), useSinglePack, useSeparatedBatch);
-		// 4. 프로시져 콜
-		this.queryManager.callReturnProcedure("OP_DPS_BATCH_INSTRUCT", inputParams, Map.class);
+		// 2. 호기별로 배치 분리 설정인지 체크
+		if(this.isSplitableBatch(batch)) {
+			// 호기별 배치 분리 및 주문 분리
+			batch = this.splitBatch(batch);
+		}
 		
+		// 3. 단포 작업 활성화 여부
+		boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(batch);
+		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchGroupId,equipCd,equipNm,fromStatus,toStatus,orderType", 
+				domainId, batch.getBatchGroupId(), batch.getEquipCd(), batch.getEquipNm(), "T", Order.STATUS_ASSIGN, DpsCodeConstants.DPS_ORDER_TYPE_OT);
+		
+		// 4. 단포 주문 상태 업데이트 및 작업 생성
+		if(useSinglePack) {
+			// 4.1 주문 업데이트 
+			String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
+			this.queryManager.executeBySql(sql, queryParams);
+			
+			// 4.2 단포 작업 생성
+			sql = this.dpsBatchQueryStore.getDpsGenerateSinglePackInstances();
+			this.queryManager.executeBySql(sql, queryParams);
+		}
+		
+		// 5. 합포 주문 업데이트
+		queryParams.put("toStatus", Order.STATUS_WAIT);
+		queryParams.put("orderType", DpsCodeConstants.DPS_ORDER_TYPE_MT);
+		String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
+		this.queryManager.executeBySql(sql, queryParams);
+		
+		// 6. 작업 배치 업데이트
+		batch.setStatus(JobBatch.STATUS_RUNNING);
+		batch.setInstructedAt(new Date());
+		this.queryManager.update(batch, "equipGroupCd", "equipCd", "equipNm", "status", "instructedAt", "updatedAt");
+		
+		// 7. 작업 지시 후 처리를 위한 커스텀 서비스 호출
+		this.customService.doCustomService(domainId, DIY_POST_INSTRUCT_BATCH, svcParams);
 		return 1;
+	}
+	
+	/**
+	 * 배치를 주문의 호기별로 분할
+	 * 
+	 * @param batch
+	 * @return
+	 */
+	private JobBatch splitBatch(JobBatch batch) {
+		Long domainId = batch.getDomainId();
+		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId", domainId, batch.getId());
+		List<Rack> rackList = this.searchRackByOrders(batch);
+		
+		if(rackList != null && !rackList.isEmpty()) {
+			boolean isFirst = true;
+			JobBatch currentBatch = null;
+			
+			// 조회된 모든 랙을 대상으로 
+			for(Rack rack : rackList) {
+				// 2. 현재 배치 정보 설정
+				currentBatch = isFirst ? batch : null;
+				
+				// 3. 첫번째 호기가 아니면 분할 배치 생성 
+				if(currentBatch == null) {
+					currentBatch = new JobBatch();
+					currentBatch = ValueUtil.populate(batch, currentBatch);
+					currentBatch.setId(LogisBaseUtil.newJobBatchId(domainId, batch.getStageCd()));
+				}
+				
+				// 4. 분할 배치별 주문 수 계산 후 배치 정보에 업데이트
+				String sql = "select count(distinct(class_cd)) as batch_order_qty, sum(order_qty) as batch_pcs from orders where domain_id = :domainId and batch_id = :batchId and equip_cd = :equipCd";
+				JobBatch orderCnt = this.queryManager.selectBySql(sql, queryParams, JobBatch.class);
+				currentBatch.setEquipCd(rack.getRackCd());
+				currentBatch.setEquipNm(rack.getRackNm());
+				currentBatch.setBatchOrderQty(orderCnt.getBatchOrderQty());
+				currentBatch.setBatchPcs(orderCnt.getBatchPcs());
+				
+				// 5. 배치 정보 생성 혹은 업데이트
+				if(isFirst) {
+					this.queryManager.update(currentBatch, "equipCd", "equipNm", "batchOrderQty", "batchPcs", "updatedAt");
+					isFirst = false;
+					
+				} else {
+					this.queryManager.insert(currentBatch);
+					
+					// 6. 배치별 주문 정보 업데이트
+					queryParams.put("newBatchId", currentBatch.getId());
+					queryParams.put("currentDate", new Date());
+					sql = "update orders set equip_nm = :equipNm, batch_id = :newBatchId, updated_at = :currentDate where domain_id = :domainId and batch_id = :batchId and equip_cd = :equipCd";
+					this.queryManager.executeBySql(sql, queryParams);
+				}
+
+				// 7. 랙에 배치 ID 설정
+				rack.setBatchId(currentBatch.getId());
+				this.queryManager.update(rack, "batchId", "updatedAt");
+			}
+		}
+		
+		return batch;
 	}
 
 	/**
@@ -344,12 +638,14 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		// 1. 단독 처리 이벤트   
 		EventResultSet eventResult = this.publishRequestBoxEvent(batch, equipList, params);
 		
-		// 2. 다음 처리 취소 일 경우 결과 리턴 
-		if(eventResult.isExecuted()) {
+		// 2. 다음 처리 취소 일 경우 결과 리턴
+		if(eventResult.isAfterEventCancel()) {
 			return ValueUtil.toInteger(eventResult.getResult());
 		}
 		
-		return 0;
+		// 3. 커스텀 서비스 호출
+		Object retVal = this.customService.doCustomService(batch.getDomainId(), DIY_REQUEST_BOX, ValueUtil.newMap("batch", batch));
+		return this.returnValueToInt(retVal);
 	}
 	
 	/**
@@ -362,27 +658,28 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	 * @return
 	 */
 	private int doMergeBatch(JobBatch mainBatch, JobBatch newBatch, List<?> equipList, Object... params) {
-		// 1. 전처리 이벤트   
+		// 1. 전처리 이벤트
 		EventResultSet befResult = this.publishMergingEvent(SysEvent.EVENT_STEP_BEFORE, mainBatch, newBatch, equipList, params);
 		
-		// 2. 다음 처리 취소 일 경우 결과 리턴 
+		// 2. 다음 처리 취소 일 경우 결과 리턴
 		if(befResult.isAfterEventCancel()) {
 			return ValueUtil.toInteger(befResult.getResult());
 		}
 		
-		// 3. 배치 병합 처리 
+		// 3. 배치 병합 처리
 		int resultCnt = this.processMerging(mainBatch, newBatch, params);
 		
-		// 4. 후처리 이벤트 
+		// 4. 후처리 이벤트
 		EventResultSet aftResult = this.publishMergingEvent(SysEvent.EVENT_STEP_AFTER, mainBatch, newBatch, equipList, params);
 		
-		// 5. 후처리 이벤트가 실행 되고 리턴 결과가 있으면 해당 결과 리턴 
+		// 5. 후처리 이벤트가 실행 되고 리턴 결과가 있으면 해당 결과 리턴
 		if(aftResult.isExecuted()) {
-			if(aftResult.getResult() != null) { 
-				resultCnt += ValueUtil.toInteger(aftResult.getResult());
+			if(resultCnt == 0 && aftResult.getResult() != null) {
+				resultCnt = ValueUtil.toInteger(aftResult.getResult());
 			}
 		}
 
+		// 6. 결과 리턴
 		return resultCnt;
 	}
 	
@@ -396,19 +693,87 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	 */
 	private int processMerging(JobBatch mainBatch, JobBatch newBatch, Object ... params) {
 		// 1. 단포 작업 활성화 여부 
-		boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(mainBatch);
+		//boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(mainBatch);
 		// 2. 호기별 배치 분리 여부
-		boolean useSeparatedBatch = DpsBatchJobConfigUtil.isSeparatedBatchByRack(mainBatch);
+		//boolean useSeparatedBatch = DpsBatchJobConfigUtil.isSeparatedBatchByRack(mainBatch);
 
 		// 3. 인풋 파라미터 설정
-		Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_MAIN_BATCH_ID,P_IN_SINGLE_PACK,P_IN_SEPARATED_BATCH"
-				, mainBatch.getDomainId(), newBatch.getId(), mainBatch.getId(), useSinglePack, useSeparatedBatch);
+		//Map<String, Object> inputParams = ValueUtil.newMap("P_IN_DOMAIN_ID,P_IN_BATCH_ID,P_IN_MAIN_BATCH_ID,P_IN_SINGLE_PACK,P_IN_SEPARATED_BATCH"
+		//		, mainBatch.getDomainId(), newBatch.getId(), mainBatch.getId(), useSinglePack, useSeparatedBatch);
 		// 4. 프로시져 콜 
-		this.queryManager.callReturnProcedure("OP_DPS_BATCH_MERGE", inputParams, Map.class);
+		//this.queryManager.callReturnProcedure("OP_DPS_BATCH_MERGE", inputParams, Map.class);
 		
-		return 1;
+		// 1. 병합 전 커스텀 서비스 호출
+		Long domainId = mainBatch.getDomainId();
+		Map<String, Object> svcParams = ValueUtil.newMap("mainBatch,newBatch", mainBatch, newBatch);
+		this.customService.doCustomService(domainId, DIY_PRE_MERGE_BATCH, svcParams);
+		
+		// 2.1 호기별로 배치 분리 설정인지 체크
+		if(this.isSplitableBatch(newBatch)) {
+			// 호기별 배치 분리 및 주문 분리
+			throw ThrowUtil.newValidationErrorWithNoLog("병합하려는 배치의 주문에 여러 개의 랙이 포함되어 있어서 병합이 불가능합니다.");
+		}
+		
+		// 2.2 단포 활성화 여부 체크
+		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId,equipCd,equipNm,fromStatus,toStatus,orderType", 
+				domainId, newBatch.getId(), mainBatch.getEquipCd(), mainBatch.getEquipNm(), "T", Order.STATUS_ASSIGN, DpsCodeConstants.DPS_ORDER_TYPE_OT);
+		boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(mainBatch);
+		
+		// 2.3 단포 주문 업데이트, 단포 작업 생성
+		if(useSinglePack) {
+			// 2.3.1 주문 업데이트 
+			String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
+			this.queryManager.executeBySql(sql, queryParams);
+			
+			// 2.3.2 단포 작업 생성
+			sql = this.dpsBatchQueryStore.getDpsGenerateSinglePackInstances();
+			this.queryManager.executeBySql(sql, queryParams);
+		}
+		
+		// 2.4 합포 주문 업데이트
+		queryParams.put("toStatus", Order.STATUS_WAIT);
+		queryParams.put("orderType", DpsCodeConstants.DPS_ORDER_TYPE_MT);
+		String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
+		this.queryManager.executeBySql(sql, queryParams);
+		
+		// 2.5 병합 주문의 배치 ID를 모두 메인 배치로 변경
+		sql = "update orders set batch_id = :mainBatchId where domain_id = :domainId and batch_id = :mergedBatchId";
+		this.queryManager.executeBySql(sql, ValueUtil.newMap("domainId,mainBatchId,mergedBatchId", domainId, mainBatch.getId(), newBatch.getId()));
+		
+		// 2.6 작업 배치 업데이트
+		newBatch.setBatchGroupId(mainBatch.getBatchGroupId());
+		newBatch.setStatus(JobBatch.STATUS_MERGED);
+		newBatch.setInstructedAt(new Date());
+		this.queryManager.update(newBatch, "batchGroupId", "status", "instructedAt", "updatedAt");
+		
+		// 2.7 메인 배치 업데이트
+		this.updateBatchOrderCount(mainBatch);
+		
+		// 3. 병합 후 커스텀 서비스 호출
+		Object retVal = this.customService.doCustomService(domainId, DIY_POST_MERGE_BATCH, svcParams);
+		return this.returnValueToInt(retVal);
 	}
-		
+	
+	/**
+	 * 배치 주문 수 업데이트
+	 * 
+	 * @param batch
+	 */
+	private void updateBatchOrderCount(JobBatch batch) {
+		String sql = this.dpsBatchQueryStore.getDpsUpdateOrderCount();
+		this.queryManager.executeBySql(sql, ValueUtil.newMap("domainId,batchId", batch.getDomainId(), batch.getId()));
+	}
+	
+	/**
+	 * Object to integer
+	 * 
+	 * @param retVal
+	 * @return
+	 */
+	private int returnValueToInt(Object retVal) {
+		return (retVal == null) ? 0 : (retVal instanceof Integer) ? ValueUtil.toInteger(retVal) : 0;
+	}
+	
 	/******************************************************************
 	 * 							이벤트 전송
 	/******************************************************************/

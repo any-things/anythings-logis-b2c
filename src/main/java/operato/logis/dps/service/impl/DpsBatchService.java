@@ -99,17 +99,20 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 			return;
 		}
 		
-		// 4. 해당 배치에 대한 고정식이 아닌 호기들에 소속된 로케이션을 모두 찾아서 리셋
+		// 4. 재고 리셋
+		this.resetFreeCells(batch);
+		
+		// 5. 해당 배치에 대한 고정식이 아닌 호기들에 소속된 로케이션을 모두 찾아서 리셋
 		this.resetRacksAndWorkCells(batch);
 
-		// 5. OREDER_PREPROCESS 삭제
+		// 6. OREDER_PREPROCESS 삭제
 		this.deletePreprocess(batch);
 
-		// 6. JobBatch 상태 변경
+		// 7. JobBatch 상태 변경
 		this.updateJobBatchFinished(batch, new Date());
 		
-		// 7. 분류 서비스 배치 마감 API 호출 
-		this.serviceDispatcher.getAssortService(batch).batchCloseAction(batch);
+		// 8. 분류 서비스 배치 마감 API 호출
+		//this.serviceDispatcher.getAssortService(batch).batchCloseAction(batch);
 	}
 
 	@Override
@@ -137,7 +140,7 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 	 */
 	protected void resetRacksAndWorkCells(JobBatch batch) {
 		Map<String, Object> params = ValueUtil.newMap("domainId,equipCd,batchId", batch.getDomainId(), batch.getEquipCd(), batch.getId());
-	  	this.queryManager.executeBySql("UPDATE RACKS SET STATUS = null, BATCH_ID = null WHERE DOMAIN_ID = :domainId AND RACK_CD = :equipCd", params);
+	  	this.queryManager.executeBySql("UPDATE RACKS SET STATUS = null, BATCH_ID = null WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId", params);
 	  	this.queryManager.executeBySql("DELETE FROM WORK_CELLS WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId", params);
 	}
 	
@@ -147,8 +150,8 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 	 * @param batch
 	 */
 	protected void resetFreeCells(JobBatch batch) {
-		Map<String, Object> params = ValueUtil.newMap("domainId,equipType,equipCd", batch.getDomainId(), batch.getEquipType(), batch.getEquipCd());
-	  	this.queryManager.executeBySql("UPDATE STOCKS SET STOCK_QTY = 0, LOAD_QTY = 0, ALLOC_QTY = 0, PICKED_QTY = 0 WHERE DOMAIN_ID = :domainId AND EQUIP_TYPE = :equipType AND EQUIP_CD = :equipCd", params);
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipType,fixedFlag", batch.getDomainId(), batch.getId(), batch.getEquipType(), false);
+		this.queryManager.executeBySql("UPDATE STOCKS SET SKU_CD = null, SKU_BARCD = null, SKU_NM = null, STOCK_QTY = 0, LOAD_QTY = 0, ALLOC_QTY = 0, PICKED_QTY = 0 WHERE DOMAIN_ID = :domainId AND EQUIP_TYPE = :equipType AND EQUIP_CD in (select rack_cd from racks where domain_id = :domainId and batch_id = :batchId) AND (FIXED_FLAG IS NULL OR FIXED_FLAG = :fixedFlag)", params);
 	}
 	
 	/**

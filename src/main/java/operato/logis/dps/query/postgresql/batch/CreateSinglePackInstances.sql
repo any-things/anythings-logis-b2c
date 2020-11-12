@@ -1,0 +1,71 @@
+INSERT INTO JOB_INSTANCES (
+	  ID
+	, BATCH_ID
+	, JOB_DATE
+	, JOB_SEQ
+	, JOB_TYPE
+	, COM_CD
+	, EQUIP_TYPE
+	, EQUIP_CD
+	, EQUIP_NM
+	, CLASS_CD
+	, SKU_CD
+	, SKU_NM
+	, INPUT_SEQ
+	, BOX_TYPE_CD
+	, SHOP_CD
+	, ORDER_NO
+	, PICK_QTY
+	, ORDER_TYPE
+	, STATUS
+	, DOMAIN_ID
+	, CREATOR_ID
+	, UPDATER_ID
+	, CREATED_AT
+	, UPDATED_AT
+) SELECT 
+	uuid_generate_v4()
+	, BATCH_ID
+	, JOB_DATE
+	, JOB_SEQ
+	, JOB_TYPE
+	, COM_CD
+	, EQUIP_TYPE
+	, COALESCE(EQUIP_CD, :equipCd)
+	, COALESCE(EQUIP_NM, :equipNm)
+	, CLASS_CD
+	, SKU_CD
+	, MAX(SKU_NM)
+	, 0
+	, BOX_TYPE_CD
+	, COM_CD
+	, CLASS_CD
+	, SUM(ORDER_QTY) AS ORDER_QTY
+	, ORDER_TYPE
+	, 'W'
+	, DOMAIN_ID
+	, 'system'
+	, 'system'
+	, now()
+	, now()
+FROM 
+	ORDERS
+WHERE 
+	DOMAIN_ID = :domainId
+	AND BATCH_ID in (
+		SELECT
+			ID
+		FROM
+			JOB_BATCHES
+		WHERE
+			DOMAIN_ID = :domainId
+			#if($batchId)
+			AND ID = :batchId
+			#end
+			#if($batchGroupId)
+			AND BATCH_GROUP_ID = :batchGroupId
+			#end
+	)
+	AND ORDER_TYPE = 'OT'
+GROUP BY 
+	DOMAIN_ID, BATCH_ID, JOB_DATE, JOB_SEQ, JOB_TYPE, EQUIP_TYPE, CLASS_CD, ORDER_TYPE, COM_CD, SKU_CD, BOX_TYPE_CD, EQUIP_CD, EQUIP_NM	

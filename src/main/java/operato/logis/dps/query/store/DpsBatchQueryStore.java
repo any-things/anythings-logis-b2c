@@ -17,7 +17,7 @@ public class DpsBatchQueryStore extends AbstractQueryStore {
 	public void initQueryStore(String databaseType) {
 		this.databaseType = databaseType;
 		this.basePath = "operato/logis/dps/query/" + this.databaseType + SysConstants.SLASH;
-		this.defaultBasePath = "operato/logis/dps/query/ansi/"; 
+		this.defaultBasePath = "operato/logis/dps/query/ansi/";
 	}
 	
 	/**
@@ -108,5 +108,50 @@ public class DpsBatchQueryStore extends AbstractQueryStore {
 	 */
 	public String getDpsBatchResultSummaryQuery() {
 		return this.getQueryByPath("batch/BatchResultSummary");
+	}
+	
+	/**
+	 * 작업 지시 단포 대상 분류를 위한 쿼리 조회
+	 *
+	 * @return
+	 */
+	public String getDpsClassifySingleOrders() {
+		return this.getQueryByPath("batch/ClassifySingleOrders");
+	}
+	
+	/**
+	 * 작업 지시 합포 대상 분류를 위한 쿼리 조회
+	 *
+	 * @return
+	 */
+	public String getDpsClassifyMultiOrders() {
+		return this.getQueryByPath("batch/ClassifyMultiOrders");
+	}
+	
+	/**
+	 * 작업 지시 단포 작업 생성 쿼리 조회
+	 *
+	 * @return
+	 */
+	public String getDpsGenerateSinglePackInstances() {
+		return this.getQueryByPath("batch/CreateSinglePackInstances");
+	}
+	
+	/**
+	 * 작업 지시 주문 정보 업데이트 쿼리 조회
+	 *
+	 * @return
+	 */
+	public String getDpsOrderStatusByInstruct() {
+		return this.getQueryByPath("batch/UpdateOrderStatusByInstruct");
+	}
+	
+	/**
+	 * 작업 지시 배치 주문 수 업데이트 쿼리 조회
+	 *
+	 * @return
+	 */
+	public String getDpsUpdateOrderCount() {
+		return this.getQueryByPath("batch/UpdateBatchOrderCount");
 	}
 }
