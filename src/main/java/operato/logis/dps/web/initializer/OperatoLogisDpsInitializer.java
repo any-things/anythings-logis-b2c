@@ -11,6 +11,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import operato.logis.dps.config.ModuleProperties;
+import operato.logis.dps.query.store.DpsAssignQueryStore;
 import operato.logis.dps.query.store.DpsBatchQueryStore;
 import operato.logis.dps.query.store.DpsBoxQueryStore;
 import operato.logis.dps.query.store.DpsInspectionQueryStore;
@@ -54,6 +55,11 @@ public class OperatoLogisDpsInitializer {
 	 */	
 	@Autowired
 	private DpsBatchQueryStore dpsBatchQueryStore;
+	/**
+	 * DPS 할당용 쿼리 스토어
+	 */	
+	@Autowired
+	private DpsAssignQueryStore dpsAssignQueryStore;
 	/**
 	 * DPS 피킹용 쿼리 스토어
 	 */
@@ -100,8 +106,9 @@ public class OperatoLogisDpsInitializer {
 	 */
 	private void initQueryStores() {
 		String dbType = this.queryManager.getDbType();
-		this.dpsPickQueryStore.initQueryStore(dbType);
 		this.dpsBatchQueryStore.initQueryStore(dbType);
+		this.dpsAssignQueryStore.initQueryStore(dbType);
+		this.dpsPickQueryStore.initQueryStore(dbType);
 		this.dpsBoxQueryStore.initQueryStore(dbType);
 		this.dpsInspectionQueryStore.initQueryStore(dbType);
 	}
