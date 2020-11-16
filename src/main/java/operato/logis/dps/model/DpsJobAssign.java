@@ -20,13 +20,25 @@ public class DpsJobAssign {
 	 */
 	private Integer ranking;
 	/**
-	 * 주문 번호 
+	 * 설비 유형
+	 */
+	private String equipType;
+	/**
+	 * 설비 코드
+	 */
+	private String equipCd;
+	/**
+	 * 주문 번호
 	 */
 	private String orderNo;
 	/**
 	 * 셀 번호
 	 */
 	private String cellCd;
+	/**
+	 * 표시기 코드
+	 */
+	private String indCd;
 	/**
 	 * 고객사 코드
 	 */
@@ -76,6 +88,22 @@ public class DpsJobAssign {
 		this.ranking = ranking;
 	}
 	
+	public String getEquipType() {
+		return equipType;
+	}
+
+	public void setEquipType(String equipType) {
+		this.equipType = equipType;
+	}
+
+	public String getEquipCd() {
+		return equipCd;
+	}
+
+	public void setEquipCd(String equipCd) {
+		this.equipCd = equipCd;
+	}
+
 	public String getOrderNo() {
 		return orderNo;
 	}
@@ -92,6 +120,14 @@ public class DpsJobAssign {
 		this.cellCd = cellCd;
 	}
 	
+	public String getIndCd() {
+		return indCd;
+	}
+
+	public void setIndCd(String indCd) {
+		this.indCd = indCd;
+	}
+
 	public String getComCd() {
 		return comCd;
 	}

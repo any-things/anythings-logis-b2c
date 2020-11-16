@@ -1,5 +1,6 @@
 package operato.logis.dps.service.impl;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -37,7 +38,7 @@ public class DpsJobAssignService extends AbstractLogisService {
 	/**
 	 * 현재 할당 작업이 진행 중인지 여부
 	 */
-	private boolean assignJobRunning = false;
+	//private boolean assignJobRunning = false;
 	/**
 	 * DPS Query Store
 	 */
@@ -63,7 +64,7 @@ public class DpsJobAssignService extends AbstractLogisService {
 		}
 		
 		// 작업 중 플래그 Up
-		this.assignJobRunning = true;
+		//this.assignJobRunning = true;
 		
 		// 1. 진행 중인 배치 리스트 조회
 		List<JobBatch> batchList = this.searchRunningBatchList(domainId);
@@ -85,7 +86,7 @@ public class DpsJobAssignService extends AbstractLogisService {
 		}
 		
 		// 4. 작업 중 플래그 리셋
-		this.assignJobRunning = false;
+		//this.assignJobRunning = false;
 	}
 	
 	/**
@@ -94,11 +95,7 @@ public class DpsJobAssignService extends AbstractLogisService {
 	 * @return
 	 */
 	protected boolean isJobEnabeld() {
-		if(!this.assignJobRunning) {
-			return false;
-		} else {
-			return true;
-		}
+		return true;
 	}
 	
 	/**
@@ -201,7 +198,7 @@ public class DpsJobAssignService extends AbstractLogisService {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private List<String> searchSkipOrders(JobBatch batch) {
 		Object retList = this.customService.doCustomService(batch.getDomainId(), CUSTOM_SERVICE_SKIP_ORDERS, ValueUtil.newMap("batch", batch));
-		return retList == null ? null : (List)retList;
+		return (retList == null) ? new ArrayList<String>(1) : (List)retList;
 	}
 
 	/**
@@ -228,7 +225,7 @@ public class DpsJobAssignService extends AbstractLogisService {
 	 */
 	private List<Order> searchOrdersForStock(JobBatch batch, Stock stock, int stockQty, List<String> skipOrderList) {
 		String sql = this.dpsAssignQueryStore.getSearchOrderForStockQuery();
-		Map<String, Object> params = ValueUtil.newMap("batchId,skuCd,stockQty,skipOrderIdList", batch.getId(), stock.getSkuCd(), stockQty, skipOrderList.isEmpty() ? null : skipOrderList);
+		Map<String, Object> params = ValueUtil.newMap("batchId,skuCd,stockQty,skipOrderIdList", batch.getId(), stock.getSkuCd(), stockQty, ValueUtil.isEmpty(skipOrderList) ? null : skipOrderList);
 		return this.queryManager.selectListBySql(sql, params, Order.class, 0, 0);
 	}
 
@@ -303,17 +300,11 @@ public class DpsJobAssignService extends AbstractLogisService {
 		
 		// 2. JobInstance 데이터 생성 
 		String dpsJobQry = this.dpsAssignQueryStore.getAssignJobInstanceQuery();
-
-		// TODO  아래 내용을 위해 DpsJobAssign 모델 변경 필요
-		String equipType = null;
-		String equipCd = null;
-		String indCd = null;
-		String colorCd = null;
-		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,orderNo,skuCd,cellCd,assignQty,equipType,equipCd,indCd,colorCd", domainId, candidate.getBatchId(), candidate.getOrderNo(), candidate.getSkuCd(), candidate.getCellCd(), assignQty, equipType, equipCd, indCd, colorCd);
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,orderNo,skuCd,cellCd,assignQty,equipType,equipCd,indCd,colorCd", domainId, candidate.getBatchId(), candidate.getOrderNo(), candidate.getSkuCd(), candidate.getCellCd(), assignQty, candidate.getEquipType(), candidate.getEquipCd(), candidate.getIndCd(), null);
 		this.queryManager.executeBySql(dpsJobQry.toString(), params);
 		
 		// 3. 주문 정보에 작업 할당 상태 업데이트
-		String sql = "UPDATE ORDERS SET STATUS = 'A', UPDATED_AT = now() WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId AND CLASS_CD = :orderNo AND SKU_CD = :skuCd STATUS = 'W'";
+		String sql = "UPDATE ORDERS SET STATUS = 'A', UPDATED_AT = now() WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId AND CLASS_CD = :orderNo AND SKU_CD = :skuCd AND STATUS = 'W'";
 		this.queryManager.executeBySql(sql, params);
 		
 		// 4. 재고 업데이트

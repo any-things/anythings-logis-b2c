@@ -39,7 +39,7 @@ WITH T_STOCKS AS (
 			DOMAIN_ID = :domainId
 			AND BATCH_ID = :batchId
 		GROUP BY 
-			BATCH_ID, SKU_CD
+			BATCH_ID, COM_CD, SKU_CD
 		) Y
 		
 		ON X.COM_CD = Y.COM_CD AND X.SKU_CD = Y.SKU_CD

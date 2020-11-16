@@ -28,7 +28,7 @@ insert into job_instances(
 	, order_type
 	, pick_qty
 	, picking_qty
-	, piked_qty
+	, picked_qty
 	, created_at
 	, updated_at
 	, creator_id
@@ -67,7 +67,7 @@ select
 	, now()
 	, now()
 	, 'system'
-	, 'system')
+	, 'system'
 from
 	ORDERS
 WHERE

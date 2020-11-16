@@ -26,7 +26,7 @@ public class DpsAssignQueryStore extends AbstractQueryStore {
 	 * @return
 	 */
 	public String getStockForJobAssignQuery() {
-		return this.getQueryByPath("assign/StockForJobAssign");
+		return this.getQueryByPath("assign/StocksForJobAssign");
 	}
 
 	/**
