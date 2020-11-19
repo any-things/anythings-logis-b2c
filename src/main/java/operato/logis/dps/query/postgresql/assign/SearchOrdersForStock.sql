@@ -1,4 +1,5 @@
 SELECT
+	X.DOMAIN_ID,
 	X.BATCH_ID,
 	X.CLASS_CD AS ORDER_NO,
 	X.COM_CD,
@@ -6,6 +7,7 @@ SELECT
 	X.ORDER_QTY
 FROM (
 	SELECT
+		DOMAIN_ID,
 		BATCH_ID,
 		CLASS_CD,
 		COM_CD,
@@ -14,19 +16,21 @@ FROM (
 	FROM
 		ORDERS
 	WHERE
-		BATCH_ID = :batchId
+		DOMAIN_ID = :domainId
+		AND BATCH_ID = :batchId
 		AND SKU_CD = :skuCd
 		AND STATUS = 'W'
 		#if($skipOrderIdList)
 		AND CLASS_CD NOT IN (:skipOrderIdList)
 		#end
-	GROUP BY 
+	GROUP BY
+		DOMAIN_ID,
 		BATCH_ID,
 		CLASS_CD,
 		COM_CD,
 		SKU_CD
 ) X
-WHERE 
+WHERE
 	X.ORDER_QTY <= :stockQty
 ORDER BY
 	ORDER_QTY ASC

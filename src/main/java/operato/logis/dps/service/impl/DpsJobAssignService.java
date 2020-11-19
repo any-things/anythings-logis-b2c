@@ -225,7 +225,7 @@ public class DpsJobAssignService extends AbstractLogisService {
 	 */
 	private List<Order> searchOrdersForStock(JobBatch batch, Stock stock, int stockQty, List<String> skipOrderList) {
 		String sql = this.dpsAssignQueryStore.getSearchOrderForStockQuery();
-		Map<String, Object> params = ValueUtil.newMap("batchId,skuCd,stockQty,skipOrderIdList", batch.getId(), stock.getSkuCd(), stockQty, ValueUtil.isEmpty(skipOrderList) ? null : skipOrderList);
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,skuCd,stockQty,skipOrderIdList", batch.getDomainId(), batch.getId(), stock.getSkuCd(), stockQty, ValueUtil.isEmpty(skipOrderList) ? null : skipOrderList);
 		return this.queryManager.selectListBySql(sql, params, Order.class, 0, 0);
 	}
 
@@ -277,7 +277,7 @@ public class DpsJobAssignService extends AbstractLogisService {
 			// 2.3 최종 작업 할당 - 할당 로케이션이 여러 개의 경우에는 할당 후 남은 주문 수량 리턴
 			if(orderQty > 0) {
 				// 2.3.1 주문 수량이 0 보다 큰 경우에만 할당 데이터 (DpsJobInstance) 생성
-				orderQty = this.assignJob(stock.getDomainId(), candidate, stockQty, orderQty, skipOrderList);
+				orderQty = this.assignJob(order.getDomainId(), candidate, stockQty, orderQty, skipOrderList);
 			}
 		}
 		
