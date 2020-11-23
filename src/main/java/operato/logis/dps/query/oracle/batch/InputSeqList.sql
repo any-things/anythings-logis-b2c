@@ -47,7 +47,8 @@ SELECT
 			#if($equipCd)
 			AND EQUIP_CD = :equipCd
 			#end
-			AND STATUS  not in ('BW','W')
+			AND INPUT_SEQ >= 1
+			AND STATUS  not in ('BW', 'W', 'A')
 			AND ORDER_TYPE = 'MT'
 		GROUP BY
 			BATCH_ID, EQUIP_TYPE, EQUIP_CD, ORDER_NO, BOX_ID, BOX_TYPE_CD, COM_CD, SKU_CD) A

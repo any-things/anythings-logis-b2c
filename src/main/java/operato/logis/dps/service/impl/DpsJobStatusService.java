@@ -123,7 +123,7 @@ public class DpsJobStatusService extends AbstractJobStatusService implements IDp
 		// 1. 배치 조건을 검색 조건에 추가
 		this.addBatchConditions(batch, condition);
 		// 2. 작업 리스트 조회 
-		return this.queryManager.selectList(JobInstance.class, condition);		
+		return this.queryManager.selectList(JobInstance.class, condition);
 
 	}
 

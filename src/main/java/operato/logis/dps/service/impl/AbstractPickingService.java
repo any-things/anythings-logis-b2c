@@ -404,7 +404,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 		// 1. 주문 번호로 투입 정보 조회  
 		String newInputsQuery = this.batchQueryStore.getBatchNewInputDataQuery();
 		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipType,orderNo,orderType", batch.getDomainId(), batch.getId(), batch.getEquipType(), orderNo, DpsCodeConstants.DPS_ORDER_TYPE_MT);
-		List<JobInput> inputList = AnyEntityUtil.searchItems(batch.getDomainId(), false, JobInput.class, newInputsQuery, params);		
+		List<JobInput> inputList = AnyEntityUtil.searchItems(batch.getDomainId(), false, JobInput.class, newInputsQuery, params);
 		
 		// 2. 투입 정보 생성 및 작업 데이터 업데이트 
 		this.createInputData(batch, inputList, orderNo, bucket, indColor, boxPackId);
@@ -540,7 +540,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 		// 1. 사용 가능한 박스 인지 체크
 		if(isBox) {
 			// 1.1 박스는 쿼리를 해서 확인
-			usedBox = !this.checkUniqueBoxId(batch, bucket.getBucketCd());
+			usedBox = this.checkUniqueBoxId(batch, bucket.getBucketCd());
 		} else {
 			// 1.2 트레이는 상태가 WAIT 인 트레이만 사용 가능
 			if(ValueUtil.isNotEqual(bucket.getStatus(), DpsConstants.COMMON_STATUS_WAIT)) {

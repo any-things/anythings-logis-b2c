@@ -45,7 +45,7 @@ select
 	, :equipCd
 	, :cellCd
 	, :indCd
-	, 'A'
+	, 'W'
 	, max(com_cd)
 	, max(order_no)
 	, max(class_cd)
@@ -72,8 +72,8 @@ from
 	ORDERS
 WHERE
 	DOMAIN_ID = :domainId
-	AND BATCH_ID = :batchId 
-	AND CLASS_CD = :orderNo 
+	AND BATCH_ID = :batchId
+	AND CLASS_CD = :orderNo
 	AND SKU_CD = :skuCd
-GROUP BY 
+GROUP BY
 	BATCH_ID, CLASS_CD, SKU_CD

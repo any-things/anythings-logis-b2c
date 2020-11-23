@@ -128,7 +128,8 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		}
 		
 		// 4. 투입 가능 박스 수량 조회 
-		Integer inputableBox = AnyEntityUtil.findItem(domainId, false, Integer.class, this.dpsBatchQueryStore.getBatchInputableBoxQuery(), params);
+		String sql = this.dpsBatchQueryStore.getBatchInputableBoxQuery();
+		Integer inputableBox = AnyEntityUtil.findItem(domainId, false, Integer.class, sql, params);
 		
 		// 5. 결과 리턴
 		return new DpsBatchSummary(rate, inputItems, inputableBox);

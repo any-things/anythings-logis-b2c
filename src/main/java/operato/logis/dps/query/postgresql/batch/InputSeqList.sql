@@ -50,7 +50,8 @@ SELECT
 			#if($stationCd)
 			AND SUB_EQUIP_CD IN (SELECT CELL_CD FROM CELLS WHERE DOMAIN_ID = :domainId AND STATION_CD = :stationCd)
 			#end
-			AND STATUS  not in ('BW','W')
+			AND INPUT_SEQ >= 1
+			AND STATUS not in ('BW', 'W')
 			AND ORDER_TYPE = 'MT'
 		GROUP BY
 			BATCH_ID, EQUIP_TYPE, EQUIP_CD, ORDER_NO, BOX_ID, BOX_TYPE_CD, COM_CD, SKU_CD) A
