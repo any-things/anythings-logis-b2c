@@ -12,6 +12,7 @@ insert into job_instances(
 	, ind_cd
 	, status
 	, com_cd
+	, cust_order_no
 	, order_no
 	, class_cd
 	, box_class_cd
@@ -47,6 +48,7 @@ select
 	, :indCd
 	, 'W'
 	, max(com_cd)
+	, max(cust_order_no)
 	, max(order_no)
 	, max(class_cd)
 	, max(box_class_cd)

@@ -12,7 +12,6 @@ import operato.logis.dps.DpsConstants;
 import operato.logis.dps.service.api.IDpsPickingService;
 import operato.logis.dps.service.util.DpsBatchJobConfigUtil;
 import xyz.anythings.base.LogisConstants;
-import xyz.anythings.base.entity.BoxPack;
 import xyz.anythings.base.entity.Cell;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInstance;
@@ -40,7 +39,7 @@ import xyz.elidom.util.DateUtil;
 public class DpsPickingService extends AbstractPickingService implements IDpsPickingService {
 
 	/************************************************************************************************/
-	/*   									버킷 투입													*/ 
+	/*											버킷 투입												*/
 	/************************************************************************************************/
 
 	/**
@@ -92,7 +91,7 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 	public Object inputEmptyTray(IClassifyInEvent inputEvent) {
 		
 		String trayCd = inputEvent.getInputCode();
-		JobBatch batch = inputEvent.getJobBatch();		
+		JobBatch batch = inputEvent.getJobBatch();
 		Object retValue = this.inputEmptyBucket(batch, false, trayCd);
 		inputEvent.setResult(retValue);
 		inputEvent.setExecuted(true);
@@ -111,8 +110,8 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 	@Override
 	public Object inputEmptyBucket(JobBatch batch, boolean isBox, String bucketCd, Object... params) {
 				
-		// 1. 투입 가능한 버킷인지 체크 (박스 or 트레이) 
-		//    -> 박스 타입이면 박스 타입에 락킹 (즉 동일 박스 타입의 박스는 동시에 하나씩만 투입 가능) / 트레이 타입이면 버킷에 락킹 (하나의 버킷은 한 번에 하나만 투입 가능)
+		// 1. 투입 가능한 버킷인지 체크 (박스 or 트레이)
+		//	-> 박스 타입이면 박스 타입에 락킹 (즉 동일 박스 타입의 박스는 동시에 하나씩만 투입 가능) / 트레이 타입이면 버킷에 락킹 (하나의 버킷은 한 번에 하나만 투입 가능)
 		IBucket bucket = this.vaildInputBucketByBucketCd(batch, bucketCd, isBox, true);
 		
 		// 2. 박스 투입 전 체크 - 주문 번호 조회 
@@ -135,12 +134,13 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 			job.setBoxId(bucketCd);
 		}
 		
-		// 6. 박스 마스터 & 내품 내역 생성
-		if(this.dpsBoxingService == null) this.getBoxingService();
-		BoxPack box = this.dpsBoxingService.fullBoxing(batch, null, jobList);
+		// 6. BoxPack 사용시 - 박스 마스터 & 내품 내역 생성
+		/*if(this.dpsBoxingService == null) this.getBoxingService();
+		BoxPack box = this.dpsBoxingService.fullBoxing(batch, null, jobList);*/
 		
 		// 7. 투입
-		this.doInputEmptyBucket(batch, orderNo, bucket, indColor, box.getId());
+		//this.doInputEmptyBucket(batch, orderNo, bucket, indColor, box.getId());
+		this.doInputEmptyBucket(batch, orderNo, bucket, indColor, null);
 		
 		// 8. 박스 투입 후 액션 
 		this.afterInputEmptyBucket(batch, bucket, orderNo);
@@ -206,7 +206,7 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 	}
 	
 	/***********************************************************************************************/
-	/*   									소분류   												   */
+	/*											소분류												*/
 	/***********************************************************************************************/
 
 	/**

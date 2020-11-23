@@ -209,4 +209,5 @@ public class DpsBatchJobConfigUtil extends BatchJobConfigUtil {
 		String boolVal = getConfigValue(batch, DpsConfigConstants.DPS_PREPROCESS_BOX_REQUEST_ENABLED, exceptionWhenEmptyValue);
 		return ValueUtil.toBoolean(boolVal);
 	}
+
 }

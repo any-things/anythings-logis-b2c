@@ -46,7 +46,7 @@ public class DpsBoxingService extends AbstractBoxingService implements IDpsBoxin
 	
 	@Override
 	public boolean isUsedBoxId(JobBatch batch, String boxId, boolean exceptionWhenBoxIdUsed) {
-		// 1. 박스 아이디 유니크 범위 설정 
+		// 1. 박스 아이디 유니크 범위 설정
 		String uniqueScope = DpsBatchJobConfigUtil.getBoxIdUniqueScope(batch, DpsConstants.BOX_ID_UNIQUE_SCOPE_GLOBAL);
 		
 		// 2. 파라미터 셋팅 
