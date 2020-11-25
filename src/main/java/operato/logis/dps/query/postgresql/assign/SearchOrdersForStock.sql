@@ -18,6 +18,7 @@ FROM (
 	WHERE
 		DOMAIN_ID = :domainId
 		AND BATCH_ID = :batchId
+		AND ORDER_TYPE = 'MT'
 		AND SKU_CD = :skuCd
 		AND STATUS = 'W'
 		#if($skipOrderIdList)

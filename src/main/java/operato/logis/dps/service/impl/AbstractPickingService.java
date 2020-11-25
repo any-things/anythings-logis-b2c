@@ -393,21 +393,21 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 * 박스 혹은 트레이를 작업에 투입
 	 * 
 	 * @param batch
-	 * @param orderNo
+	 * @param classCd
 	 * @param bucket
 	 * @param indColor
 	 * @param boxPackId
 	 * @return
 	 */
-	protected void doInputEmptyBucket(JobBatch batch, String orderNo, IBucket bucket, String indColor, String boxPackId) {
+	protected void doInputEmptyBucket(JobBatch batch, String classCd, IBucket bucket, String indColor, String boxPackId) {
 		
 		// 1. 주문 번호로 투입 정보 조회  
 		String newInputsQuery = this.batchQueryStore.getBatchNewInputDataQuery();
-		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipType,orderNo,orderType", batch.getDomainId(), batch.getId(), batch.getEquipType(), orderNo, DpsCodeConstants.DPS_ORDER_TYPE_MT);
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipType,classCd,orderType", batch.getDomainId(), batch.getId(), batch.getEquipType(), classCd, DpsCodeConstants.DPS_ORDER_TYPE_MT);
 		List<JobInput> inputList = AnyEntityUtil.searchItems(batch.getDomainId(), false, JobInput.class, newInputsQuery, params);
 		
 		// 2. 투입 정보 생성 및 작업 데이터 업데이트 
-		this.createInputData(batch, inputList, orderNo, bucket, indColor, boxPackId);
+		this.createInputData(batch, inputList, classCd, bucket, indColor, boxPackId);
 	}
 	
 	/**
@@ -415,18 +415,18 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 * 
 	 * @param batch
 	 * @param inputList
-	 * @param orderNo
+	 * @param classCd
 	 * @param bucket
 	 * @param indColor
 	 * @param boxPackId
 	 */
-	protected void createInputData(JobBatch batch, List<JobInput> inputList, String orderNo, IBucket bucket, String indColor, String boxPackId) {
+	protected void createInputData(JobBatch batch, List<JobInput> inputList, String classCd, IBucket bucket, String indColor, String boxPackId) {
 
 		// 1. 주문 - 박스 ID 매핑 쿼리 추출
 		this.getJobStatusService(batch);
 		String updateJobSql = this.batchQueryStore.getBatchMapBoxIdAndSeqQuery();
-		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipType,orderNo,userId,boxId,colorCd,inputAt,boxPackId", 
-				                    batch.getDomainId(), batch.getId(), batch.getEquipType(), orderNo, 
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,equipType,classCd,userId,boxId,colorCd,inputAt,boxPackId", 
+				                    batch.getDomainId(), batch.getId(), batch.getEquipType(), classCd, 
 				                    User.currentUser().getId(), bucket.getBucketCd(), indColor, DateUtil.currentTimeStr(), boxPackId);
 		
 		for(JobInput input : inputList) {
@@ -446,11 +446,15 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 			params.put("inputSeq", newSeq);
 			params.put("stationCd", input.getStationCd());
 			
-			// 5. 주문 - 박스 ID 매핑 쿼리 실행
+			// 5. 작업 데이터 주문 - 박스 ID 매핑 쿼리 실행
 			this.queryManager.executeBySql(updateJobSql, params);
 		}
 		
-		// 6. 투입 정보 일괄 생성 
+		// 6. 주문 정보 주문 - 박스 ID 매핑 쿼리 실행
+		String sql = "update orders set box_id = :boxId, status = :inputStatus where domain_id = :domainId and batch_id = :batchId and class_cd = :classCd";
+		this.queryManager.executeBySql(sql, params);
+		
+		// 7. 투입 정보 일괄 생성 
 		this.queryManager.insertBatch(inputList);
 	}
 	
@@ -710,21 +714,21 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 		boolean multiSkuOrder = this.isMultiSkuOrder(job.getOrderType());
 		
 		// 2. 작업 정보와 연관된 주문을 조회해서 피킹 확정 수량을 업데이트한다.
-		List<String> orderIdList = this.updateOrdersByPick(job, pickQty);
-		if(orderIdList == null || orderIdList.isEmpty()) {
-			// TODO 에러를 던질 지 체크
-			return;
-		}
+		this.updateOrdersByPick(job, pickQty);
+		//List<String> orderIdList = this.updateOrdersByPick(job, pickQty);
+		//if(orderIdList == null || orderIdList.isEmpty()) {
+		//	return;
+		//}
 		
 		// 3. 작업이 해당 스테이션에서 끝났는지 체크
 		boolean isStationJobEnded = this.checkStationJobsEnd(batch, (cell != null ? cell.getStationCd() : null), job);
 
 		// 4. 박스 처리 정보 업데이트를 위해 조회 & 총 확정 수량 업데이트
-		BoxPack boxPack = AnyEntityUtil.findEntityById(true, BoxPack.class, job.getBoxPackId());
-		boxPack.setPickedQty(boxPack.getPickedQty() + pickQty);
-		String boxStatus = BoxPack.BOX_STATUS_ASSORT;
+		//BoxPack boxPack = AnyEntityUtil.findEntityById(true, BoxPack.class, job.getBoxPackId());
+		//boxPack.setPickedQty(boxPack.getPickedQty() + pickQty);
+		//String boxStatus = BoxPack.BOX_STATUS_ASSORT;
 		// 검수 완료 여부
-		boolean passFlag = false;
+		//boolean passFlag = false;
 		
 		// 5. 작업이 해당 스테이션에서 완료되었다면
 		if(isStationJobEnded) {
@@ -734,26 +738,26 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 			// 5-2. 주문(박스)에 대한 피킹이 모두 완료되었는지 체크 
 			if(this.checkBoxingEnd(batch, job.getOrderNo(), job.getBoxId())) {
 				// 5-3. 박스 내품 & 박스 상태 '박싱 완료'로 변경
-				boxStatus = BoxPack.BOX_STATUS_BOXED;
+				//boxStatus = BoxPack.BOX_STATUS_BOXED;
 				// 5-4. 검수 완료 여부 ...
-				passFlag = this.getPassFlag(job, multiSkuOrder, true);
+				//passFlag = this.getPassFlag(job, multiSkuOrder, true);
 				// 5-5. 작업의 '상태' 및 '박싱 시각'을 업데이트
-				String sql = "update job_instances set status = :status, boxed_at = :currentTime where domain_id = :domainId and batch_id = :batchId and order_no = :orderNo";
-				this.queryManager.executeBySql(sql, ValueUtil.newMap("domainId,batchId,orderNo,status,currentTime", job.getDomainId(), job.getBatchId(), job.getOrderNo(), LogisConstants.JOB_STATUS_BOXED, job.getPickEndedAt()));
+				String sql = "update job_instances set status = :status, boxed_at = :currentTime where domain_id = :domainId and batch_id = :batchId and class_cd = :classCd";
+				this.queryManager.executeBySql(sql, ValueUtil.newMap("domainId,batchId,classCd,status,currentTime", job.getDomainId(), job.getBatchId(), job.getClassCd(), LogisConstants.JOB_STATUS_BOXED, job.getPickEndedAt()));
 			}
 		}
 		
-		boxPack.setPassFlag(passFlag);
-		boxPack.setStatus(boxStatus);
-		this.queryManager.update(boxPack, DpsConstants.ENTITY_FIELD_STATUS, "pickedQty", "passFlag", DpsConstants.ENTITY_FIELD_UPDATER_ID, DpsConstants.ENTITY_FIELD_UPDATED_AT);
-		if(this.dpsBoxingService == null) this.getBoxingService();
-		this.dpsBoxingService.updateBoxItemsAfterPick(batch.getDomainId(), job.getBoxPackId(), orderIdList, boxStatus, passFlag);
+		//boxPack.setPassFlag(passFlag);
+		//boxPack.setStatus(boxStatus);
+		//this.queryManager.update(boxPack, DpsConstants.ENTITY_FIELD_STATUS, "pickedQty", "passFlag", DpsConstants.ENTITY_FIELD_UPDATER_ID, DpsConstants.ENTITY_FIELD_UPDATED_AT);
+		//if(this.dpsBoxingService == null) this.getBoxingService();
+		//this.dpsBoxingService.updateBoxItemsAfterPick(batch.getDomainId(), job.getBoxPackId(), orderIdList, boxStatus, passFlag);
 		
 		// 6. 주문 피킹 처리가 완료되었다면 상태 모두 변경 
-		if(ValueUtil.isEqualIgnoreCase(boxStatus, BoxPack.BOX_STATUS_BOXED)) {
-			String sql = "update box_items set status = :status where box_pack_id = :boxPackId";
-			this.queryManager.executeBySql(sql, ValueUtil.newMap("boxPackId,status", boxPack.getId(), BoxPack.BOX_STATUS_BOXED));
-		}
+		//if(ValueUtil.isEqualIgnoreCase(boxStatus, BoxPack.BOX_STATUS_BOXED)) {
+		//	String sql = "update box_items set status = :status where box_pack_id = :boxPackId";
+		//	this.queryManager.executeBySql(sql, ValueUtil.newMap("boxPackId,status", boxPack.getId(), BoxPack.BOX_STATUS_BOXED));
+		//}
 		
 		// 7. 모바일 새로고침 명령 전달
 		if(multiSkuOrder) {
@@ -769,13 +773,13 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 * @param isFinished
 	 * @return
 	 */
-	private boolean getPassFlag(JobInstance job, boolean multiSkuOrder, boolean isFinished) {
+	/*private boolean getPassFlag(JobInstance job, boolean multiSkuOrder, boolean isFinished) {
 		// TODO 설정을 이용 ...
 		// 1. 검수 여부를 사용하는지 설정에서 체크 (일단 합포인 경우는 사용 안 함 - 즉 검수 화면에서 검수, 단포인 경우는 사용)
 		boolean usePassFlag = !multiSkuOrder;
 		// 2. 완료 여부
 		return usePassFlag && isFinished;
-	}
+	}*/
 	
 	/**
 	 * 피킹 처리에 따른 주문 정보 업데이트
@@ -817,7 +821,6 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 	 * @return
 	 */
 	private List<Order> searchOrdersByJob(JobInstance job) {
-		// TODO 쿼리로 이동
 		StringJoiner sql = new StringJoiner(SysConstants.LINE_SEPARATOR);
 		sql.add("SELECT * FROM (")
 		   .add("	SELECT")
@@ -826,7 +829,7 @@ public abstract class AbstractPickingService extends AbstractClassificationServi
 		   .add("		ORDERS")
 		   .add("	WHERE")
 		   .add("		DOMAIN_ID = :domainId AND BATCH_ID = :batchId AND ORDER_NO = :orderNo AND COM_CD = :comCd AND SKU_CD = :skuCd AND (ORDER_QTY > PICKED_QTY)")
-		   .add(") ORDER BY PICKED_QTY ASC");
+		   .add(") A ORDER BY A.PICKED_QTY ASC");
 		
 		Map<String, Object> params = 
 				ValueUtil.newMap("domainId,batchId,orderNo,comCd,skuCd", job.getDomainId(), job.getBatchId(), job.getOrderNo(), job.getComCd(), job.getSkuCd());

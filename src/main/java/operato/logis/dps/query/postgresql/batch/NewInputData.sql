@@ -1,20 +1,21 @@
 #if($orderType == 'MT') -- 합포
 
 	SELECT DISTINCT X.BATCH_ID, X.EQUIP_TYPE, X.EQUIP_CD
-	     , Y.STATION_CD, X.ORDER_NO
+	     , Y.STATION_CD, X.ORDER_NO, X.CLASS_CD
 	     , X.COM_CD
 	     , X.DOMAIN_ID
 	  FROM (
 	        SELECT BATCH_ID, EQUIP_TYPE, EQUIP_CD
 	             , SUB_EQUIP_CD AS CELL_CD
 	             , ORDER_NO
+	             , CLASS_CD
 	             , COM_CD
 	             , DOMAIN_ID
 	          FROM JOB_INSTANCES
 	         WHERE DOMAIN_ID = :domainId
 	           AND BATCH_ID = :batchId
 	           AND EQUIP_TYPE = :equipType
-	           AND ORDER_NO = :orderNo
+	           AND CLASS_CD = :classCd
 	       ) X
 	     , (SELECT DOMAIN_ID, EQUIP_TYPE, EQUIP_CD
 	             , STATION_CD, CELL_CD
@@ -35,12 +36,13 @@
     SELECT BATCH_ID, EQUIP_TYPE, EQUIP_CD
          , '' AS STATION_CD
          , ORDER_NO
+         , CLASS_CD
          , COM_CD
          , DOMAIN_ID
       FROM JOB_INSTANCES
      WHERE DOMAIN_ID = :domainId
        AND BATCH_ID = :batchId
        AND EQUIP_TYPE = :equipType
-       AND ORDER_NO = :orderNo
+       AND CLASS_CD = :classCd
 
 #end

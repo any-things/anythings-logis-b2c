@@ -10,7 +10,7 @@ UPDATE JOB_INSTANCES
 	DOMAIN_ID = :domainId
 	AND BATCH_ID = :batchId
 	AND EQUIP_TYPE = :equipType
-	AND ORDER_NO = :orderNo
+	AND CLASS_CD = :classCd
 	AND (ORDER_TYPE = 'OT' OR EXISTS (SELECT
 											1
 										FROM

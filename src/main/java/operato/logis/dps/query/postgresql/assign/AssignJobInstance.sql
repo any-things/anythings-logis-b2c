@@ -19,6 +19,7 @@ insert into job_instances(
 	, shop_cd
 	, shop_nm
 	, sku_cd
+	, sku_barcd
 	, sku_nm
 	, box_type_cd
 	, box_in_qty
@@ -55,6 +56,7 @@ select
 	, max(shop_cd)
 	, max(shop_nm)
 	, max(sku_cd)
+	, max(sku_barcd)
 	, max(sku_nm)
 	, max(box_type_cd)
 	, max(box_in_qty)
