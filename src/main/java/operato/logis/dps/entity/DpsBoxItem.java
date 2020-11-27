@@ -6,6 +6,11 @@ import xyz.elidom.dbist.annotation.PrimaryKey;
 import xyz.elidom.dbist.annotation.Table;
 import xyz.elidom.orm.entity.basic.AbstractStamp;
 
+/**
+ * dps_box_items 뷰 용 (읽기 전용)
+ * 
+ * @author shortstop
+ */
 @Table(name = "dps_box_items", ignoreDdl = true, idStrategy = GenerationRule.NONE)
 public class DpsBoxItem extends AbstractStamp {
 	/**

@@ -1,77 +1,103 @@
 package operato.logis.dps.model;
 
-import xyz.anythings.base.entity.SKU;
-
 /**
  * DPS 검수 항목 모델
  * 
  * @author shortstop
  */
 public class DpsInspItem {
+	
 	/**
-	 * 상품 코드 
+	 * 박스 내품 ID
+	 */
+	private String id;
+	/**
+	 * DPS 박스 ID
+	 */
+	private String dpsBoxPackId;
+	/**
+	 * 주문 번호
+	 */
+	private String orderNo;
+	/**
+	 * 작업 스테이션
+	 */
+	private String stationCd;
+	/**
+	 * 셀 코드
+	 */
+	private String subEquipCd;
+	/**
+	 * 상품 코드
 	 */
 	private String skuCd;
 	/**
-	 * 상품 명 
-	 */
-	private String skuNm;
-	/**
-	 * 상품 바코드 
+	 * 상품 바코드
 	 */
 	private String skuBarcd;
 	/**
-	 * 피킹 수량 
+	 * 상품 명
+	 */
+	private String skuNm;
+	/**
+	 * 상품 표준 중량
+	 */
+	private Float skuWt;
+	/**
+	 * 피킹 예정 수량
+	 */
+	private Integer pickQty;
+	/**
+	 * 피킹 완료 수량
 	 */
 	private Integer pickedQty;
-	/**
-	 * 검수 확인 수량
-	 */
-	private Integer confirmQty;
-	/**
-	 * 상품 중량
-	 */
-	private Float skuWeight;
-	
-	public DpsInspItem() {
+
+	public String getId() {
+		return id;
 	}
-	
-	public DpsInspItem(String skuCd, String skuNm, String skuBarcd, Integer pickedQty, Float skuWeight) {
-		this.skuCd = skuCd;
-		this.skuNm = skuNm;
-		this.skuBarcd = skuBarcd;
-		this.pickedQty = pickedQty;
-		this.setSkuWeight(skuWeight);
+
+	public void setId(String id) {
+		this.id = id;
 	}
-	
-	public DpsInspItem(String skuCd, String skuNm, String skuBarcd, Integer pickedQty) {
-		this.skuCd = skuCd;
-		this.skuNm = skuNm;
-		this.skuBarcd = skuBarcd;
-		this.pickedQty = pickedQty;
+
+	public String getDpsBoxPackId() {
+		return dpsBoxPackId;
 	}
-	
-	public DpsInspItem(SKU sku, Integer pickedQty) {
-		this.skuCd = sku.getSkuCd();
-		this.skuNm = sku.getSkuNm();
-		this.skuBarcd = sku.getSkuBarcd();
-		this.pickedQty = pickedQty;
+
+	public void setDpsBoxPackId(String dpsBoxPackId) {
+		this.dpsBoxPackId = dpsBoxPackId;
 	}
-	
+
+	public String getOrderNo() {
+		return orderNo;
+	}
+
+	public void setOrderNo(String orderNo) {
+		this.orderNo = orderNo;
+	}
+
+	public String getStationCd() {
+		return stationCd;
+	}
+
+	public void setStationCd(String stationCd) {
+		this.stationCd = stationCd;
+	}
+
+	public String getSubEquipCd() {
+		return subEquipCd;
+	}
+
+	public void setSubEquipCd(String subEquipCd) {
+		this.subEquipCd = subEquipCd;
+	}
+
 	public String getSkuCd() {
 		return skuCd;
 	}
 
 	public void setSkuCd(String skuCd) {
 		this.skuCd = skuCd;
-	}
-
-	public String getSkuNm() {
-		return skuNm;
-	}
-
-	public void setSkuNm(String skuNm) {
-		this.skuNm = skuNm;
 	}
 
 	public String getSkuBarcd() {
@@ -82,28 +108,36 @@ public class DpsInspItem {
 		this.skuBarcd = skuBarcd;
 	}
 
+	public String getSkuNm() {
+		return skuNm;
+	}
+
+	public void setSkuNm(String skuNm) {
+		this.skuNm = skuNm;
+	}
+
+	public Float getSkuWt() {
+		return skuWt;
+	}
+
+	public void setSkuWt(Float skuWt) {
+		this.skuWt = skuWt;
+	}
+
+	public Integer getPickQty() {
+		return pickQty;
+	}
+
+	public void setPickQty(Integer pickQty) {
+		this.pickQty = pickQty;
+	}
+
 	public Integer getPickedQty() {
 		return pickedQty;
 	}
 
 	public void setPickedQty(Integer pickedQty) {
 		this.pickedQty = pickedQty;
-	}
-
-	public Integer getConfirmQty() {
-		return confirmQty;
-	}
-
-	public void setConfirmQty(Integer confirmQty) {
-		this.confirmQty = confirmQty;
-	}
-
-	public Float getSkuWeight() {
-		return skuWeight;
-	}
-
-	public void setSkuWeight(Float skuWeight) {
-		this.skuWeight = skuWeight;
 	}
 
 }

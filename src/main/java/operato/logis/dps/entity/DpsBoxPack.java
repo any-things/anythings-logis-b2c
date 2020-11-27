@@ -7,6 +7,11 @@ import xyz.elidom.dbist.annotation.Table;
 import xyz.elidom.orm.OrmConstants;
 import xyz.elidom.orm.entity.basic.AbstractStamp;
 
+/**
+ * dps_box_packs 뷰 용 (읽기 전용)
+ * 
+ * @author shortstop
+ */
 @Table(name = "dps_box_packs", ignoreDdl = true, idStrategy = GenerationRule.NONE)
 public class DpsBoxPack extends AbstractStamp {
 	/**
@@ -110,6 +115,12 @@ public class DpsBoxPack extends AbstractStamp {
 	 */
 	@Column (name = "picked_qty", length = 10)
 	private Integer pickedQty;
+	
+	/**
+	 * 검수 수량
+	 */
+	@Column (name = "inspected_qty", length = 10)
+	private Integer inspectedQty;
 
 	/**
 	 * 소 분류 용
@@ -347,6 +358,14 @@ public class DpsBoxPack extends AbstractStamp {
 
 	public void setPickedQty(Integer pickedQty) {
 		this.pickedQty = pickedQty;
+	}
+
+	public Integer getInspectedQty() {
+		return inspectedQty;
+	}
+
+	public void setInspectedQty(Integer inspectedQty) {
+		this.inspectedQty = inspectedQty;
 	}
 
 	public String getClassCd() {

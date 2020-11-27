@@ -3,6 +3,13 @@ package operato.logis.dps.model;
 import java.util.ArrayList;
 import java.util.List;
 
+import xyz.elidom.core.entity.Code;
+import xyz.elidom.core.entity.CodeDetail;
+import xyz.elidom.core.rest.CodeController;
+import xyz.elidom.sys.SysConstants;
+import xyz.elidom.sys.util.ValueUtil;
+import xyz.elidom.util.BeanUtil;
+
 /**
  * DPS 용 출고 검수 모델 
  * 
@@ -11,67 +18,167 @@ import java.util.List;
 public class DpsInspection {
 	
 	/**
-	 * 배치 번호
+	 * 박스 ID
+	 */
+	private String id;
+	/**
+	 * 도메인 ID
+	 */
+	private Long domainId;
+	/**
+	 * 배치 ID
 	 */
 	private String batchId;
 	/**
-	 * 주문 번호 
+	 * 스테이션 코드
 	 */
-	private String orderNo;
+	private String stageCd;
 	/**
-	 * 고객사 주문 번호 
+	 * 작업 일자
+	 */
+	private String jobDate;
+	/**
+	 * 작업 순번
+	 */
+	private String jobSeq;
+	/**
+	 * 고객사 코드
+	 */
+	private String comCd;
+	/**
+	 * 설비 코드
+	 */
+	private String equipCd;
+	/**
+	 * 주문 유형
+	 */
+	private String orderType;
+	/**
+	 * 원주문 번호
 	 */
 	private String custOrderNo;
 	/**
-	 * 송장 번호 
+	 * 주문 번호
+	 */
+	private String orderNo;
+	/**
+	 * 송장 번호
 	 */
 	private String invoiceId;
 	/**
-	 * 박스 유형 
+	 * 박스 유형
 	 */
 	private String boxType;
 	/**
-	 * 트레이 박스 코드 
+	 * 박스 유형 코드
 	 */
-	private String trayCd;
+	private String boxTypeCd;
 	/**
-	 * 박스 ID 
+	 * 투입 순번
+	 */
+	private Integer inputSeq;
+	/**
+	 * 박스 ID
 	 */
 	private String boxId;
 	/**
-	 * 상태
+	 * 순수 박스 중량 값
+	 */
+	private Float boxNetWt;
+	/**
+	 * 박스 계산 중량 값
+	 */
+	private Float boxExpectWt;
+	/**
+	 * 박스 측정 중량 값
+	 */
+	private Float boxRealWt;
+	/**
+	 * 피킹 예정 수량
+	 */
+	private Integer pickQty;
+	/**
+	 * 피킹 완료 수량
+	 */
+	private Integer pickedQty;
+	/**
+	 * 소 분류 용
+	 */
+	private String classCd;
+	/**
+	 * 방면 분류 용
+	 */
+	private String boxClassCd;
+	/**
+	 * 피킹 작업 상태 - W 작업 대기 > I 투입 > P 피킹 시작 > F 피킹 완료 > B 주문 완료 > E 검수 완료 > O 출고 완료
 	 */
 	private String status;
 	/**
-	 * 주문의 총 상품 수량
+	 * 피킹 작업 상태 - W 작업 대기 > I 투입 > P 피킹 시작 > F 피킹 완료 > B 주문 완료 > E 검수 완료 > O 출고 완료
 	 */
-	private Integer skuQty;
+	private String statusStr;
 	/**
-	 * 주문의 총 수량
+	 * 중량 검수 상태
 	 */
-	private Integer orderQty;
+	private String autoInspStatus;
 	/**
-	 * 예상 중량
+	 * 수기 검수 상태
 	 */
-	private Float expWeight;
+	private String manualInspStatus;
 	/**
-	 * 측정 중량
+	 * 실적 전송 상태
 	 */
-	private Float msrWeight;
+	private String reportStatus;
 	/**
-	 * 하한 중량 - 중량 검수시 사용 
+	 * 박스 투입 시각
 	 */
-	private Float minWeight;
+	private String inputAt;
 	/**
-	 * 상한 중량 - 중량 검수시 사용 
+	 * 피킹 시작 시각
 	 */
-	private Float maxWeight;
+	private String pickStartedAt;
+	/**
+	 * 박싱 완료 시각
+	 */
+	private String boxedAt;
+	/**
+	 * 자동 검수 (예: 중량 검수) 시각
+	 */
+	private String autoInspectedAt;
+	/**
+	 * 수기 검수 시각
+	 */
+	private String manualInspectedAt;
+	/**
+	 * 최종 출고 시각
+	 */
+	private String finalOutAt;
+	/**
+	 * 실적 전송 시각
+	 */
+	private String reportedAt;
 	/**
 	 * 내품 내역
 	 */
 	private List<DpsInspItem> items;
 	
 	public DpsInspection() {
+	}
+
+	public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public Long getDomainId() {
+		return domainId;
+	}
+
+	public void setDomainId(Long domainId) {
+		this.domainId = domainId;
 	}
 
 	public String getBatchId() {
@@ -82,12 +189,52 @@ public class DpsInspection {
 		this.batchId = batchId;
 	}
 
-	public String getOrderNo() {
-		return orderNo;
+	public String getStageCd() {
+		return stageCd;
 	}
 
-	public void setOrderNo(String orderNo) {
-		this.orderNo = orderNo;
+	public void setStageCd(String stageCd) {
+		this.stageCd = stageCd;
+	}
+
+	public String getJobDate() {
+		return jobDate;
+	}
+
+	public void setJobDate(String jobDate) {
+		this.jobDate = jobDate;
+	}
+
+	public String getJobSeq() {
+		return jobSeq;
+	}
+
+	public void setJobSeq(String jobSeq) {
+		this.jobSeq = jobSeq;
+	}
+
+	public String getComCd() {
+		return comCd;
+	}
+
+	public void setComCd(String comCd) {
+		this.comCd = comCd;
+	}
+
+	public String getEquipCd() {
+		return equipCd;
+	}
+
+	public void setEquipCd(String equipCd) {
+		this.equipCd = equipCd;
+	}
+
+	public String getOrderType() {
+		return orderType;
+	}
+
+	public void setOrderType(String orderType) {
+		this.orderType = orderType;
 	}
 
 	public String getCustOrderNo() {
@@ -96,6 +243,14 @@ public class DpsInspection {
 
 	public void setCustOrderNo(String custOrderNo) {
 		this.custOrderNo = custOrderNo;
+	}
+
+	public String getOrderNo() {
+		return orderNo;
+	}
+
+	public void setOrderNo(String orderNo) {
+		this.orderNo = orderNo;
 	}
 
 	public String getInvoiceId() {
@@ -114,12 +269,20 @@ public class DpsInspection {
 		this.boxType = boxType;
 	}
 
-	public String getTrayCd() {
-		return trayCd;
+	public String getBoxTypeCd() {
+		return boxTypeCd;
 	}
 
-	public void setTrayCd(String trayCd) {
-		this.trayCd = trayCd;
+	public void setBoxTypeCd(String boxTypeCd) {
+		this.boxTypeCd = boxTypeCd;
+	}
+
+	public Integer getInputSeq() {
+		return inputSeq;
+	}
+
+	public void setInputSeq(Integer inputSeq) {
+		this.inputSeq = inputSeq;
 	}
 
 	public String getBoxId() {
@@ -130,20 +293,60 @@ public class DpsInspection {
 		this.boxId = boxId;
 	}
 
-	public Integer getSkuQty() {
-		return skuQty;
+	public Float getBoxNetWt() {
+		return boxNetWt;
 	}
 
-	public void setSkuQty(Integer skuQty) {
-		this.skuQty = skuQty;
+	public void setBoxNetWt(Float boxNetWt) {
+		this.boxNetWt = boxNetWt;
 	}
 
-	public Integer getOrderQty() {
-		return orderQty;
+	public Float getBoxExpectWt() {
+		return boxExpectWt;
 	}
 
-	public void setOrderQty(Integer orderQty) {
-		this.orderQty = orderQty;
+	public void setBoxExpectWt(Float boxExpectWt) {
+		this.boxExpectWt = boxExpectWt;
+	}
+
+	public Float getBoxRealWt() {
+		return boxRealWt;
+	}
+
+	public void setBoxRealWt(Float boxRealWt) {
+		this.boxRealWt = boxRealWt;
+	}
+
+	public Integer getPickQty() {
+		return pickQty;
+	}
+
+	public void setPickQty(Integer pickQty) {
+		this.pickQty = pickQty;
+	}
+
+	public Integer getPickedQty() {
+		return pickedQty;
+	}
+
+	public void setPickedQty(Integer pickedQty) {
+		this.pickedQty = pickedQty;
+	}
+
+	public String getClassCd() {
+		return classCd;
+	}
+
+	public void setClassCd(String classCd) {
+		this.classCd = classCd;
+	}
+
+	public String getBoxClassCd() {
+		return boxClassCd;
+	}
+
+	public void setBoxClassCd(String boxClassCd) {
+		this.boxClassCd = boxClassCd;
 	}
 
 	public String getStatus() {
@@ -154,36 +357,105 @@ public class DpsInspection {
 		this.status = status;
 	}
 
-	public Float getExpWeight() {
-		return expWeight;
+	public String getStatusStr() {
+		if(this.statusStr == null && this.status != null) {
+			Code code = BeanUtil.get(CodeController.class).findOne(SysConstants.SHOW_BY_NAME_METHOD, "JOB_STATUS");
+			if(code != null) {
+				List<CodeDetail> codeItems = code.getItems();
+				for(CodeDetail item : codeItems) {
+					if(ValueUtil.isEqualIgnoreCase(item.getName(), this.status)) {
+						this.statusStr = item.getDescription();
+						break;
+					}
+				}
+			}
+		}
+		
+		return statusStr;
 	}
 
-	public void setExpWeight(Float expWeight) {
-		this.expWeight = expWeight;
+	public void setStatusStr(String statusStr) {
+		this.statusStr = statusStr;
 	}
 
-	public Float getMsrWeight() {
-		return msrWeight;
+	public String getAutoInspStatus() {
+		return autoInspStatus;
 	}
 
-	public void setMsrWeight(Float msrWeight) {
-		this.msrWeight = msrWeight;
+	public void setAutoInspStatus(String autoInspStatus) {
+		this.autoInspStatus = autoInspStatus;
 	}
 
-	public Float getMinWeight() {
-		return minWeight;
+	public String getManualInspStatus() {
+		return manualInspStatus;
 	}
 
-	public void setMinWeight(Float minWeight) {
-		this.minWeight = minWeight;
+	public void setManualInspStatus(String manualInspStatus) {
+		this.manualInspStatus = manualInspStatus;
 	}
 
-	public Float getMaxWeight() {
-		return maxWeight;
+	public String getReportStatus() {
+		return reportStatus;
 	}
 
-	public void setMaxWeight(Float maxWeight) {
-		this.maxWeight = maxWeight;
+	public void setReportStatus(String reportStatus) {
+		this.reportStatus = reportStatus;
+	}
+
+	public String getInputAt() {
+		return inputAt;
+	}
+
+	public void setInputAt(String inputAt) {
+		this.inputAt = inputAt;
+	}
+
+	public String getPickStartedAt() {
+		return pickStartedAt;
+	}
+
+	public void setPickStartedAt(String pickStartedAt) {
+		this.pickStartedAt = pickStartedAt;
+	}
+
+	public String getBoxedAt() {
+		return boxedAt;
+	}
+
+	public void setBoxedAt(String boxedAt) {
+		this.boxedAt = boxedAt;
+	}
+
+	public String getAutoInspectedAt() {
+		return autoInspectedAt;
+	}
+
+	public void setAutoInspectedAt(String autoInspectedAt) {
+		this.autoInspectedAt = autoInspectedAt;
+	}
+
+	public String getManualInspectedAt() {
+		return manualInspectedAt;
+	}
+
+	public void setManualInspectedAt(String manualInspectedAt) {
+		this.manualInspectedAt = manualInspectedAt;
+	}
+
+	public String getFinalOutAt() {
+		return finalOutAt;
+	}
+
+	public void setFinalOutAt(String finalOutAt) {
+		this.finalOutAt = finalOutAt;
+	}
+
+	public String getReportedAt() {
+		return reportedAt;
+	}
+
+	public void setReportedAt(String reportedAt) {
+		this.reportedAt = reportedAt;
 	}
 
 	public List<DpsInspItem> getItems() {
@@ -194,12 +466,12 @@ public class DpsInspection {
 		this.items = items;
 	}
 	
-	public void addItem(String skuCd, String skuNm, String skuBarcd, Integer pickedQty) {
+	public void addItem(DpsInspItem item) {
 		if(this.items == null) {
 			this.items = new ArrayList<DpsInspItem>();
 		}
 		
-		this.items.add(new DpsInspItem(skuCd, skuNm, skuBarcd, pickedQty));
+		this.items.add(item);
 	}
-	
+
 }
