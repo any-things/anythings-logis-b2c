@@ -1,6 +1,7 @@
 package operato.logis.dps.service.impl;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.context.event.EventListener;
 import org.springframework.core.Ordered;
@@ -15,18 +16,18 @@ import xyz.anythings.base.LogisConstants;
 import xyz.anythings.base.entity.Cell;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInstance;
-import xyz.anythings.base.entity.Rack;
+import xyz.anythings.base.entity.SKU;
 import xyz.anythings.base.entity.ifc.IBucket;
 import xyz.anythings.base.event.IClassifyInEvent;
 import xyz.anythings.base.event.IClassifyRunEvent;
 import xyz.anythings.gw.service.util.BatchIndConfigUtil;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.anythings.sys.util.AnyOrmUtil;
-import xyz.anythings.sys.util.AnyValueUtil;
 import xyz.elidom.dbist.dml.Query;
 import xyz.elidom.exception.server.ElidomRuntimeException;
 import xyz.elidom.exception.server.ElidomServiceException;
 import xyz.elidom.sys.util.MessageUtil;
+import xyz.elidom.sys.util.ThrowUtil;
 import xyz.elidom.sys.util.ValueUtil;
 import xyz.elidom.util.DateUtil;
 
@@ -134,74 +135,87 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 			job.setBoxId(bucketCd);
 		}
 		
-		// 6. BoxPack 사용시 - 박스 마스터 & 내품 내역 생성
-		/*if(this.dpsBoxingService == null) this.getBoxingService();
-		BoxPack box = this.dpsBoxingService.fullBoxing(batch, null, jobList);*/
+		// 6. 투입
+		this.doInputEmptyBucket(batch, orderNo, bucket, indColor);
 		
-		// 7. 투입
-		//this.doInputEmptyBucket(batch, orderNo, bucket, indColor, box.getId());
-		this.doInputEmptyBucket(batch, orderNo, bucket, indColor, null);
-		
-		// 8. 박스 투입 후 액션 
+		// 7. 박스 투입 후 액션 
 		this.afterInputEmptyBucket(batch, bucket, orderNo);
 		
-		// 9. 투입 정보 리턴
+		// 8. 투입 정보 리턴
 		return jobList;
 	}
 	
 	/**
-	 * 단포 박스 또는 트레이 투입
+	 * 단포 박스 투입
 	 * 
 	 * @param batch
-	 * @param isBox
 	 * @param skuCd
-	 * @param bucketCd
+	 * @param boxId
 	 * @param params
 	 * @return
 	 */
 	@Override
-	public Object inputSinglePackEmptyBucket(JobBatch batch, boolean isBox, String skuCd, String bucketCd, Object... params) {
+	public Object inputSinglePackEmptyBox(JobBatch batch, String skuCd, String boxId, Object... params) {
 		
-		// 1. 단포 전용 호기 Lock
-		Query condition = AnyOrmUtil.newConditionForExecution(batch.getDomainId());
-		condition.addFilter("areaCd", batch.getAreaCd());
-		condition.addFilter("stageCd", batch.getStageCd());
-		condition.addFilter("rackType", DpsCodeConstants.DPS_RACK_TYPE_OT);
-		this.queryManager.selectListWithLock(Rack.class, condition);
+		// 1. 상품 Lock
+		Long domainId = batch.getDomainId();
+		Query query = AnyOrmUtil.newConditionForExecution(domainId);
+		query.addFilter("skuCd", skuCd);
+		List<SKU> skuList = this.queryManager.selectListWithLock(SKU.class, query);
 		
-		// 2. 버킷 조회 (박스 or 트레이)
-		IBucket bucket = this.vaildInputBucketByBucketCd(batch, bucketCd, isBox, false);
-		
-		// 3. 버킷 투입 전 체크 - 작업 ID  
-		JobInstance job = this.beforeInputSinglePackEmptyBucket(batch, isBox, bucket);
-
-		if(job == null) {
-			// 투입 가능한 주문이 없습니다.
-			throw new ElidomRuntimeException(MessageUtil.getMessage("MPS_NO_ORDER_TO_INPUT"));
+		if(ValueUtil.isEmpty(skuList)) {
+			throw ThrowUtil.newNotFoundRecord("terms.menu.SKU");
 		}
 		
-		// 4. 기존 작업에 대한 재 작업인 경우 
+		// 2. 이미 처리된 주문인 지 체크
+		Map<String, Object> condition = ValueUtil.newMap("domainId,batchId,boxId,status", domainId, batch.getId(), boxId, LogisConstants.JOB_STATUS_BOXED);
+		if(this.queryManager.selectSize(JobInstance.class, condition) > 0) {
+			// 이미 처리된 항목입니다.
+			throw ThrowUtil.newValidationErrorWithNoLog(MessageUtil.getMessage("ALREADY_BEEN_PROCEEDED"));
+		}
+		
+		// 3. 버킷 조회 (박스 or 트레이)
+		IBucket bucket = this.vaildInputBucketByBucketCd(batch, boxId, true, false);
+		
+		// 4. 버킷 투입 전 체크 - 작업 ID  
+		JobInstance job = this.beforeInputSinglePackEmptyBucket(batch, skuCd, bucket);
+
+		// 5. 작업을 찾지 못한 경우
+		if(job == null) {
+			// 투입 가능한 주문이 없습니다.
+			throw ThrowUtil.newValidationErrorWithNoLog(MessageUtil.getMessage("MPS_NO_ORDER_TO_INPUT"));
+		}
+		
+		// 6. 기존 작업에 대한 재 작업인 경우 
 		if(ValueUtil.isEqualIgnoreCase(job.getBoxId(), bucket.getBucketCd())) {
 			return job;
 		}
 		
-		// 5. 작업 정보 업데이트
-		String indColor = ValueUtil.isEmpty(bucket.getBucketColor()) ? BatchIndConfigUtil.getDpsJobColor(batch.getId()) : bucket.getBucketColor();
-		job.setColorCd(indColor);
-		job.setBoxTypeCd(bucket.getBucketTypeCd());
-		job.setBoxId(bucket.getBucketCd());
-		job.setBoxPackId(AnyValueUtil.newUuid36());
-		job.setStatus(LogisConstants.JOB_STATUS_PICKING);
-		job.setInputAt(DateUtil.currentTimeStr());
-		this.queryManager.update(job, "colorCd", "boxTypeCd", "boxId", "boxPackId", "status", "inputAt", "updaterId", "updatedAt");
+		// 7. 작업 / 주문 정보 업데이트
+		int inputSeq = ValueUtil.toInteger(job.getInputSeq(), 0);
+		if(inputSeq == 0) {
+			// 7.1 작업 정보 업데이트
+			if(this.dpsJobStatusService == null) this.getJobStatusService(batch);
+			inputSeq = this.dpsJobStatusService.findNextInputSeq(batch);
+			job.setInputSeq(inputSeq);
+			job.setBoxId(bucket.getBucketCd());
+			job.setStatus(LogisConstants.JOB_STATUS_PICKING);
+			job.setInputAt(DateUtil.currentTimeStr());
+			if(ValueUtil.isEmpty(job.getBoxTypeCd())) {
+				job.setBoxTypeCd(bucket.getBucketTypeCd());
+			}
+			this.queryManager.update(job, "inputSeq", "boxTypeCd", "boxId", "status", "inputAt", "updaterId", "updatedAt");
+			
+			// 7.2 주문 정보 업데이트
+			condition.put("classCd", job.getClassCd());
+			String sql = "update orders set box_id = :boxId where domain_id = :domainId and batch_id = :batchId and class_cd = :classCd";
+			this.queryManager.executeBySql(sql, condition);
+		}
 		
-		// 6. 박스 마스터 & 내품 내역 생성
-		this.getBoxingService().fullBoxing(batch, null, ValueUtil.toList(job), job.getBoxPackId());
-		
-		// 7. 박스 투입 후 액션 
+		// 8. 박스 투입 후 액션 
 		this.afterInputEmptyBucket(batch, bucket, job.getOrderNo());
 		
-		// 8. 작업 리턴
+		// 9. 작업 리턴
 		return job;
 	}
 	
@@ -246,7 +260,7 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 		Long domainId = batch.getDomainId();
 		Cell cell = (ValueUtil.isEqualIgnoreCase(job.getOrderType(), DpsCodeConstants.DPS_ORDER_TYPE_MT)) ? 
 				    AnyEntityUtil.findEntityBy(domainId, true, Cell.class, null, "equipType,equipCd,cellCd", job.getEquipType(), job.getEquipCd(), job.getSubEquipCd()) : null;
-				
+		
 		// 3. 작업 처리 전 액션 
 		int pickQty = this.beforeConfirmPick(batch, job, cell, resQty);
 		

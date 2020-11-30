@@ -6,14 +6,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import operato.logis.dps.entity.DpsBoxItem;
 import operato.logis.dps.entity.DpsBoxPack;
 import operato.logis.dps.model.DpsInspItem;
 import operato.logis.dps.model.DpsInspection;
-import operato.logis.dps.query.store.DpsInspectionQueryStore;
 import operato.logis.dps.service.api.IDpsInspectionService;
 import xyz.anythings.base.LogisConstants;
 import xyz.anythings.base.entity.JobBatch;
@@ -35,12 +33,6 @@ import xyz.elidom.util.DateUtil;
  */
 @Component("dpsInspectionService")
 public class DpsInspectionService extends AbstractInstructionService implements IDpsInspectionService {
-
-	/**
-	 * DPS 출고 검수 처리용 쿼리 스토어
-	 */	
-	@Autowired
-	private DpsInspectionQueryStore dpsInspectionQueryStore;
 	
 	/**
 	 * 검수 정보 조회
@@ -72,6 +64,44 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 			}
 		} else {
 			return ValueUtil.populate(boxPack, new DpsInspection());
+		}
+	}
+	
+	/**
+	 * 검수 리스트 조회
+	 * 
+	 * @param sql
+	 * @param params
+	 * @param orderInfo
+	 * @param exceptionWhenEmpty
+	 * @return
+	 */
+	private List<DpsInspection> searchInspectionList(boolean reprintMode, Map<String, Object> params, String orderInfo, boolean exceptionWhenEmpty) {
+		Query condition = new Query();
+		Iterator<String> keyIter = params.keySet().iterator();
+		while(keyIter.hasNext()) {
+			String key = keyIter.next();
+			condition.addFilter(key, params.get(key));
+		}
+		
+		if(reprintMode) {
+			condition.addFilter("status", "in", ValueUtil.toList(LogisConstants.JOB_STATUS_EXAMINATED, LogisConstants.JOB_STATUS_FINAL_OUT, LogisConstants.JOB_STATUS_REPORTED));
+		}
+		List<DpsBoxPack> boxPackList = this.queryManager.selectList(DpsBoxPack.class, condition);
+		
+		if(ValueUtil.isEmpty(boxPackList)) {
+			if(exceptionWhenEmpty) {
+				throw ThrowUtil.newNotFoundRecord("terms.label.inspection", ValueUtil.toString(orderInfo));
+			} else {
+				return null;
+			}
+		} else {
+			List<DpsInspection> inspectionList = new ArrayList<DpsInspection>();
+			for(DpsBoxPack boxPack : boxPackList) {
+				inspectionList.add(ValueUtil.populate(boxPack, new DpsInspection()));
+			}
+			
+			return inspectionList;
 		}
 	}
 	
@@ -182,13 +212,10 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	
 	@Override
 	public List<DpsInspection> searchInspectionList(JobBatch batch, String orderNo, boolean reprintMode, boolean exceptionWhenEmpty) {
-		/*String sql = this.dpsInspectionQueryStore.getFindInspectionQuery();
-		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,orderNo", batch.getDomainId(), batch.getId(), orderNo);
-		params.put("status", reprintMode ? LogisConstants.JOB_STATUS_EXAMINATED : LogisConstants.JOB_STATUS_BOXED);
-		return this.queryManager.selectListBySql(sql, params, DpsInspection.class, 0, 0);*/
 		
-		// TODO
-		return null;
+		//String sql = this.dpsInspectionQueryStore.getFindInspectionQuery();
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,orderNo", batch.getDomainId(), batch.getId(), orderNo);
+		return this.searchInspectionList(reprintMode, params, orderNo, exceptionWhenEmpty);
 	}
 
 	@Override
@@ -235,7 +262,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 		
 		// 2. 작업 정보 검수 완료 처리
 		Map<String, Object> updateParams = ValueUtil.newMap("status,manualInspStatus,nowStr,now,updaterId,domainId,batchId,orderNo",
-				LogisConstants.JOB_STATUS_EXAMINATED, 
+				LogisConstants.JOB_STATUS_EXAMINATED,
 				LogisConstants.PASS_STATUS,
 				DateUtil.currentTimeStr(),
 				new Date(),

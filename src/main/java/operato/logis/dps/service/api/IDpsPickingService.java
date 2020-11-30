@@ -37,15 +37,14 @@ public interface IDpsPickingService extends IPickingService {
 	public Object inputEmptyBucket(JobBatch batch, boolean isBox, String bucketCd, Object... params);
 	
 	/**
-	 * 단포 박스 투입 
+	 * 단포 박스 투입
 	 * 
 	 * @param batch
-	 * @param isBox
 	 * @param skuCd
-	 * @param bucketCd
+	 * @param boxId
 	 * @param params
 	 * @return
 	 */
-	public Object inputSinglePackEmptyBucket(JobBatch batch, boolean isBox, String skuCd, String bucketCd, Object... params);
+	public Object inputSinglePackEmptyBox(JobBatch batch, String skuCd, String boxId, Object... params);
 	
 }

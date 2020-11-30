@@ -207,7 +207,7 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 	}
 	
 	/**
-	 * DPS 박스 투입 (BOX or Tray)
+	 * DPS 박스 투입
 	 * 
 	 * @param event
 	 */
@@ -303,13 +303,13 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 	@Order(Ordered.LOWEST_PRECEDENCE)
 	public void singlePackPick(DeviceProcessRestEvent event) {
 		
-		// 1. 파라미터 
+		// 1. 파라미터
 		String jobId = event.getRequestParams().get("jobId").toString();
 
-		// 2. 작업 데이터 조회 
+		// 2. 작업 데이터 조회
 		JobInstance job = AnyEntityUtil.findEntityById(true, JobInstance.class, jobId);
 		
-		// 3. 작업 배치 조회 
+		// 3. 작업 배치 조회
 		JobBatch batch = AnyEntityUtil.findEntityById(true, JobBatch.class, job.getBatchId());
 		
 		// 4. 피킹 검수 설정 확인
@@ -318,19 +318,19 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 			resQty = 1;
 		}
 		
-		// 5. 확정 처리 
+		// 5. 확정 처리
 		this.dpsPickingService.confirmPick(batch, job, resQty);
 		
 		// 6. 작업 완료가 되었다면 단포 작업 현황 조회
 		if(job.getPickedQty() >= job.getPickQty()) {
-			// 상품에 대한 단포 작업 정보 조회 
+			// 상품에 대한 단포 작업 정보 조회
 			List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackSummary(batch, job.getSkuCd(), job.getBoxTypeCd(), job.getPickQty());
 			// 처리 결과 설정
 			DpsSinglePackJobInform result = new DpsSinglePackJobInform(singlePackInfo, null);
 			event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, result));
 		
 		} else {
-			// 처리 결과 설정 
+			// 처리 결과 설정
 			event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, job));
 		}
 
@@ -346,30 +346,22 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 	@Order(Ordered.LOWEST_PRECEDENCE)
 	public void singlePackBoxInput(DeviceProcessRestEvent event) {
 		
-		// 1. 파라미터 
+		// 1. 파라미터
 		Map<String, Object> params = event.getRequestParams();
 		String equipType = params.get("equipType").toString();
 		String equipCd = params.get("equipCd").toString();
 		String skuCd = params.get("skuCd").toString();
-		String boxId = params.get("bucketCd").toString();
+		String boxId = params.get("boxId").toString();
 
 		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
 		Long domainId = event.getDomainId();
 		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(domainId, equipType, equipCd);
 		JobBatch batch = equipBatchSet.getBatch();
 		
-		// 3. 사용 박스 타입 작업 설정에서 조회
-		String boxType = DpsBatchJobConfigUtil.getInputBoxType(batch);
+		// 3. 단포 박스 투입 서비스 호출 (단포는 무조건 박스 타입이 box)
+		JobInstance job = (JobInstance)this.dpsPickingService.inputSinglePackEmptyBox(batch, skuCd, boxId);
 		
-		// 4. 단포 박스 투입 서비스 호출
-		boolean isBox = ValueUtil.isEqualIgnoreCase(boxType, DpsCodeConstants.BOX_TYPE_BOX);
-		JobInstance job = (JobInstance)this.dpsPickingService.inputSinglePackEmptyBucket(batch, isBox, skuCd, boxId);
-		
-		// 5. 상품에 대한 단포 작업 정보 조회 
-		//List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackSummary(batch, skuCd, job.getBoxTypeCd(), job.getPickQty());
-		//DpsSinglePackJobInform result = new DpsSinglePackJobInform(singlePackInfo, job);
-		
-		// 6. 이벤트 처리 결과 셋팅 
+		// 4. 이벤트 처리 결과 셋팅
 		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, job));
 		event.setExecuted(true);
 	}
@@ -383,20 +375,20 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 	@Order(Ordered.LOWEST_PRECEDENCE)
 	public void singlePackSkuChange(DeviceProcessRestEvent event) {
 		
-		// 1. 파라미터 
+		// 1. 파라미터
 		Map<String, Object> params = event.getRequestParams();
 		String equipType = params.get("equipType").toString();
 		String equipCd = params.get("equipCd").toString();
 		String skuCd = params.get("skuCd").toString();
 
-		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회 
+		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
 		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
 		JobBatch batch = equipBatchSet.getBatch();
 		
-		// 3. 상품에 대한 단포 작업 정보 조회 
+		// 3. 상품에 대한 단포 작업 정보 조회
 		List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackSummary(batch, skuCd, null, null);
 		
-		// 4. 이벤트 처리 결과 셋팅 
+		// 4. 이벤트 처리 결과 셋팅
 		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, singlePackInfo));
 		event.setExecuted(true);
 	}
