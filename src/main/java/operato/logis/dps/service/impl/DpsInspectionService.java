@@ -8,12 +8,12 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
-import operato.logis.dps.entity.DpsBoxItem;
-import operato.logis.dps.entity.DpsBoxPack;
 import operato.logis.dps.model.DpsInspItem;
 import operato.logis.dps.model.DpsInspection;
 import operato.logis.dps.service.api.IDpsInspectionService;
 import xyz.anythings.base.LogisConstants;
+import xyz.anythings.base.entity.BoxItem;
+import xyz.anythings.base.entity.BoxPack;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.TrayBox;
 import xyz.anythings.base.service.impl.AbstractInstructionService;
@@ -54,7 +54,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 		if(reprintMode) {
 			condition.addFilter("status", "in", ValueUtil.toList(LogisConstants.JOB_STATUS_EXAMINATED, LogisConstants.JOB_STATUS_FINAL_OUT, LogisConstants.JOB_STATUS_REPORTED));
 		}
-		DpsBoxPack boxPack = this.queryManager.selectByCondition(DpsBoxPack.class, condition);
+		BoxPack boxPack = this.queryManager.selectByCondition(BoxPack.class, condition);
 		
 		if(boxPack == null) {
 			if(exceptionWhenEmpty) {
@@ -87,7 +87,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 		if(reprintMode) {
 			condition.addFilter("status", "in", ValueUtil.toList(LogisConstants.JOB_STATUS_EXAMINATED, LogisConstants.JOB_STATUS_FINAL_OUT, LogisConstants.JOB_STATUS_REPORTED));
 		}
-		List<DpsBoxPack> boxPackList = this.queryManager.selectList(DpsBoxPack.class, condition);
+		List<BoxPack> boxPackList = this.queryManager.selectList(BoxPack.class, condition);
 		
 		if(ValueUtil.isEmpty(boxPackList)) {
 			if(exceptionWhenEmpty) {
@@ -97,7 +97,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 			}
 		} else {
 			List<DpsInspection> inspectionList = new ArrayList<DpsInspection>();
-			for(DpsBoxPack boxPack : boxPackList) {
+			for(BoxPack boxPack : boxPackList) {
 				inspectionList.add(ValueUtil.populate(boxPack, new DpsInspection()));
 			}
 			
@@ -124,13 +124,13 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 		//String sql = this.dpsInspectionQueryStore.getSearchInspectionItemsQuery();
 		//List<DpsInspItem> items = this.queryManager.selectListBySql(sql, params, DpsInspItem.class, 0, 0);
 		
-		Map<String, Object> condition = ValueUtil.newMap("dpsBoxPackId", inspection.getId());
-		List<DpsBoxItem> boxItems = this.queryManager.selectList(DpsBoxItem.class, condition);
+		Map<String, Object> condition = ValueUtil.newMap("boxPackId", inspection.getId());
+		List<BoxItem> boxItems = this.queryManager.selectList(BoxItem.class, condition);
 		
 		if(ValueUtil.isNotEmpty(boxItems)) {
 			List<DpsInspItem> items = new ArrayList<DpsInspItem>(boxItems.size());
 			
-			for(DpsBoxItem item : boxItems) {
+			for(BoxItem item : boxItems) {
 				items.add(ValueUtil.populate(item, new DpsInspItem()));
 			}
 			
@@ -219,7 +219,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	}
 
 	@Override
-	public DpsInspection findInspectionByBoxPack(DpsBoxPack box, boolean reprintMode) {
+	public DpsInspection findInspectionByBoxPack(BoxPack box, boolean reprintMode) {
 		
 		//String sql = this.dpsInspectionQueryStore.getFindInspectionQuery();
 		Map<String, Object> params = ValueUtil.newMap("domainId,batchId", box.getDomainId(), box.getBatchId());
@@ -242,7 +242,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	public void finishInspection(JobBatch batch, String invoiceId, Float boxWeight, String printerId, Object ... params) {
 		
 		// 박스 조회
-		DpsBoxPack box = AnyEntityUtil.findEntityBy(batch.getDomainId(), false, DpsBoxPack.class, null, "batchId,invoiceId", batch.getId(), invoiceId);
+		BoxPack box = AnyEntityUtil.findEntityBy(batch.getDomainId(), false, BoxPack.class, null, "batchId,invoiceId", batch.getId(), invoiceId);
 		
 		if(box == null) {
 			throw ThrowUtil.newNotFoundRecord("terms.menu.DpsBoxPack", invoiceId);
@@ -253,7 +253,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	}
 
 	@Override
-	public void finishInspection(JobBatch batch, DpsBoxPack box, Float boxWeight, String printerId, Object ... params) {
+	public void finishInspection(JobBatch batch, BoxPack box, Float boxWeight, String printerId, Object ... params) {
 		
 		// 1. 박스 상태 업데이트
 		box.setStatus(LogisConstants.JOB_STATUS_EXAMINATED);
@@ -292,13 +292,13 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	}
 
 	@Override
-	public DpsBoxPack splitBox(JobBatch batch, DpsBoxPack sourceBox, List<DpsInspItem> inspectionItems, String printerId, Object ... params) {
+	public BoxPack splitBox(JobBatch batch, BoxPack sourceBox, List<DpsInspItem> inspectionItems, String printerId, Object ... params) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
-	public int printInvoiceLabel(JobBatch batch, DpsBoxPack box, String printerId) {
+	public int printInvoiceLabel(JobBatch batch, BoxPack box, String printerId) {
 		String labelTemplate = BatchJobConfigUtil.getInvoiceLabelTemplate(batch);
 		PrintEvent printEvent = new PrintEvent(batch.getDomainId(), batch.getJobType(), printerId, labelTemplate, ValueUtil.newMap("box", box));
 		this.eventPublisher.publishEvent(printEvent);
@@ -314,7 +314,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	}
 
 	@Override
-	public int printTradeStatement(JobBatch batch, DpsBoxPack box, String printerId) {
+	public int printTradeStatement(JobBatch batch, BoxPack box, String printerId) {
 		// TODO Auto-generated method stub
 		return 0;
 	}
@@ -326,7 +326,7 @@ public class DpsInspectionService extends AbstractInstructionService implements 
 	}
 
 	@Override
-	public void inspectionAction(DpsBoxPack box) {
+	public void inspectionAction(BoxPack box) {
 		// TODO Auto-generated method stub
 		
 	}

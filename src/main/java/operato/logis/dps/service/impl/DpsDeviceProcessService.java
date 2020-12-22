@@ -15,7 +15,6 @@ import com.google.gson.reflect.TypeToken;
 
 import operato.logis.dps.DpsCodeConstants;
 import operato.logis.dps.DpsConstants;
-import operato.logis.dps.entity.DpsBoxPack;
 import operato.logis.dps.model.DpsBatchInputableBox;
 import operato.logis.dps.model.DpsBatchSummary;
 import operato.logis.dps.model.DpsInspItem;
@@ -30,6 +29,7 @@ import operato.logis.dps.service.util.DpsBatchJobConfigUtil;
 import operato.logis.dps.service.util.DpsServiceUtil;
 import xyz.anythings.base.LogisCodeConstants;
 import xyz.anythings.base.LogisConstants;
+import xyz.anythings.base.entity.BoxPack;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInput;
 import xyz.anythings.base.entity.JobInstance;
@@ -461,7 +461,7 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 	}
 	
 	/**
-	 * DPS 출고 검수를 위한 검수 정보 조회 - 송장 번호
+	 * DPS 출고 검수를 위한 검수 정보 조회 - 주문 번호
 	 * 
 	 * @param event
 	 */
@@ -515,13 +515,13 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		JobBatch batch = equipBatchSet.getBatch();
 		
 		// 4. 박스 정보 조회
-		DpsBoxPack sourceBox = AnyEntityUtil.findEntityBy(event.getDomainId(), false, DpsBoxPack.class, null, "batchId,invoiceId", batch.getId(), invoiceId);
+		BoxPack sourceBox = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "batchId,invoiceId", batch.getId(), invoiceId);
 		if(sourceBox == null) {
-			sourceBox = AnyEntityUtil.findEntityBy(event.getDomainId(), false, DpsBoxPack.class, null, "invoiceId", invoiceId);
+			sourceBox = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "invoiceId", invoiceId);
 		}
 		
 		// 5. 송장 분할
-		DpsBoxPack splitBox = this.dpsInspectionService.splitBox(batch, sourceBox, dpsInspItems, printerId);
+		BoxPack splitBox = this.dpsInspectionService.splitBox(batch, sourceBox, dpsInspItems, printerId);
 
 		// 6. 이벤트 처리 결과 셋팅
 		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, splitBox));
@@ -549,9 +549,9 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		JobBatch batch = equipBatchSet.getBatch();
 		
 		// 3. 검수 완료
-		DpsBoxPack boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, DpsBoxPack.class, null, "batchId,orderNo", batch.getId(), orderNo);
+		BoxPack boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "batchId,orderNo", batch.getId(), orderNo);
 		if(boxPack == null) {
-			boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, DpsBoxPack.class, null, "orderNo", orderNo);
+			boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "orderNo", orderNo);
 		}
 		this.dpsInspectionService.finishInspection(batch, boxPack, null, printerId);
 
@@ -581,9 +581,9 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		JobBatch batch = equipBatchSet.getBatch();
 		
 		// 3. 박스 조회
-		DpsBoxPack boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, DpsBoxPack.class, null, "batchId,boxId", batch.getId(), boxId);
+		BoxPack boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "batchId,boxId", batch.getId(), boxId);
 		if(boxPack == null) {
-			boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, DpsBoxPack.class, null, "boxId", boxId);
+			boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "boxId", boxId);
 		}
 		
 		// 4. 송장 발행
@@ -615,9 +615,9 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 		JobBatch batch = equipBatchSet.getBatch();
 		
 		// 3. 박스 조회
-		DpsBoxPack boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, DpsBoxPack.class, null, "batchId,boxId", batch.getId(), boxId);
+		BoxPack boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "batchId,boxId", batch.getId(), boxId);
 		if(boxPack == null) {
-			boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, DpsBoxPack.class, null, "boxId", boxId);
+			boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "boxId", boxId);
 		}
 		
 		// 4. 거래명세서 발행

@@ -143,6 +143,11 @@ public class DpsIndicationService extends AbstractLogisService implements IIndic
 
 	@Override
 	public void indicatorOffAll(JobBatch batch) {
+		this.indicatorOffAll(batch, false);
+	}
+	
+	@Override
+	public void indicatorOffAll(JobBatch batch, boolean forceOff) {
 		List<Gateway> gwList = this.searchGateways(batch);
 		
 		if(ValueUtil.isNotEmpty(gwList)) {
@@ -152,7 +157,7 @@ public class DpsIndicationService extends AbstractLogisService implements IIndic
 			
 			for(Gateway gw : gwList) {
 				List<String> indCdList = IndicatorQueryUtil.searchIndCdList(gw, batch.getEquipType(), batch.getEquipCd());
-				indReqSvc.requestIndListOff(domainId, stageCd, gw.getGwNm(), indCdList, false);
+				indReqSvc.requestIndListOff(domainId, stageCd, gw.getGwNm(), indCdList, forceOff);
 			}
 		}
 	}

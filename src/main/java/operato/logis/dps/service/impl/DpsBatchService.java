@@ -130,7 +130,7 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 		// 2. batchId별 작업 실행 데이터 중에 완료되지 않은 것이 있는지 체크
 		if(!closeForcibly) {
 			// batchId별 작업 실행 데이터 체크
-			sql = "select distinct equip_nm from job_instances where domain_id = :domainId and batch_id in (select id from job_batches where domain_id = :domainId and batch_group_id = :batchGroupId) and status in (:statuses) order by equip_cd asc";
+			sql = "select distinct equip_cd from job_instances where domain_id = :domainId and batch_id in (select id from job_batches where domain_id = :domainId and batch_group_id = :batchGroupId) and status in (:statuses) order by equip_cd asc";
 			params.put("statuses", LogisConstants.JOB_STATUS_WIPC);
 			List<String> equipCdList = this.queryManager.selectListBySql(sql, params, String.class, 0, 0);
 			

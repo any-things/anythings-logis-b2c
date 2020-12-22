@@ -4,7 +4,6 @@ UPDATE JOB_INSTANCES
 		, COLOR_CD = :colorCd
 		, STATUS = CASE WHEN (ORDER_TYPE = 'OT') THEN 'P' ELSE 'I' END -- 단포 작업은 Picking, 합포 작업은 Input 
 		, INPUT_AT = :inputAt
-		, BOX_PACK_ID = :boxPackId
 		, UPDATER_ID = :userId
  WHERE
 	DOMAIN_ID = :domainId

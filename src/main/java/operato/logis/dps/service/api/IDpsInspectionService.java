@@ -2,9 +2,9 @@ package operato.logis.dps.service.api;
 
 import java.util.List;
 
-import operato.logis.dps.entity.DpsBoxPack;
 import operato.logis.dps.model.DpsInspItem;
 import operato.logis.dps.model.DpsInspection;
+import xyz.anythings.base.entity.BoxPack;
 import xyz.anythings.base.entity.JobBatch;
 
 /**
@@ -92,7 +92,7 @@ public interface IDpsInspectionService {
 	 * @param reprintMode
 	 * @return
 	 */
-	public DpsInspection findInspectionByBoxPack(DpsBoxPack box, boolean reprintMode);
+	public DpsInspection findInspectionByBoxPack(BoxPack box, boolean reprintMode);
 
 	/**
 	 * 송장 ID로 검수 완료
@@ -113,7 +113,7 @@ public interface IDpsInspectionService {
 	 * @param boxWeight 박스 무게
 	 * @param printerId
 	 */
-	public void finishInspection(JobBatch batch, DpsBoxPack box, Float boxWeight, String printerId, Object ... params);
+	public void finishInspection(JobBatch batch, BoxPack box, Float boxWeight, String printerId, Object ... params);
 	
 	/**
 	 * 박스 분할
@@ -125,7 +125,7 @@ public interface IDpsInspectionService {
 	 * @param params
 	 * @return 분할된 박스
 	 */
-	public DpsBoxPack splitBox(JobBatch batch, DpsBoxPack sourceBox, List<DpsInspItem> inspectionItems, String printerId, Object ... params);
+	public BoxPack splitBox(JobBatch batch, BoxPack sourceBox, List<DpsInspItem> inspectionItems, String printerId, Object ... params);
 		
 	/**
 	 * 박스 송장 라벨 발행
@@ -135,7 +135,7 @@ public interface IDpsInspectionService {
 	 * @param printerId
 	 * @return 출력 매수
 	 */
-	public int printInvoiceLabel(JobBatch batch, DpsBoxPack box, String printerId);
+	public int printInvoiceLabel(JobBatch batch, BoxPack box, String printerId);
 	
 	/**
 	 * 박스 송장 라벨 발행
@@ -155,7 +155,7 @@ public interface IDpsInspectionService {
 	 * @param printerId
 	 * @return 출력 매수
 	 */
-	public int printTradeStatement(JobBatch batch, DpsBoxPack box, String printerId);
+	public int printTradeStatement(JobBatch batch, BoxPack box, String printerId);
 	
 	/**
 	 * 출고 검수 후 액션 처리
@@ -170,6 +170,6 @@ public interface IDpsInspectionService {
 	 * 
 	 * @param box
 	 */
-	public void inspectionAction(DpsBoxPack box);
+	public void inspectionAction(BoxPack box);
 
 }

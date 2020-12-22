@@ -85,6 +85,12 @@ public class DpsJobStatusService extends AbstractJobStatusService implements IDp
 		return this.queryManager.selectPageBySql(sql, params, JobInput.class, page, limit);
 	}
 
+	@Override
+	public Page<JobInput> paginateNotInputList(JobBatch batch, String equipCd, String stationCd, int page, int limit) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	/**
 	 * 태블릿 작업 화면 탭 리스트 
 	 */
