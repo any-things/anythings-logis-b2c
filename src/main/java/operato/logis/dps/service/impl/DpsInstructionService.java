@@ -284,7 +284,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		condition.addFilter("batchId", batch.getId());
 		condition.addFilter(new Filter("pickedQty", OrmConstants.GREATER_THAN, 0));
 		if(this.queryManager.selectSize(JobInstance.class, condition) > 0) {
-			throw ThrowUtil.newValidationErrorWithNoLog(true, "MPS_NOT_ALLOWED_CANCEL_AFTER_START_JOB"); // 분류 작업시작 이후여서 취소가 불가능합니다
+			throw ThrowUtil.newValidationErrorWithNoLog(true, "NOT_ALLOWED_CANCEL_AFTER_START_JOB"); // 분류 작업시작 이후여서 취소가 불가능합니다
 		}
 		
 		// 4.1 단포 작업 활성화 여부
