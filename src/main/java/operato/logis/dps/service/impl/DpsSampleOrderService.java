@@ -2,6 +2,7 @@ package operato.logis.dps.service.impl;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -129,6 +130,7 @@ public class DpsSampleOrderService {
 		batch.setBatchOrderQty(sampler.getTotalOrderQty());
 		batch.setResultOrderQty(0);
 		batch.setResultBoxQty(0);
+		batch.setResultSkuQty(0);
 		batch.setLastInputSeq(0);
 		batch.setEquipRuntime(0.0f);
 		batch.setProgressRate(0.0f);
@@ -144,11 +146,14 @@ public class DpsSampleOrderService {
 	 */
 	private void createJobBatch(JobBatch batch, OrderSampler sampler) {
 		
-		// 배치 정보 저장 
-		String sql = "select sum(order_qty) as order_qty from orders where domain_id = :domainId and batch_id = :batchId";
-		int totalPcs = this.queryManger.selectBySql(sql, ValueUtil.newMap("domainId,batchId", batch.getDomainId(), batch.getId()), Integer.class);
-		batch.setParentPcs(totalPcs);
-		batch.setBatchPcs(totalPcs);
+		// 배치 정보 저장
+		String sql = "select sum(order_qty) as parent_order_qty, count(distinct sku_cd) as parent_sku_qty from orders where domain_id = :domainId and batch_id = :batchId";
+		Map<String, Object> params = ValueUtil.newMap("domainId,batchId", batch.getDomainId(), batch.getId());
+		JobBatch countData = this.queryManger.selectBySql(sql, params, JobBatch.class);
+		batch.setParentPcs(countData.getParentOrderQty());
+		batch.setBatchPcs(countData.getParentOrderQty());
+		batch.setParentSkuQty(countData.getParentSkuQty());
+		batch.setBatchSkuQty(countData.getParentSkuQty());
 		batch.setStatus(JobBatch.STATUS_READY);
 		this.queryManger.insert(batch);
 		
