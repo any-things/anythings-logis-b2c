@@ -323,4 +323,10 @@ public class DpsIndicationService extends AbstractLogisService implements IIndic
 		}
 	}
 
+	@Override
+	public void changeIndicator(Long domainId, String stageCd, String gwPath, String fromIndCd, String toIndCd) {
+		IIndRequestService indReqSvc = this.indicatorDispatcher.getIndicatorRequestServiceByStage(domainId, stageCd);
+		indReqSvc.changeIndicator(domainId, stageCd, gwPath, fromIndCd, toIndCd);
+	}
+
 }
