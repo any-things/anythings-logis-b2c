@@ -79,7 +79,7 @@ public class DpsBatchService extends AbstractLogisService implements IBatchServi
 			condition.addFilter("status", OrmConstants.IN, LogisConstants.JOB_STATUS_WIPC);
 			if(this.queryManager.selectSize(JobInstance.class, condition) > 0) {
 				// {0} 등 {1}개의 호기에서 작업이 끝나지 않았습니다.
-				String msg = MessageUtil.getMessage("ASSORTING_NOT_FINISHED_IN_RACKS", "{0} 등 {1}개의 호기에서 작업이 끝나지 않았습니다.", ValueUtil.toList(batch.getEquipCd(), "1"));
+				String msg = MessageUtil.getMessage("ASSORTING_NOT_FINISHED_IN_RACKS", "{0} 등 {1}개의 랙에서 작업이 끝나지 않았습니다.", ValueUtil.toList(batch.getEquipCd(), "1"));
 				throw ThrowUtil.newValidationErrorWithNoLog(msg);
 			}
 		}
