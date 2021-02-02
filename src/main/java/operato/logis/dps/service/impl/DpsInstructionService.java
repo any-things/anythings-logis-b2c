@@ -98,7 +98,21 @@ public class DpsInstructionService extends AbstractInstructionService implements
 
 	@Override
 	public void targetClassing(JobBatch batch, Object... params) {
-		this.doUpdateClassificationCodes(batch, params);
+		// 1. 전처리 이벤트
+		EventResultSet befResult = this.publishClassificationEvent(SysEvent.EVENT_STEP_BEFORE, batch, null, params);
+		
+		// 2. 다음 처리 취소 일 경우 결과 리턴
+		if(!befResult.isAfterEventCancel()) {
+			
+			// 3. 대상 분류 전 처리
+			this.doUpdateClassificationCodes(batch, params);
+			
+			// 4. 대상 분류 프로세싱
+			this.doClassifyOrders(batch, null, params);
+			
+			// 5. 후처리 이벤트
+			this.publishClassificationEvent(SysEvent.EVENT_STEP_AFTER, batch, null, params);
+		}
 	}
 	
 	@Override

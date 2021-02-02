@@ -10,26 +10,26 @@ import xyz.anythings.base.LogisCodeConstants;
 public class DpsCodeConstants extends LogisCodeConstants {
 	
 	/**
-	 * DPS 가공 ( 박스투입 맵핑 ) 기준 주문 
+	 * DPS 가공 ( 박스투입 맵핑 ) 기준 주문
 	 */
-	public static final String DPS_PREPROCESS_COL_ORDER = "ORDER";	
+	public static final String DPS_PREPROCESS_COL_ORDER = "ORDER";
 	/**
-	 * DPS 가공 ( 박스투입 맵핑 ) 기준 매장  
+	 * DPS 가공 ( 박스투입 맵핑 ) 기준 매장
 	 */
 	public static final String DPS_PREPROCESS_COL_SHOP = "SHOP";
 	
 	/**
-	 * DPS 대상 분류 : 합포 
+	 * DPS 대상 분류 : 합포
 	 */
 	public static final String DPS_ORDER_TYPE_MT = "MT";
 	/**
-	 * DPS 대상 분류 : 단포 
+	 * DPS 대상 분류 : 단포
 	 */
 	public static final String DPS_ORDER_TYPE_OT = "OT";
 	
 	/**
-	 * DPS 랙 타입 : 단포 
+	 * DPS 랙 타입 : 단포
 	 */
 	public static final String DPS_RACK_TYPE_OT = "O";
-	
+
 }
