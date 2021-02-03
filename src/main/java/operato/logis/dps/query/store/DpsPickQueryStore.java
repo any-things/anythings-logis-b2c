@@ -37,23 +37,5 @@ public class DpsPickQueryStore extends AbstractQueryStore {
 	public String getSearchPickingJobListQuery() {
 		return this.getQueryByPath("pick/SearchPickingJobList");
 	}
-	
-	/**
-	 * 단포 작업 화면 서머리 정보 조회 쿼리
-	 * 
-	 * @return
-	 */
-	public String getSinglePackSummaryQuery() {
-		return this.getQueryByPath("pick/SearchSinglePackSummary");
-	}
-	
-	/**
-	 * 소분류 처리를 주문 데이터에 반영 하기 위한 업데이트 대상 리스트 조회 쿼리
-	 * 
-	 * @return
-	 */
-	/*public String getFindOrderQtyUpdateListQuery() {
-		return this.getQueryByPath("pick/FindOrderQtyUpdateList");
-	}*/
 
 }

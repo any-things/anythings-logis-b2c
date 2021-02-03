@@ -111,30 +111,12 @@ public class DpsBatchQueryStore extends AbstractQueryStore {
 	}
 	
 	/**
-	 * 작업 지시 단포 대상 분류를 위한 쿼리 조회
-	 *
-	 * @return
-	 */
-	public String getDpsClassifySingleOrders() {
-		return this.getQueryByPath("batch/ClassifySingleOrders");
-	}
-	
-	/**
 	 * 작업 지시 합포 대상 분류를 위한 쿼리 조회
 	 *
 	 * @return
 	 */
 	public String getDpsClassifyMultiOrders() {
 		return this.getQueryByPath("batch/ClassifyMultiOrders");
-	}
-	
-	/**
-	 * 작업 지시 단포 작업 생성 쿼리 조회
-	 *
-	 * @return
-	 */
-	public String getDpsGenerateSinglePackInstances() {
-		return this.getQueryByPath("batch/CreateSinglePackInstances");
 	}
 	
 	/**

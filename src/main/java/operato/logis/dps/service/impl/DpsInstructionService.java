@@ -302,23 +302,24 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		}
 		
 		// 4.1 단포 작업 활성화 여부
-		boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(batch);
-		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId,fromStatus,toStatus,orderType", batch.getDomainId(), batch.getId(), Order.STATUS_ASSIGN, "T", DpsCodeConstants.DPS_ORDER_TYPE_OT);
+		//boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(batch);
+		// Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId,fromStatus,toStatus,orderType", batch.getDomainId(), batch.getId(), Order.STATUS_WAIT, "T", DpsCodeConstants.DPS_ORDER_TYPE_MT);
 		
 		// 4.2 단포 주문 상태 업데이트 및 작업 생성
-		if(useSinglePack) {
+		//if(useSinglePack) {
 			// 4.2.1 주문 상태 원복
-			String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
-			this.queryManager.executeBySql(sql, queryParams);
-		}
+		//	String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
+		//	this.queryManager.executeBySql(sql, queryParams);
+		//}
 		
 		// 4.3 작업 삭제
 		String sql = "delete from job_instances where domain_id = :domainId and batch_id = :batchId";
+		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId,fromStatus,toStatus,orderType", batch.getDomainId(), batch.getId(), Order.STATUS_WAIT, "T", DpsCodeConstants.DPS_ORDER_TYPE_MT);
 		this.queryManager.executeBySql(sql, queryParams);
 		
 		// 4.4 합포 주문 업데이트
-		queryParams.put("fromStatus", Order.STATUS_WAIT);
-		queryParams.put("orderType", DpsCodeConstants.DPS_ORDER_TYPE_MT);
+		//queryParams.put("fromStatus", Order.STATUS_WAIT);
+		//queryParams.put("orderType", DpsCodeConstants.DPS_ORDER_TYPE_MT);
 		sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
 		this.queryManager.executeBySql(sql, queryParams);
 		
@@ -458,7 +459,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	private int processClassifyOrders(JobBatch batch, List<Rack> rackList, Object... params) {
 		// 1. 상위 시스템 대상 분류 여부 확인
 		String sql = "SELECT ID FROM ORDERS WHERE DOMAIN_ID = :domainId AND BATCH_ID = :batchId AND ORDER_TYPE IS NOT NULL";
-		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId", batch.getDomainId(), batch.getId());
+		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId,orderType", batch.getDomainId(), batch.getId(), DpsCodeConstants.DPS_ORDER_TYPE_MT);
 		int classifyCount = this.queryManager.selectSizeBySql(sql, queryParams);
 		
 		// 2. 상위 시스템에서 대상 분류 한 작업 이면 건수만 리턴
@@ -468,22 +469,11 @@ public class DpsInstructionService extends AbstractInstructionService implements
 			return this.queryManager.executeBySql(sql, queryParams);
 		}
 		
-		// 3. 단포 작업 활성화 여부 체크
-		boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(batch);
-		
-		// 4. 단포 대상 분류
-		if(useSinglePack) {
-			queryParams.put("orderType", DpsCodeConstants.DPS_ORDER_TYPE_OT);
-			sql = this.dpsBatchQueryStore.getDpsClassifySingleOrders();
-			classifyCount = this.queryManager.executeBySql(sql, queryParams);
-		}
-		
-		// 5. 합포 대상 분류
-		queryParams.put("orderType", DpsCodeConstants.DPS_ORDER_TYPE_OT);
-		sql = this.dpsBatchQueryStore.getDpsClassifySingleOrders();
+		// 3. 합포 대상 분류
+		sql = this.dpsBatchQueryStore.getDpsClassifyMultiOrders();
 		classifyCount += this.queryManager.executeBySql(sql, queryParams);
 		
-		// 6. 커스텀 서비스 호출
+		// 4. 커스텀 서비스 호출
 		this.customService.doCustomService(batch.getDomainId(), DIY_CLASSIFY_ORDERS, ValueUtil.newMap("batch,equipList", batch, rackList));
 		return classifyCount;
 	}
@@ -581,24 +571,24 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		}
 		
 		// 3. 단포 작업 활성화 여부
-		boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(batch);
-		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchGroupId,equipCd,equipNm,fromStatus,toStatus,orderType", 
-				domainId, batch.getBatchGroupId(), batch.getEquipCd(), batch.getEquipNm(), "T", Order.STATUS_ASSIGN, DpsCodeConstants.DPS_ORDER_TYPE_OT);
+		//boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(batch);
+		//Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchGroupId,equipCd,equipNm,fromStatus,toStatus,orderType", 
+		//		domainId, batch.getBatchGroupId(), batch.getEquipCd(), batch.getEquipNm(), "T", Order.STATUS_ASSIGN, DpsCodeConstants.DPS_ORDER_TYPE_OT);
 		
 		// 4. 단포 주문 상태 업데이트 및 작업 생성
-		if(useSinglePack) {
+		//if(useSinglePack) {
 			// 4.1 주문 업데이트 
-			String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
-			this.queryManager.executeBySql(sql, queryParams);
+		//	String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
+		//	this.queryManager.executeBySql(sql, queryParams);
 			
 			// 4.2 단포 작업 생성
-			sql = this.dpsBatchQueryStore.getDpsGenerateSinglePackInstances();
-			this.queryManager.executeBySql(sql, queryParams);
-		}
+		//	sql = this.dpsBatchQueryStore.getDpsGenerateSinglePackInstances();
+		//	this.queryManager.executeBySql(sql, queryParams);
+		//}
 		
 		// 5. 합포 주문 업데이트
-		queryParams.put("toStatus", Order.STATUS_WAIT);
-		queryParams.put("orderType", DpsCodeConstants.DPS_ORDER_TYPE_MT);
+		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchGroupId,equipCd,equipNm,fromStatus,toStatus,orderType", 
+						domainId, batch.getBatchGroupId(), batch.getEquipCd(), batch.getEquipNm(), "T", Order.STATUS_WAIT, DpsCodeConstants.DPS_ORDER_TYPE_MT);
 		String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
 		this.queryManager.executeBySql(sql, queryParams);
 		
@@ -760,24 +750,26 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		}
 		
 		// 2.2 단포 활성화 여부 체크
-		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId,equipCd,equipNm,fromStatus,toStatus,orderType", 
-				domainId, newBatch.getId(), mainBatch.getEquipCd(), mainBatch.getEquipNm(), "T", Order.STATUS_ASSIGN, DpsCodeConstants.DPS_ORDER_TYPE_OT);
-		boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(mainBatch);
+		//Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId,equipCd,equipNm,fromStatus,toStatus,orderType", 
+		//		domainId, newBatch.getId(), mainBatch.getEquipCd(), mainBatch.getEquipNm(), "T", Order.STATUS_ASSIGN, DpsCodeConstants.DPS_ORDER_TYPE_OT);
+		//boolean useSinglePack = DpsBatchJobConfigUtil.isSingleSkuNpcsClassEnabled(mainBatch);
 		
 		// 2.3 단포 주문 업데이트, 단포 작업 생성
-		if(useSinglePack) {
+		//if(useSinglePack) {
 			// 2.3.1 주문 업데이트 
-			String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
-			this.queryManager.executeBySql(sql, queryParams);
+		//	String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
+		//	this.queryManager.executeBySql(sql, queryParams);
 			
 			// 2.3.2 단포 작업 생성
-			sql = this.dpsBatchQueryStore.getDpsGenerateSinglePackInstances();
-			this.queryManager.executeBySql(sql, queryParams);
-		}
+		//	sql = this.dpsBatchQueryStore.getDpsGenerateSinglePackInstances();
+		//	this.queryManager.executeBySql(sql, queryParams);
+		//}
 		
 		// 2.4 합포 주문 업데이트
-		queryParams.put("toStatus", Order.STATUS_WAIT);
-		queryParams.put("orderType", DpsCodeConstants.DPS_ORDER_TYPE_MT);
+		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId,equipCd,equipNm,fromStatus,toStatus,orderType",
+				domainId, newBatch.getId(), mainBatch.getEquipCd(), mainBatch.getEquipNm(), "T", Order.STATUS_WAIT, DpsCodeConstants.DPS_ORDER_TYPE_MT);
+		//queryParams.put("toStatus", Order.STATUS_WAIT);
+		//queryParams.put("orderType", DpsCodeConstants.DPS_ORDER_TYPE_MT);
 		String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
 		this.queryManager.executeBySql(sql, queryParams);
 		

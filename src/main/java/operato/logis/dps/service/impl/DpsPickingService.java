@@ -1,7 +1,6 @@
 package operato.logis.dps.service.impl;
 
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.context.event.EventListener;
 import org.springframework.core.Ordered;
@@ -12,24 +11,18 @@ import operato.logis.dps.DpsCodeConstants;
 import operato.logis.dps.DpsConstants;
 import operato.logis.dps.service.api.IDpsPickingService;
 import operato.logis.dps.service.util.DpsBatchJobConfigUtil;
-import xyz.anythings.base.LogisConstants;
 import xyz.anythings.base.entity.Cell;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInstance;
-import xyz.anythings.base.entity.SKU;
 import xyz.anythings.base.entity.ifc.IBucket;
 import xyz.anythings.base.event.IClassifyInEvent;
 import xyz.anythings.base.event.IClassifyRunEvent;
 import xyz.anythings.gw.service.util.BatchIndConfigUtil;
 import xyz.anythings.sys.util.AnyEntityUtil;
-import xyz.anythings.sys.util.AnyOrmUtil;
-import xyz.elidom.dbist.dml.Query;
 import xyz.elidom.exception.server.ElidomRuntimeException;
 import xyz.elidom.exception.server.ElidomServiceException;
 import xyz.elidom.sys.util.MessageUtil;
-import xyz.elidom.sys.util.ThrowUtil;
 import xyz.elidom.sys.util.ValueUtil;
-import xyz.elidom.util.DateUtil;
 
 /**
  * DPS 박스 처리 포함한 피킹 서비스 트랜잭션 구현
@@ -122,7 +115,6 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 		String indColor = ValueUtil.isEmpty(bucket.getBucketColor()) ? BatchIndConfigUtil.getDpsJobColor(batch.getId()) : bucket.getBucketColor();
 		
 		// 4. 주문 번호로 매핑된 작업을 모두 조회
-		if(this.dpsJobStatusService == null) this.getJobStatusService(batch);
 		List<JobInstance> jobList = this.dpsJobStatusService.searchPickingJobList(batch, null, orderNo);
 
 		if(ValueUtil.isEmpty(jobList)) {
@@ -154,7 +146,7 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 	 * @param params
 	 * @return
 	 */
-	@Override
+	/*@Override
 	public Object inputSinglePackEmptyBox(JobBatch batch, String skuCd, String boxId, Object... params) {
 		
 		// 1. 상품 Lock
@@ -217,7 +209,7 @@ public class DpsPickingService extends AbstractPickingService implements IDpsPic
 		
 		// 9. 작업 리턴
 		return job;
-	}
+	}*/
 	
 	/***********************************************************************************************/
 	/*											소분류												*/

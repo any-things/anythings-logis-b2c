@@ -6,15 +6,14 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import operato.logis.dps.model.DpsSinglePackSummary;
 import operato.logis.dps.query.store.DpsBatchQueryStore;
 import operato.logis.dps.query.store.DpsPickQueryStore;
-import operato.logis.dps.service.api.IDpsJobStatusService;
 import xyz.anythings.base.LogisConstants;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInput;
 import xyz.anythings.base.entity.JobInstance;
 import xyz.anythings.base.model.BatchProgressRate;
+import xyz.anythings.base.service.api.IJobStatusService;
 import xyz.anythings.base.service.impl.AbstractJobStatusService;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.elidom.dbist.dml.Page;
@@ -26,7 +25,7 @@ import xyz.elidom.sys.util.ValueUtil;
  * @author shortstop
  */
 @Component("dpsJobStatusService")
-public class DpsJobStatusService extends AbstractJobStatusService implements IDpsJobStatusService {
+public class DpsJobStatusService extends AbstractJobStatusService implements IJobStatusService {
 
 	/**
 	 * DPS 배치 관련 쿼리 스토어 
@@ -157,20 +156,6 @@ public class DpsJobStatusService extends AbstractJobStatusService implements IDp
 		String sql = this.dpsPickQueryStore.getSearchPickingJobListQuery();
 		this.addBatchConditions(batch, condition);
 		return this.queryManager.selectListBySql(sql, condition, JobInstance.class, 0, 0);
-	}
-	
-	@Override
-	public List<DpsSinglePackSummary> searchSinglePackSummary(JobBatch batch, String skuCd, String boxType, Integer jobPcs) {
-		
-		String singlePackSummaryQuery = this.dpsPickQueryStore.getSinglePackSummaryQuery();
-		Map<String, Object> params = ValueUtil.newMap("domainId,batchId,skuCd", batch.getDomainId(), batch.getId(), skuCd);
-		
-		if(ValueUtil.isNotEmpty(jobPcs)) {
-			params.put("jobBoxType", boxType);
-			params.put("jobPcs", jobPcs);
-		}
-		
-		return AnyEntityUtil.searchItems(batch.getDomainId(), false, DpsSinglePackSummary.class, singlePackSummaryQuery, params);
 	}
 
 }
