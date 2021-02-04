@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import operato.logis.dps.model.DpsInspItem;
@@ -16,9 +17,10 @@ import xyz.anythings.base.entity.BoxItem;
 import xyz.anythings.base.entity.BoxPack;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.TrayBox;
-import xyz.anythings.base.service.impl.AbstractInstructionService;
+import xyz.anythings.base.service.impl.AbstractLogisService;
 import xyz.anythings.base.service.util.BatchJobConfigUtil;
 import xyz.anythings.sys.event.model.PrintEvent;
+import xyz.anythings.sys.service.ICustomService;
 import xyz.anythings.sys.util.AnyEntityUtil;
 import xyz.elidom.dbist.dml.Query;
 import xyz.elidom.sys.entity.User;
@@ -32,7 +34,12 @@ import xyz.elidom.util.DateUtil;
  * @author shortstop
  */
 @Component("dpsInspectionService")
-public class DpsInspectionService extends AbstractInstructionService implements IDpsInspectionService {
+public class DpsInspectionService extends AbstractLogisService implements IDpsInspectionService {
+	/**
+	 * 커스텀 서비스
+	 */
+	@Autowired
+	protected ICustomService customService;
 	
 	/**
 	 * 검수 정보 조회
