@@ -1,6 +1,5 @@
 package operato.logis.dps.service.impl;
 
-import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
 
@@ -10,23 +9,15 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-
 import operato.logis.dps.DpsCodeConstants;
 import operato.logis.dps.DpsConstants;
 import operato.logis.dps.model.DpsBatchInputableBox;
 import operato.logis.dps.model.DpsBatchSummary;
-import operato.logis.dps.model.DpsInspItem;
-import operato.logis.dps.model.DpsInspection;
 import operato.logis.dps.query.store.DpsBatchQueryStore;
-import operato.logis.dps.service.api.IDpsInspectionService;
 import operato.logis.dps.service.api.IDpsPickingService;
 import operato.logis.dps.service.util.DpsBatchJobConfigUtil;
 import operato.logis.dps.service.util.DpsServiceUtil;
-import xyz.anythings.base.LogisCodeConstants;
 import xyz.anythings.base.LogisConstants;
-import xyz.anythings.base.entity.BoxPack;
 import xyz.anythings.base.entity.JobBatch;
 import xyz.anythings.base.entity.JobInput;
 import xyz.anythings.base.entity.JobInstance;
@@ -61,11 +52,6 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 	 */
 	@Autowired
 	private DpsJobStatusService dpsJobStatusService;
-	/**
-	 * DPS 출고 검수 서비스
-	 */
-	@Autowired
-	private IDpsInspectionService dpsInspectionService;
 	
 	/*****************************************************************************************************
 	 *										작 업 진 행 율 A P I
@@ -210,7 +196,7 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 	 */
 	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/input_bucket', 'dps')")
 	@Order(Ordered.LOWEST_PRECEDENCE)
-	public void inputBucket(DeviceProcessRestEvent event) {
+	public void inputBox(DeviceProcessRestEvent event) {
 		
 		// 1. 파라미터 
 		Map<String, Object> params = event.getRequestParams();
@@ -244,7 +230,7 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 	 */
 	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/bucket_arrive', 'dps')")
 	@Order(Ordered.LOWEST_PRECEDENCE)
-	public void bucketArrive(DeviceProcessRestEvent event) {
+	public void boxArrived(DeviceProcessRestEvent event) {
 		
 		// 1. 파라미터 
 		Map<String, Object> params = event.getRequestParams();
@@ -292,336 +278,337 @@ public class DpsDeviceProcessService extends AbstractLogisService {
 	 *											출 고 검 수 A P I
 	 *****************************************************************************************************
 	
-	/**
-	 * DPS 출고 검수를 위한 검수 정보 조회 - 박스 ID
-	 * 
-	 * @param event
-	 */
-	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/inspection/find_by_box', 'dps')")
-	@Order(Ordered.LOWEST_PRECEDENCE)
-	public void findByBox(DeviceProcessRestEvent event) {
-		
-		// 1. 파라미터
-		Map<String, Object> params = event.getRequestParams();
-		String equipCd = params.get("equipCd").toString();
-		String equipType = params.get("equipType").toString();
-		String boxType = params.get("boxType").toString();
-		String boxId = params.get("boxId").toString();
-		boolean reprintMode = params.containsKey("reprintMode") ? ValueUtil.toBoolean(params.get("reprintMode")) : false;
-		
-		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
-		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
-		JobBatch batch = equipBatchSet.getBatch();
-
-		// 3. 검수 정보 조회
-		DpsInspection inspection = null;
-		
-		if(ValueUtil.isEqualIgnoreCase(boxType, LogisCodeConstants.BOX_TYPE_TRAY)) {
-			inspection = this.dpsInspectionService.findInspectionByTray(batch, boxId, reprintMode, false);
-		} else {
-			inspection = this.dpsInspectionService.findInspectionByBox(batch, boxId, reprintMode, false);
-		}
-
-		// 4. 이벤트 처리 결과 셋팅
-		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, inspection));
-		event.setExecuted(true);
-	}
-	
-	/**
-	 * DPS 출고 검수를 위한 검수 정보 조회 - 송장 번호
-	 * 
-	 * @param event
-	 */
-	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/inspection/find_by_invoice', 'dps')")
-	@Order(Ordered.LOWEST_PRECEDENCE)
-	public void findByInvoice(DeviceProcessRestEvent event) {
-		
-		// 1. 파라미터
-		Map<String, Object> params = event.getRequestParams();
-		String equipCd = params.get("equipCd").toString();
-		String equipType = params.get("equipType").toString();
-		String invoiceId = params.get("invoiceId").toString();
-		boolean reprintMode = params.containsKey("reprintMode") ? true : false;
-		
-		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
-		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
-		JobBatch batch = equipBatchSet.getBatch();
-		
-		// 3. 검수 정보 조회
-		DpsInspection inspection = this.dpsInspectionService.findInspectionByInvoice(batch, invoiceId, reprintMode, false);
-		
-		// 4. 이벤트 처리 결과 셋팅
-		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, inspection));
-		event.setExecuted(true);
-	}
-	
-	/**
-	 * DPS 출고 검수를 위한 검수 정보 조회 - 주문 번호
-	 * 
-	 * @param event
-	 */
-	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/inspection/find_by_order', 'dps')")
-	@Order(Ordered.LOWEST_PRECEDENCE)
-	public void findByOrder(DeviceProcessRestEvent event) {
-		
-		// 1. 파라미터
-		Map<String, Object> params = event.getRequestParams();
-		String equipCd = params.get("equipCd").toString();
-		String equipType = params.get("equipType").toString();
-		String orderNo = params.get("orderNo").toString();
-		boolean reprintMode = params.containsKey("reprintMode") ? true : false;
-		
-		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
-		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
-		JobBatch batch = equipBatchSet.getBatch();
-		
-		// 3. 검수 정보 조회
-		DpsInspection inspection = this.dpsInspectionService.findInspectionByOrder(batch, orderNo, reprintMode, false);
-
-		// 4. 이벤트 처리 결과 셋팅
-		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, inspection));
-		event.setExecuted(true);
-	}
-	
-	/**
-	 * DPS 송장 (박스) 분할
-	 * 
-	 * @param event
-	 */
-	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/inspection/split_box', 'dps')")
-	@Order(Ordered.LOWEST_PRECEDENCE)
-	public void splitBox(DeviceProcessRestEvent event) {
-		
-		// 1. 파라미터 
-		Map<String, Object> params = event.getRequestParams();
-		String equipCd = params.get("equipCd").toString();
-		String equipType = params.get("equipType").toString();
-		String invoiceId = params.get("invoiceId").toString();
-		String printerId = params.get("printerId").toString();
-		String inspItems = params.get("inspItems").toString();
-		
-		// 2. 분할할 InspectionItem 정보 파싱
-		Gson gson = new Gson();
-		Type type = new TypeToken<List<DpsInspItem>>(){}.getType();
-		List<DpsInspItem> dpsInspItems = gson.fromJson(inspItems, type);
-		
-		// 3. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회 
-		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
-		JobBatch batch = equipBatchSet.getBatch();
-		
-		// 4. 박스 정보 조회
-		BoxPack sourceBox = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "batchId,invoiceId", batch.getId(), invoiceId);
-		if(sourceBox == null) {
-			sourceBox = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "invoiceId", invoiceId);
-		}
-		
-		// 5. 송장 분할
-		BoxPack splitBox = this.dpsInspectionService.splitBox(batch, sourceBox, dpsInspItems, printerId);
-
-		// 6. 이벤트 처리 결과 셋팅
-		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, splitBox));
-		event.setExecuted(true);
-	}
-	
-	/**
-	 * DPS 출고 검수 완료
-	 * 
-	 * @param event
-	 */
-	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/inspection/finish', 'dps')")
-	@Order(Ordered.LOWEST_PRECEDENCE)
-	public void finishInspection(DeviceProcessRestEvent event) {
-		
-		// 1. 파라미터 
-		Map<String, Object> params = event.getRequestParams();
-		String equipCd = params.get("equipCd").toString();
-		String equipType = params.get("equipType").toString();
-		String orderNo = params.get("orderNo").toString();
-		String printerId = params.get("printerId").toString();
-		
-		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
-		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
-		JobBatch batch = equipBatchSet.getBatch();
-		
-		// 3. 검수 완료
-		BoxPack boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "batchId,orderNo", batch.getId(), orderNo);
-		if(boxPack == null) {
-			boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "orderNo", orderNo);
-		}
-		this.dpsInspectionService.finishInspection(batch, boxPack, null, printerId);
-
-		// 4. 이벤트 처리 결과 셋팅
-		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, boxPack));
-		event.setExecuted(true);
-	}
-	
-	/**
-	 * DPS 송장 출력
-	 * 
-	 * @param event
-	 */
-	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/print_invoice', 'dps')")
-	@Order(Ordered.LOWEST_PRECEDENCE)
-	public void printInvoiceLabel(DeviceProcessRestEvent event) {
-		
-		// 1. 파라미터
-		Map<String, Object> params = event.getRequestParams();
-		String equipCd = params.get("equipCd").toString();
-		String equipType = params.get("equipType").toString();
-		String printerId = params.get("printerId").toString();
-		String boxId = params.get("boxId").toString();
-		
-		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
-		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
-		JobBatch batch = equipBatchSet.getBatch();
-		
-		// 3. 박스 조회
-		BoxPack boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "batchId,boxId", batch.getId(), boxId);
-		if(boxPack == null) {
-			boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "boxId", boxId);
-		}
-		
-		// 4. 송장 발행
-		Integer printedCount = this.dpsInspectionService.printInvoiceLabel(batch, boxPack, printerId);
-		
-		// 5. 이벤트 처리 결과 셋팅
-		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, printedCount));
-		event.setExecuted(true);
-	}
-	
-	/**
-	 * DPS 거래명세서 출력 
-	 * 
-	 * @param event
-	 */
-	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/print_trade_statement', 'dps')")
-	@Order(Ordered.LOWEST_PRECEDENCE)
-	public void printTradeStatement(DeviceProcessRestEvent event) {
-		
-		// 1. 파라미터 
-		Map<String, Object> params = event.getRequestParams();
-		String equipCd = params.get("equipCd").toString();
-		String equipType = params.get("equipType").toString();
-		String printerId = params.get("printerId").toString();
-		String boxId = params.get("boxId").toString();
-		
-		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회 
-		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
-		JobBatch batch = equipBatchSet.getBatch();
-		
-		// 3. 박스 조회
-		BoxPack boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "batchId,boxId", batch.getId(), boxId);
-		if(boxPack == null) {
-			boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "boxId", boxId);
-		}
-		
-		// 4. 거래명세서 발행
-		Integer printedCount = this.dpsInspectionService.printTradeStatement(batch, boxPack, printerId);
-		
-		// 5. 이벤트 처리 결과 셋팅  
-		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, printedCount));
-		event.setExecuted(true);
-	}
+//	/**
+//	 * DPS 출고 검수를 위한 검수 정보 조회 - 박스 ID
+//	 * 
+//	 * @param event
+//	 */
+//	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/inspection/find_by_box', 'dps')")
+//	@Order(Ordered.LOWEST_PRECEDENCE)
+//	public void findByBox(DeviceProcessRestEvent event) {
+//		
+//		// 1. 파라미터
+//		Map<String, Object> params = event.getRequestParams();
+//		String equipCd = params.get("equipCd").toString();
+//		String equipType = params.get("equipType").toString();
+//		String boxType = params.get("boxType").toString();
+//		String boxId = params.get("boxId").toString();
+//		boolean reprintMode = params.containsKey("reprintMode") ? ValueUtil.toBoolean(params.get("reprintMode")) : false;
+//		
+//		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
+//		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
+//		JobBatch batch = equipBatchSet.getBatch();
+//
+//		// 3. 검수 정보 조회
+//		DpsInspection inspection = null;
+//		
+//		if(ValueUtil.isEqualIgnoreCase(boxType, LogisCodeConstants.BOX_TYPE_TRAY)) {
+//			inspection = this.dpsInspectionService.findInspectionByTray(batch, boxId, reprintMode, false);
+//		} else {
+//			inspection = this.dpsInspectionService.findInspectionByBox(batch, boxId, reprintMode, false);
+//		}
+//
+//		// 4. 이벤트 처리 결과 셋팅
+//		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, inspection));
+//		event.setExecuted(true);
+//	}
+//	
+//	/**
+//	 * DPS 출고 검수를 위한 검수 정보 조회 - 송장 번호
+//	 * 
+//	 * @param event
+//	 */
+//	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/inspection/find_by_invoice', 'dps')")
+//	@Order(Ordered.LOWEST_PRECEDENCE)
+//	public void findByInvoice(DeviceProcessRestEvent event) {
+//		
+//		// 1. 파라미터
+//		Map<String, Object> params = event.getRequestParams();
+//		String equipCd = params.get("equipCd").toString();
+//		String equipType = params.get("equipType").toString();
+//		String invoiceId = params.get("invoiceId").toString();
+//		boolean reprintMode = params.containsKey("reprintMode") ? true : false;
+//		
+//		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
+//		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
+//		JobBatch batch = equipBatchSet.getBatch();
+//		
+//		// 3. 검수 정보 조회
+//		DpsInspection inspection = this.dpsInspectionService.findInspectionByInvoice(batch, invoiceId, reprintMode, false);
+//		
+//		// 4. 이벤트 처리 결과 셋팅
+//		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, inspection));
+//		event.setExecuted(true);
+//	}
+//	
+//	/**
+//	 * DPS 출고 검수를 위한 검수 정보 조회 - 주문 번호
+//	 * 
+//	 * @param event
+//	 */
+//	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/inspection/find_by_order', 'dps')")
+//	@Order(Ordered.LOWEST_PRECEDENCE)
+//	public void findByOrder(DeviceProcessRestEvent event) {
+//		
+//		// 1. 파라미터
+//		Map<String, Object> params = event.getRequestParams();
+//		String equipCd = params.get("equipCd").toString();
+//		String equipType = params.get("equipType").toString();
+//		String orderNo = params.get("orderNo").toString();
+//		boolean reprintMode = params.containsKey("reprintMode") ? true : false;
+//		
+//		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
+//		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
+//		JobBatch batch = equipBatchSet.getBatch();
+//		
+//		// 3. 검수 정보 조회
+//		DpsInspection inspection = this.dpsInspectionService.findInspectionByOrder(batch, orderNo, reprintMode, false);
+//
+//		// 4. 이벤트 처리 결과 셋팅
+//		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, inspection));
+//		event.setExecuted(true);
+//	}
+//	
+//	/**
+//	 * DPS 송장 (박스) 분할
+//	 * 
+//	 * @param event
+//	 */
+//	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/inspection/split_box', 'dps')")
+//	@Order(Ordered.LOWEST_PRECEDENCE)
+//	public void splitBox(DeviceProcessRestEvent event) {
+//		
+//		// 1. 파라미터 
+//		Map<String, Object> params = event.getRequestParams();
+//		String equipCd = params.get("equipCd").toString();
+//		String equipType = params.get("equipType").toString();
+//		String invoiceId = params.get("invoiceId").toString();
+//		String printerId = params.get("printerId").toString();
+//		String inspItems = params.get("inspItems").toString();
+//		
+//		// 2. 분할할 InspectionItem 정보 파싱
+//		Gson gson = new Gson();
+//		Type type = new TypeToken<List<DpsInspItem>>(){}.getType();
+//		List<DpsInspItem> dpsInspItems = gson.fromJson(inspItems, type);
+//		
+//		// 3. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회 
+//		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
+//		JobBatch batch = equipBatchSet.getBatch();
+//		
+//		// 4. 박스 정보 조회
+//		BoxPack sourceBox = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "batchId,invoiceId", batch.getId(), invoiceId);
+//		if(sourceBox == null) {
+//			sourceBox = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "invoiceId", invoiceId);
+//		}
+//		
+//		// 5. 송장 분할
+//		BoxPack splitBox = this.dpsInspectionService.splitBox(batch, sourceBox, dpsInspItems, printerId);
+//
+//		// 6. 이벤트 처리 결과 셋팅
+//		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, splitBox));
+//		event.setExecuted(true);
+//	}
+//	
+//	/**
+//	 * DPS 출고 검수 완료
+//	 * 
+//	 * @param event
+//	 */
+//	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/inspection/finish', 'dps')")
+//	@Order(Ordered.LOWEST_PRECEDENCE)
+//	public void finishInspection(DeviceProcessRestEvent event) {
+//		
+//		// 1. 파라미터 
+//		Map<String, Object> params = event.getRequestParams();
+//		String equipCd = params.get("equipCd").toString();
+//		String equipType = params.get("equipType").toString();
+//		String orderNo = params.get("orderNo").toString();
+//		String printerId = params.get("printerId").toString();
+//		
+//		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
+//		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
+//		JobBatch batch = equipBatchSet.getBatch();
+//		
+//		// 3. 검수 완료
+//		BoxPack boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "batchId,orderNo", batch.getId(), orderNo);
+//		if(boxPack == null) {
+//			boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "orderNo", orderNo);
+//		}
+//		this.dpsInspectionService.finishInspection(batch, boxPack, null, printerId);
+//
+//		// 4. 이벤트 처리 결과 셋팅
+//		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, boxPack));
+//		event.setExecuted(true);
+//	}
+//	
+//	/**
+//	 * DPS 송장 출력
+//	 * 
+//	 * @param event
+//	 */
+//	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/print_invoice', 'dps')")
+//	@Order(Ordered.LOWEST_PRECEDENCE)
+//	public void printInvoiceLabel(DeviceProcessRestEvent event) {
+//		
+//		// 1. 파라미터
+//		Map<String, Object> params = event.getRequestParams();
+//		String equipCd = params.get("equipCd").toString();
+//		String equipType = params.get("equipType").toString();
+//		String printerId = params.get("printerId").toString();
+//		String boxId = params.get("boxId").toString();
+//		
+//		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
+//		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
+//		JobBatch batch = equipBatchSet.getBatch();
+//		
+//		// 3. 박스 조회
+//		BoxPack boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "batchId,boxId", batch.getId(), boxId);
+//		if(boxPack == null) {
+//			boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "boxId", boxId);
+//		}
+//		
+//		// 4. 송장 발행
+//		Integer printedCount = this.dpsInspectionService.printInvoiceLabel(batch, boxPack, printerId);
+//		
+//		// 5. 이벤트 처리 결과 셋팅
+//		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, printedCount));
+//		event.setExecuted(true);
+//	}
+//	
+//	/**
+//	 * DPS 거래명세서 출력 
+//	 * 
+//	 * @param event
+//	 */
+//	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/print_trade_statement', 'dps')")
+//	@Order(Ordered.LOWEST_PRECEDENCE)
+//	public void printTradeStatement(DeviceProcessRestEvent event) {
+//		
+//		// 1. 파라미터 
+//		Map<String, Object> params = event.getRequestParams();
+//		String equipCd = params.get("equipCd").toString();
+//		String equipType = params.get("equipType").toString();
+//		String printerId = params.get("printerId").toString();
+//		String boxId = params.get("boxId").toString();
+//		
+//		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회 
+//		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
+//		JobBatch batch = equipBatchSet.getBatch();
+//		
+//		// 3. 박스 조회
+//		BoxPack boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "batchId,boxId", batch.getId(), boxId);
+//		if(boxPack == null) {
+//			boxPack = AnyEntityUtil.findEntityBy(event.getDomainId(), false, BoxPack.class, null, "boxId", boxId);
+//		}
+//		
+//		// 4. 거래명세서 발행
+//		Integer printedCount = this.dpsInspectionService.printTradeStatement(batch, boxPack, printerId);
+//		
+//		// 5. 이벤트 처리 결과 셋팅  
+//		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, printedCount));
+//		event.setExecuted(true);
+//	}
 
 	/*****************************************************************************************************
 	 *											 단 포 처 리 A P I
 	 *****************************************************************************************************
-	/**
-	 * DPS 단포 피킹 처리
-	 * 
-	 * @param event
-	 */
-	/*@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/single_pack/pick', 'dps')")
-	@Order(Ordered.LOWEST_PRECEDENCE)
-	public void singlePackPick(DeviceProcessRestEvent event) {
-		
-		// 1. 파라미터
-		String jobId = event.getRequestParams().get("jobId").toString();
+//	/**
+//	 * DPS 단포 피킹 처리
+//	 * 
+//	 * @param event
+//	 */
+//	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/single_pack/pick', 'dps')")
+//	@Order(Ordered.LOWEST_PRECEDENCE)
+//	public void singlePackPick(DeviceProcessRestEvent event) {
+//		
+//		// 1. 파라미터
+//		String jobId = event.getRequestParams().get("jobId").toString();
+//
+//		// 2. 작업 데이터 조회
+//		JobInstance job = AnyEntityUtil.findEntityById(true, JobInstance.class, jobId);
+//		
+//		// 3. 작업 배치 조회
+//		JobBatch batch = AnyEntityUtil.findEntityById(true, JobBatch.class, job.getBatchId());
+//		
+//		// 4. 피킹 검수 설정 확인
+//		int resQty = job.getPickQty();
+//		if(DpsBatchJobConfigUtil.isPickingWithInspectionEnabled(batch)) {
+//			resQty = 1;
+//		}
+//		
+//		// 5. 확정 처리
+//		this.dpsPickingService.confirmPick(batch, job, resQty);
+//		
+//		// 6. 작업 완료가 되었다면 단포 작업 현황 조회
+//		if(job.getPickedQty() >= job.getPickQty()) {
+//			// 상품에 대한 단포 작업 정보 조회
+//			List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackSummary(batch, job.getSkuCd(), job.getBoxTypeCd(), job.getPickQty());
+//			// 처리 결과 설정
+//			DpsSinglePackJobInform result = new DpsSinglePackJobInform(singlePackInfo, null);
+//			event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, result));
+//		
+//		} else {
+//			// 처리 결과 설정
+//			event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, job));
+//		}
+//
+//		event.setExecuted(true);
+//	}
+//	
+//	/**
+//	 * DPS 단포 박스 투입
+//	 * 
+//	 * @param event
+//	 */
+//	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/single_pack/box_input', 'dps')")
+//	@Order(Ordered.LOWEST_PRECEDENCE)
+//	public void singlePackBoxInput(DeviceProcessRestEvent event) {
+//		
+//		// 1. 파라미터
+//		Map<String, Object> params = event.getRequestParams();
+//		String equipType = params.get("equipType").toString();
+//		String equipCd = params.get("equipCd").toString();
+//		String skuCd = params.get("skuCd").toString();
+//		String boxId = params.get("boxId").toString();
+//
+//		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
+//		Long domainId = event.getDomainId();
+//		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(domainId, equipType, equipCd);
+//		JobBatch batch = equipBatchSet.getBatch();
+//		
+//		// 3. 단포 박스 투입 서비스 호출 (단포는 무조건 박스 타입이 box)
+//		JobInstance job = (JobInstance)this.dpsPickingService.inputSinglePackEmptyBox(batch, skuCd, boxId);
+//		
+//		// 4. 이벤트 처리 결과 셋팅
+//		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, job));
+//		event.setExecuted(true);
+//	}
+//	
+//	/**
+//	 * DPS 단포 상품 변경
+//	 * 
+//	 * @param event
+//	 */
+//	@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/single_pack/sku_change', 'dps')")
+//	@Order(Ordered.LOWEST_PRECEDENCE)
+//	public void singlePackSkuChange(DeviceProcessRestEvent event) {
+//		
+//		// 1. 파라미터
+//		Map<String, Object> params = event.getRequestParams();
+//		String equipType = params.get("equipType").toString();
+//		String equipCd = params.get("equipCd").toString();
+//		String skuCd = params.get("skuCd").toString();
+//
+//		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
+//		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
+//		JobBatch batch = equipBatchSet.getBatch();
+//		
+//		// 3. 상품에 대한 단포 작업 정보 조회
+//		List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackSummary(batch, skuCd, null, null);
+//		
+//		// 4. 이벤트 처리 결과 셋팅
+//		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, singlePackInfo));
+//		event.setExecuted(true);
+//	}
 
-		// 2. 작업 데이터 조회
-		JobInstance job = AnyEntityUtil.findEntityById(true, JobInstance.class, jobId);
-		
-		// 3. 작업 배치 조회
-		JobBatch batch = AnyEntityUtil.findEntityById(true, JobBatch.class, job.getBatchId());
-		
-		// 4. 피킹 검수 설정 확인
-		int resQty = job.getPickQty();
-		if(DpsBatchJobConfigUtil.isPickingWithInspectionEnabled(batch)) {
-			resQty = 1;
-		}
-		
-		// 5. 확정 처리
-		this.dpsPickingService.confirmPick(batch, job, resQty);
-		
-		// 6. 작업 완료가 되었다면 단포 작업 현황 조회
-		if(job.getPickedQty() >= job.getPickQty()) {
-			// 상품에 대한 단포 작업 정보 조회
-			List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackSummary(batch, job.getSkuCd(), job.getBoxTypeCd(), job.getPickQty());
-			// 처리 결과 설정
-			DpsSinglePackJobInform result = new DpsSinglePackJobInform(singlePackInfo, null);
-			event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, result));
-		
-		} else {
-			// 처리 결과 설정
-			event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, job));
-		}
-
-		event.setExecuted(true);
-	}*/
-	
-	/**
-	 * DPS 단포 박스 투입
-	 * 
-	 * @param event
-	 */
-	/*@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/single_pack/box_input', 'dps')")
-	@Order(Ordered.LOWEST_PRECEDENCE)
-	public void singlePackBoxInput(DeviceProcessRestEvent event) {
-		
-		// 1. 파라미터
-		Map<String, Object> params = event.getRequestParams();
-		String equipType = params.get("equipType").toString();
-		String equipCd = params.get("equipCd").toString();
-		String skuCd = params.get("skuCd").toString();
-		String boxId = params.get("boxId").toString();
-
-		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
-		Long domainId = event.getDomainId();
-		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(domainId, equipType, equipCd);
-		JobBatch batch = equipBatchSet.getBatch();
-		
-		// 3. 단포 박스 투입 서비스 호출 (단포는 무조건 박스 타입이 box)
-		JobInstance job = (JobInstance)this.dpsPickingService.inputSinglePackEmptyBox(batch, skuCd, boxId);
-		
-		// 4. 이벤트 처리 결과 셋팅
-		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, job));
-		event.setExecuted(true);
-	}*/
-	
-	/**
-	 * DPS 단포 상품 변경
-	 * 
-	 * @param event
-	 */
-	/*@EventListener(classes=DeviceProcessRestEvent.class, condition = "#event.checkCondition('/single_pack/sku_change', 'dps')")
-	@Order(Ordered.LOWEST_PRECEDENCE)
-	public void singlePackSkuChange(DeviceProcessRestEvent event) {
-		
-		// 1. 파라미터
-		Map<String, Object> params = event.getRequestParams();
-		String equipType = params.get("equipType").toString();
-		String equipCd = params.get("equipCd").toString();
-		String skuCd = params.get("skuCd").toString();
-
-		// 2. 설비 코드로 현재 진행 중인 작업 배치 및 설비 정보 조회
-		EquipBatchSet equipBatchSet = DpsServiceUtil.findBatchByEquip(event.getDomainId(), equipType, equipCd);
-		JobBatch batch = equipBatchSet.getBatch();
-		
-		// 3. 상품에 대한 단포 작업 정보 조회
-		List<DpsSinglePackSummary> singlePackInfo = this.dpsJobStatusService.searchSinglePackSummary(batch, skuCd, null, null);
-		
-		// 4. 이벤트 처리 결과 셋팅
-		event.setReturnResult(new BaseResponse(true, LogisConstants.OK_STRING, singlePackInfo));
-		event.setExecuted(true);
-	}*/
 }
