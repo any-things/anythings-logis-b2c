@@ -25,5 +25,5 @@ where
 			and batch_group_id = :batchGroupId
 			#end
 	)
-	and order_type = :orderType
+	and job_type = 'DPS'
 	and status = :fromStatus

@@ -239,9 +239,6 @@ public class DpsSampleOrderService {
 	 */
 	private List<Order> createOrder(JobBatch batch, OrderSampler sampler, int orderIndex, int orderLineSeq, List<BoxType> boxTypeList, List<SKU> skuList) {
 		
-		// 주문 유형
-		boolean isSinglePack = ValueUtil.isEqualIgnoreCase(sampler.getOrderType(), "OT");
-		
 		// 박스 유형, 송장 번호 
 		String boxTypeCd = null;
 		String invoiceId = null;
@@ -270,10 +267,6 @@ public class DpsSampleOrderService {
 			remainOrderQty = remainOrderQty - order.getOrderQty();
 			orderLineIdx++;
 			orderLineSeq++;
-			
-			if(isSinglePack) {
-				remainOrderQty = 0;
-			}
 		}
 		
 		// 생성한 주문 리스트 리턴
@@ -320,6 +313,10 @@ public class DpsSampleOrderService {
 		int packType = (int)(Math.random() * 2) + 1;
 		order.setPackType(ValueUtil.toString(packType));
 		order.setEquipCd(batch.getEquipCd());
+		order.setShopCd("STREET15");
+		order.setShopNm("15번가");
+		order.setOrdererId("user" + orderIndex);
+		order.setOrdererNm(order.getOrdererId() + "님");
 		order.setFromZoneCd(sku.getSkuDesc());
 		order.setFromCellCd(sku.getCellCd());
 		return order;
