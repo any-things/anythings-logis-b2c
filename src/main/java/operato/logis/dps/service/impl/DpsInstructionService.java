@@ -58,11 +58,11 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	/**
 	 * 커스텀 서비스 - 작업 지시 전 처리
 	 */
-	private static final String DIY_PRE_INSTRUCT_BATCH = "diy-dps-pre-instruct-batch";
+	private static final String DIY_PRE_BATCH_START = "diy-dps-pre-batch-start";
 	/**
 	 * 커스텀 서비스 - 작업 지시 후 처리
 	 */
-	private static final String DIY_POST_INSTRUCT_BATCH = "diy-dps-post-instruct-batch";
+	private static final String DIY_POST_BATCH_START = "diy-dps-post-batch-start";
 	/**
 	 * 커스텀 서비스 - 배치 병합 전 처리
 	 */
@@ -74,11 +74,11 @@ public class DpsInstructionService extends AbstractInstructionService implements
 	/**
 	 * 커스텀 서비스 - 작업 지시 취소 전 처리
 	 */
-	private static final String DIY_PRE_CANCEL_INSTRUCT_BATCH = "diy-dps-pre-cancel-instruct-batch";
+	private static final String DIY_PRE_CANCEL_BATCH = "diy-dps-pre-cancel-batch";
 	/**
 	 * 커스텀 서비스 - 작업 지시 취소 후 처리
 	 */
-	private static final String DIY_POST_CANCEL_INSTRUCT_BATCH = "diy-dps-post-cancel-instruct-batch";
+	private static final String DIY_POST_CANCEL_BATCH = "diy-dps-post-cancel-batch";
 	
 	/**
 	 * 작업 설정 프로파일 서비스
@@ -291,7 +291,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		
 		// 3. 커스텀 서비스 작업 지시 취소 전 처리 호출
 		Map<String, Object> svcParams = ValueUtil.newMap("batch", batch);
-		this.customService.doCustomService(batch.getDomainId(), DIY_PRE_CANCEL_INSTRUCT_BATCH, svcParams);
+		this.customService.doCustomService(batch.getDomainId(), DIY_PRE_CANCEL_BATCH, svcParams);
 		
 		// 4. 작업 지시 취소 조건 체크
 		Query condition = AnyOrmUtil.newConditionForExecution(batch.getDomainId());
@@ -337,7 +337,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		this.queryManager.update(batch, "equipGroupCd", "equipCd", "equipNm", "status", "instructedAt", "updatedAt");
 		
 		// 10. 커스텀 서비스 작업 지시 취소 후 처리 호출
-		Object retVal = this.customService.doCustomService(batch.getDomainId(), DIY_POST_CANCEL_INSTRUCT_BATCH, svcParams);
+		Object retVal = this.customService.doCustomService(batch.getDomainId(), DIY_POST_CANCEL_BATCH, svcParams);
 		
 		// 11. 작업 지시 취소 후 처리 이벤트
 		EventResultSet aftResult = this.publishInstructionCancelEvent(SysEvent.EVENT_STEP_AFTER, batch, null);
@@ -549,7 +549,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		// 1. 작업 지시 전 처리를 위한 커스텀 서비스 호출
 		Long domainId = batch.getDomainId();
 		Map<String, Object> svcParams = ValueUtil.newMap("batch,diyParams", batch, params);
-		this.customService.doCustomService(domainId, DIY_PRE_INSTRUCT_BATCH, svcParams);
+		this.customService.doCustomService(domainId, DIY_PRE_BATCH_START, svcParams);
 
 		// 2. 호기별로 배치 분리 설정인지 체크
 		if(this.isSplitableBatch(batch)) {
@@ -569,7 +569,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		this.queryManager.update(batch, "equipGroupCd", "equipCd", "equipNm", "status", "jobConfigSetId", "indConfigSetId", "instructedAt", "updatedAt");
 		
 		// 5. 작업 지시 후 처리를 위한 커스텀 서비스 호출
-		this.customService.doCustomService(domainId, DIY_POST_INSTRUCT_BATCH, svcParams);
+		this.customService.doCustomService(domainId, DIY_POST_BATCH_START, svcParams);
 		return 1;
 	}
 	

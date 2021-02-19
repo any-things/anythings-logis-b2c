@@ -7,7 +7,6 @@ import xyz.anythings.base.service.util.LogisServiceUtil;
  * 
  * @author shortstop
  */
-public class DpsServiceUtil extends LogisServiceUtil{
-	
+public class DpsServiceUtil extends LogisServiceUtil {
 	
 }
