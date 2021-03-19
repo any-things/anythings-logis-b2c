@@ -303,23 +303,23 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		
 		// 5. 작업 삭제
 		String sql = "delete from job_instances where domain_id = :domainId and batch_id = :batchId";
-		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId,fromStatus,toStatus,orderType", batch.getDomainId(), batch.getId(), Order.STATUS_WAIT, "T", DpsCodeConstants.DPS_ORDER_TYPE_MT);
+		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId,fromStatus,toStatus,orderType", batch.getDomainId(), batch.getId(), Order.STATUS_WAIT, Order.STATUS_TYPE, DpsCodeConstants.DPS_ORDER_TYPE_MT);
 		this.queryManager.executeBySql(sql, queryParams);
 		
-		// 5. 합포 주문 업데이트
+		// 6. 합포 주문 업데이트
 		sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
 		this.queryManager.executeBySql(sql, queryParams);
 		
-		// 6. 랙 배치 ID 업데이트
+		// 7. 랙 배치 ID 업데이트
 		queryParams.put("equipCd", batch.getEquipCd());
 		sql = "update racks set batch_id = null, status = null where domain_id = :domainId and rack_cd = :equipCd";
 		this.queryManager.executeBySql(sql, queryParams);
 		
-		// 7. 작업 배치 업데이트
+		// 8. 작업 배치 업데이트
 		sql = "select id from job_batches where domain_id = :domainId and batch_group_id = :batchGroupId and status != 'MERGED'";
 		int sameGroupBatchCount = this.queryManager.selectSizeBySql(sql, ValueUtil.newMap("domainId,batchGroupId", batch.getDomainId(), batch.getBatchGroupId()));
 		
-		// 8. 병합된 배치를 제외한 동일 그룹의 배치가 자신 밖에 없다면 호기 선택 모드이다. 이 때는 작업 지시 취소 이후 다른 호기를 선택할 수 있으므로 호기 정보를 없애야 한다.
+		// 9. 병합된 배치를 제외한 동일 그룹의 배치가 자신 밖에 없다면 호기 선택 모드이다. 이 때는 작업 지시 취소 이후 다른 호기를 선택할 수 있으므로 호기 정보를 없애야 한다.
 		if(sameGroupBatchCount <= 1) {
 			// 작업 배치의 호기 정보 리셋
 			batch.setEquipGroupCd(null);
@@ -331,25 +331,25 @@ public class DpsInstructionService extends AbstractInstructionService implements
 			this.queryManager.executeBySql(sql, queryParams);
 		}
 		
-		// 9. 작업 배치 정보 업데이트
+		// 10. 작업 배치 정보 업데이트
 		batch.setStatus(JobBatch.STATUS_READY);
 		batch.setInstructedAt(null);
 		this.queryManager.update(batch, "equipGroupCd", "equipCd", "equipNm", "status", "instructedAt", "updatedAt");
 		
-		// 10. 커스텀 서비스 작업 지시 취소 후 처리 호출
+		// 11. 커스텀 서비스 작업 지시 취소 후 처리 호출
 		Object retVal = this.customService.doCustomService(batch.getDomainId(), DIY_POST_CANCEL_BATCH, svcParams);
 		
-		// 11. 작업 지시 취소 후 처리 이벤트
+		// 12. 작업 지시 취소 후 처리 이벤트
 		EventResultSet aftResult = this.publishInstructionCancelEvent(SysEvent.EVENT_STEP_AFTER, batch, null);
 		
-		// 12. 후 처리 이벤트 실행 후 리턴 결과가 있으면 해당 결과 리턴
+		// 13. 후 처리 이벤트 실행 후 리턴 결과가 있으면 해당 결과 리턴
 		if(aftResult.isExecuted()) {
 			if(retVal == null && aftResult.getResult() != null) {
 				retVal = aftResult.getResult();
 			}
 		}
 		
-		// 13. 결과 리턴
+		// 14. 결과 리턴
 		return this.returnValueToInt(retVal);
 	}
 	
@@ -559,7 +559,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		
 		// 3. 합포 주문 업데이트
 		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchGroupId,equipCd,equipNm,fromStatus,toStatus",
-						domainId, batch.getBatchGroupId(), batch.getEquipCd(), batch.getEquipNm(), "T", Order.STATUS_WAIT);
+						domainId, batch.getBatchGroupId(), batch.getEquipCd(), batch.getEquipNm(), Order.STATUS_TYPE, Order.STATUS_WAIT);
 		String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
 		this.queryManager.executeBySql(sql, queryParams);
 		
@@ -711,7 +711,7 @@ public class DpsInstructionService extends AbstractInstructionService implements
 		
 		// 3. 합포 주문 업데이트
 		Map<String, Object> queryParams = ValueUtil.newMap("domainId,batchId,equipCd,equipNm,fromStatus,toStatus",
-				domainId, newBatch.getId(), mainBatch.getEquipCd(), mainBatch.getEquipNm(), "T", Order.STATUS_WAIT);
+				domainId, newBatch.getId(), mainBatch.getEquipCd(), mainBatch.getEquipNm(), Order.STATUS_TYPE, Order.STATUS_WAIT);
 		String sql = this.dpsBatchQueryStore.getDpsOrderStatusByInstruct();
 		this.queryManager.executeBySql(sql, queryParams);
 		
